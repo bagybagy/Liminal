@@ -35,8 +35,10 @@ namespace Liminal
                 Fill(new Rect((w-bw)*0.5f,56,bw,1),new Color(0.15f,0.25f,0.27f));
                 Fill(new Rect((w-bw)*0.5f,56,bw*(1-e.BossDamage/240f),1),e.Section>=3?Gold:Cyan);
                 DrawTargets();
+                DrawBattleReadouts(w,h,t);
                 Vector2 aim=Experience.ProofActive?new Vector2(w*0.5f,h*0.5f):new Vector2(Input.mousePosition.x,h-Input.mousePosition.y);
                 Color cursor=e.Locks.Count>0?Gold:White;
+                Ring(aim,e.LockRadiusPixels,new Color(White.r,White.g,White.b,0.16f),96);
                 Ring(aim,13+e.Locks.Count*0.55f,cursor*0.8f,32);
                 Line(aim+Vector2.left*23,aim+Vector2.left*17,cursor,1);
                 Line(aim+Vector2.right*17,aim+Vector2.right*23,cursor,1);
@@ -77,8 +79,10 @@ namespace Liminal
                 if(projected.z<=0 || projected.x<12 || projected.x>Screen.width-12 || projected.y<80 || projected.y>Screen.height-85) continue;
                 Vector2 center=new(projected.x,Screen.height-projected.y);
                 int index=e.Locks.IndexOf(target);
-                float radius=target.kind==TargetKind.Organ?15:20;
-                Color col=index>=0?Gold:target.kind==TargetKind.Threat?new Color(1,0.34f,0.20f,0.88f):new Color(Cyan.r,Cyan.g,Cyan.b,0.42f);
+                bool canAcquire=e.CanAcquire(target);
+                bool distantOrgan=target.kind==TargetKind.Organ && index<0 && !canAcquire;
+                float radius=distantOrgan?11:target.kind==TargetKind.Organ?15:20;
+                Color col=index>=0?Gold:distantOrgan?new Color(0.54f,0.68f,0.69f,0.15f):target.kind==TargetKind.Threat?new Color(1,0.34f,0.20f,0.88f):new Color(Cyan.r,Cyan.g,Cyan.b,0.42f);
                 if(index>=0) {
                     Ring(center,radius+5,col,36);
                     Text(new Rect(center.x+radius+9,center.y-8,30,18),(index+1).ToString("D2"),small,Gold);
@@ -87,14 +91,39 @@ namespace Liminal
                         if(prev.z>0) Line(center,new Vector2(prev.x,Screen.height-prev.y),new Color(1,0.72f,0.3f,0.19f),1);
                     }
                 } else {
+                    float corner=distantOrgan?3:5;
                     for(int i=0;i<4;i++) {
                         float a=Mathf.PI*(i*0.5f+0.25f);
                         Vector2 q=center+new Vector2(Mathf.Cos(a),Mathf.Sin(a))*radius;
-                        Line(q,q+new Vector2(-Mathf.Sign(Mathf.Cos(a))*5,0),col,1);
-                        Line(q,q+new Vector2(0,-Mathf.Sign(Mathf.Sin(a))*5),col,1);
+                        Line(q,q+new Vector2(-Mathf.Sign(Mathf.Cos(a))*corner,0),col,1);
+                        Line(q,q+new Vector2(0,-Mathf.Sign(Mathf.Sin(a))*corner),col,1);
                     }
                 }
             }
+        }
+        void DrawBattleReadouts(float w,float h,float song)
+        {
+            var flight=Experience.Flight;
+            Vector3 focus=Anatomy.Focus(song);
+            float distance=Vector3.Distance(flight.Position,focus);
+            Text(new Rect(33,h-98,190,20),flight.Speed.ToString("F0")+" M/S",small,Muted);
+            Text(new Rect(w*0.5f-120,65,240,22),distance.ToString("F0")+" M",small,
+                distance<=Encounter.LockRange?Cyan:Muted,TextAnchor.MiddleCenter);
+            Vector3 relative=flight.View.transform.InverseTransformPoint(focus);
+            Vector3 viewport=flight.View.WorldToViewportPoint(focus);
+            if(relative.z>0 && viewport.x>.04f && viewport.x<.96f && viewport.y>.1f && viewport.y<.89f) return;
+            Vector2 direction=new(relative.x,-relative.y);
+            if(direction.sqrMagnitude<0.001f) direction=Vector2.down;
+            direction.Normalize();
+            Vector2 center=new(w*0.5f,h*0.5f);
+            Vector2 extents=new(Mathf.Max(60,w*0.5f-64),Mathf.Max(60,h*0.5f-120));
+            float scale=Mathf.Min(extents.x/Mathf.Max(.001f,Mathf.Abs(direction.x)),extents.y/Mathf.Max(.001f,Mathf.Abs(direction.y)));
+            Vector2 tip=center+direction*scale;
+            Vector2 cross=new(-direction.y,direction.x);
+            Line(tip,tip-direction*14+cross*7,Gold,2);
+            Line(tip,tip-direction*14-cross*7,Gold,2);
+            Vector2 label=tip-direction*38;
+            Text(new Rect(label.x-60,label.y-10,120,22),relative.z<0?"BEHIND":distance.ToString("F0")+" M",small,Gold,TextAnchor.MiddleCenter);
         }
         void PausePanel(float w,float h)
         {

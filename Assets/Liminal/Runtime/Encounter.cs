@@ -10,9 +10,9 @@ namespace Liminal
         public int id, hp, reserved;
         public TargetKind kind;
         public float u, born, deadline;
-        public Vector3 position, origin, destination;
+        public Vector3 position, origin, destination, direction, lateral, vertical;
         public GameObject visual;
-        public bool Available => hp-reserved>0 && visual.activeSelf;
+        public bool Available => hp-reserved>0 && visual && visual.activeSelf;
     }
 
     public sealed class Encounter : MonoBehaviour
@@ -31,6 +31,8 @@ namespace Liminal
         public int BestCombo { get; private set; }
         public int Hits { get; private set; }
         public int Fired { get; private set; }
+        public int CancelledAfterFinish { get; private set; }
+        public int MissedScheduledHits { get; private set; }
         public int BossDamage { get; private set; }
         public int Life { get; private set; } = 8;
         public float Charge { get; private set; }
@@ -40,6 +42,8 @@ namespace Liminal
         public float EndTime { get; private set; }
         public float DamageFlash { get; private set; }
         public float LastHitTime { get; private set; } = -10;
+        public const float LockRange = 105f;
+        public float LockRadiusPixels => Mathf.Clamp(Screen.height * 0.09f, 64f, 110f);
         public int Section { get; private set; }
         public int MaxLocks { get; private set; }
         public double MaxImpactDelay { get; private set; }
@@ -82,7 +86,7 @@ namespace Liminal
             shots.Clear(); Locks.Clear();
             for(int i=Targets.Count-1;i>=16;i--) { Destroy(Targets[i].visual); Targets.RemoveAt(i); }
             foreach(var t in Targets) { t.hp=0;t.reserved=0;t.visual.SetActive(false); }
-            Points=Combo=BestCombo=Hits=Fired=BossDamage=Dodged=DamageTaken=0;
+            Points=Combo=BestCombo=Hits=Fired=BossDamage=Dodged=DamageTaken=CancelledAfterFinish=MissedScheduledHits=0;
             Life=8;Charge=0;Won=Lost=false;EndTime=0;DamageFlash=0;
             lastSection=-1;lastBeat=-1;nextWave=16;MaxImpactDelay=0;MaxLocks=0;LastHitTime=-10;
             world.ResetEffects(); flight.ResetFlight();
@@ -123,14 +127,20 @@ namespace Liminal
                 if(t.kind==TargetKind.Organ) t.position=Anatomy.Node(t.u,song);
                 else if(t.kind==TargetKind.Ray) {
                     float age=song-t.born;
-                    t.position=t.origin+new Vector3(Mathf.Sin(age*0.65f+t.u)*4,Mathf.Sin(age*0.85f+t.u)*2,-age*0.44f);
-                    t.visual.transform.rotation=Quaternion.Euler(Mathf.Sin(age)*12,180+Mathf.Sin(age*0.4f)*22,Mathf.Sin(age*0.7f)*18);
+                    Vector3 previous=t.position;
+                    t.position=RayPosition(t,age);
+                    Vector3 movement=t.position-previous;
+                    if(movement.sqrMagnitude>0.0001f) {
+                        Vector3 up=Mathf.Abs(Vector3.Dot(movement.normalized,Vector3.up))>0.98f?Vector3.forward:Vector3.up;
+                        t.visual.transform.rotation=Quaternion.LookRotation(movement,up);
+                    }
                 } else {
                     float f=Mathf.InverseLerp(t.born,t.deadline,song);
                     t.position=Vector3.Lerp(t.origin,t.destination,f)+Vector3.up*Mathf.Sin(f*Mathf.PI)*3;
                     t.visual.transform.localScale=Vector3.one*(1.2f+Score.Pulse(song)*0.5f);
-                    if(song>=t.deadline && t.hp>0 && !Ended) {
-                        if(Vector3.Distance(flight.Emitter,t.destination)<2.6f) ReceiveDamage(); else Dodged++;
+                    // An accepted interception resolves on its scheduled note, not an earlier expiry.
+                    if(song>=t.deadline && t.hp>0 && t.reserved==0 && !Ended) {
+                        if(Vector3.Distance(flight.Position,t.destination)<2.6f) ReceiveDamage(); else Dodged++;
                         t.hp=0;
                     }
                 }
@@ -144,36 +154,60 @@ namespace Liminal
         void SpawnWave(float song,int beat)
         {
             int count=Section<=1?6:4;
+            Transform camera=flight.View.transform;
+            Vector3 center=Vector3.Lerp(flight.Position,Anatomy.Center(0.5f,song),0.55f);
             for(int i=0;i<count;i++) {
                 var t=new LockTarget {id=nextId++,kind=TargetKind.Ray,hp=1,born=song,u=i*0.9f};
-                t.origin=new Vector3((i-(count-1)*0.5f)*5,9+Mathf.Sin(i+beat)*3,21+Mathf.Cos(i*1.7f)*4);
+                t.origin=center+camera.forward*2f+camera.right*((i-(count-1)*0.5f)*2.6f)+camera.up*Mathf.Sin(i+beat)*1.8f;
+                t.direction=(flight.Position-t.origin).normalized;
+                if(t.direction.sqrMagnitude<0.001f) t.direction=-camera.forward;
+                t.lateral=camera.right;
+                t.vertical=camera.up;
+                t.position=t.origin;
                 t.visual=PointCloud.Place("Choir ray",world.EnemyMesh,world.NodeMaterial,transform);
                 t.visual.transform.localScale=Vector3.one*0.45f;
+                t.visual.transform.rotation=Quaternion.LookRotation(t.direction,Vector3.up);
                 Targets.Add(t);
             }
         }
+        static Vector3 RayPosition(LockTarget target,float age)
+        {
+            float side=Mathf.Sin(age*0.65f+target.u)-Mathf.Sin(target.u);
+            float lift=Mathf.Sin(age*0.85f+target.u)-Mathf.Sin(target.u);
+            return target.origin+target.direction*(age*0.44f)+target.lateral*(side*4)+target.vertical*(lift*2);
+        }
         void SpawnThreat(float song)
         {
-            var t=new LockTarget {id=nextId++,kind=TargetKind.Threat,hp=1,born=song,deadline=song+(float)Score.BeatSeconds*8};
-            t.origin=Anatomy.Center(0.05f,song);t.destination=flight.Emitter;
+            var t=new LockTarget {id=nextId++,kind=TargetKind.Threat,hp=1,born=song};
+            t.origin=Anatomy.Head(song);t.destination=flight.Position;
+            float beat=(float)Score.BeatSeconds;
+            float duration=Mathf.Clamp(Mathf.Ceil(Vector3.Distance(t.origin,t.destination)/12f/beat)*beat,beat*2,beat*16);
+            t.deadline=Mathf.Ceil((song+duration)/beat)*beat;
             t.visual=PointCloud.Place("Pressure pulse",world.NodeMesh,world.NodeMaterial,transform);
             Targets.Add(t);
         }
         public void AcquireAt(Vector2 mouse)
         {
-            LockTarget best=null; float distance=Mathf.Max(34,Screen.height*0.052f);
+            LockTarget best=null; float distance=LockRadiusPixels;
             foreach(var t in Targets) {
-                if(!t.Available || Locks.Contains(t)) continue;
+                if(!CanAcquire(t)) continue;
                 Vector3 screen=flight.View.WorldToScreenPoint(t.position);
-                if(screen.z<=0) continue;
                 float d=Vector2.Distance(mouse,screen);
                 if(d<distance) {distance=d;best=t;}
             }
             if(best!=null) Acquire(best);
         }
+        public bool CanAcquire(LockTarget target)
+        {
+            if(Ended || target==null || !target.Available || Locks.Count>=8 || Locks.Contains(target)) return false;
+            if(Vector3.Distance(flight.Position,target.position)>LockRange) return false;
+            Vector3 projected=flight.View.WorldToViewportPoint(target.position);
+            return projected.z>=flight.View.nearClipPlane && projected.z<=flight.View.farClipPlane &&
+                projected.x>=0 && projected.x<=1 && projected.y>=0 && projected.y<=1;
+        }
         public bool Acquire(LockTarget target)
         {
-            if(Ended || !target.Available || Locks.Count>=8 || Locks.Contains(target)) return false;
+            if(!CanAcquire(target)) return false;
             Locks.Add(target); music.LockSound(); MaxLocks=Mathf.Max(MaxLocks,Locks.Count); return true;
         }
         public void Release()
@@ -203,6 +237,8 @@ namespace Liminal
                     MaxImpactDelay=Math.Max(MaxImpactDelay,song-s.arrival);
                     s.target.reserved=Mathf.Max(0,s.target.reserved-1);
                     if(!Ended && s.target.hp>0) ApplyHit(s.target,song);
+                    else if(Ended) CancelledAfterFinish++;
+                    else MissedScheduledHits++;
                     s.line.enabled=false;lines.Push(s.line);shots.RemoveAt(i);continue;
                 }
                 float f=Mathf.Clamp01((float)((song-s.born)/(s.arrival-s.born)));

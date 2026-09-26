@@ -1,0 +1,101 @@
+#pragma kernel Initialize
+#pragma kernel Simulate
+#include "Spine.hlsl"
+
+RWStructuredBuffer<FlowParticle> _Particles;
+uint _Count;
+float _Delta, _Song, _Evolution, _Dissolve, _Pulse;
+float3 _HeadVelocity;
+float Hash(uint n)
+{
+    n = (n ^ 61) ^ (n >> 16); n *= 9; n ^= n >> 4; n *= 0x27d4eb2d; n ^= n >> 15;
+    return (n & 0x00ffffff) / 16777216.0;
+}
+// Curl of an analytic vector potential: divergence-free swirls, no texture sampling.
+float3 Curl(float3 p, float t)
+{
+    return float3(cos(p.y*0.63+t)*0.63 + sin(p.z*0.77-t*0.6)*0.77,
+        cos(p.z*0.51+t*0.7)*0.51 + sin(p.x*0.67+t*0.8)*0.67,
+        cos(p.x*0.59-t*0.9)*0.59 + sin(p.y*0.71-t)*0.71);
+}
+float3 Anchor(in FlowParticle p)
+{
+    float angle = p.anatomy.y + sin(_Song*0.7+p.seed*50)*0.035;
+    float radial = p.anatomy.z;
+    if(p.anatomy.w > 0.5 && p.anatomy.w < 1.5)
+    {
+        angle += sin(p.anatomy.x*25-_Song*1.7)*0.12;
+        radial *= 1+_Evolution*0.45;
+    }
+    return SkinPosition(p.anatomy.x,angle,radial,_Evolution);
+}
+FlowParticle Make(uint id, float generation)
+{
+    FlowParticle p;
+    p.seed=Hash(id*37+11);
+    float u=Hash(id*17+29), angle=Hash(id*23+7)*6.2831853;
+    float kind=floor(id/(float)_Count*4);
+    float radial=1;
+    if(kind<0.5) radial=0.97+Hash(id*73)*0.065;
+    else if(kind<1.5) {
+        angle=(id%3==0?1.5708:id%3==1?0.15:2.99) + sin(u*38)*0.2;
+        radial=1+pow(Hash(id*71+5),0.8)*(0.65+pow(sin(u*22),2)*1.15)*sin(u*3.14159);
+    }
+    else if(kind<2.5) radial=pow(Hash(id*71+5),0.6)*0.85;
+    else radial=0.9+Hash(id*51+5)*0.45;
+    if(id<2048) {
+        kind=-1;u=.036+Hash(id*13)*.024;
+        angle=(id%2==0?.15:2.99)+(Hash(id*19)-.5)*.25;
+        radial=1.035;
+    }
+    p.anatomy=float4(u,angle,radial,kind);
+    p.life=kind>2.5?2.5+Hash(id*47+3)*4.5:1000;
+    p.age=kind>2.5?Hash(id*41+3)*p.life:0;
+    p.position=Anchor(p);
+    p.velocity=_HeadVelocity*(kind>2.5?0.22:1);
+    if(kind>2.5) {
+        p.position -= _HeadVelocity * p.age * 0.5;
+        p.position += Curl(p.position*.25,p.seed*10)*p.age*.25;
+    }
+    p.previous=p.position;
+    return p;
+}
+[numthreads(128,1,1)]
+void Initialize(uint3 id : SV_DispatchThreadID)
+{
+    if(id.x>=_Count) return;
+    _Particles[id.x]=Make(id.x,0);
+}
+[numthreads(128,1,1)]
+void Simulate(uint3 id : SV_DispatchThreadID)
+{
+    if(id.x>=_Count) return;
+    FlowParticle p=_Particles[id.x];
+    p.previous=p.position;
+    p.age+=_Delta;
+    if(p.anatomy.w>2.5)
+    {
+        if(p.age>=p.life) {
+            float generation=floor(_Song/p.life);
+            p.position=Anchor(p);
+            p.previous=p.position;
+            p.velocity=_HeadVelocity*.2+Curl(p.position*.2,_Song)*.4;
+            p.age=0;
+        }
+        float3 curl=Curl(p.position*.19,_Song*.28+p.seed*3);
+        p.velocity=lerp(p.velocity,curl*1.5+float3(0,.6,0),1-exp(-_Delta*.6));
+        p.position+=p.velocity*_Delta;
+    }
+    else
+    {
+        float3 target=Anchor(p);
+        float strength=p.anatomy.w<0.5?42:p.anatomy.w<1.5?24:16;
+        float3 turbulence=Curl(p.position*.5,_Song*.6+p.seed*2);
+        target+=turbulence*(p.anatomy.w<0.5?.04:p.anatomy.w<1.5?.12:.3);
+        float3 old=p.position;
+        p.position=lerp(p.position,target,1-exp(-_Delta*strength));
+        p.velocity=(p.position-old)/max(.001,_Delta);
+    }
+    p.position += Curl(p.position*.1,p.seed*27)*_Dissolve*_Delta*14;
+    _Particles[id.x]=p;
+}

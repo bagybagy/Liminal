@@ -41,6 +41,10 @@ namespace Liminal.Editor
             EditorUtility.SetDirty(profile);
             var particles=CreateMaterial("Liminal/Luminous",Generated+"/Particles.mat");
             var ribbons=CreateMaterial("Liminal/Ribbon",Generated+"/Ribbons.mat");
+            var flowing=CreateMaterial("Liminal/Advected Light",Generated+"/FlowingParticles.mat");
+            var membrane=CreateMaterial("Liminal/Bioluminescent Membrane",Generated+"/Membrane.mat");
+            flowing.SetFloat("_Gain",0.55f);membrane.SetFloat("_Gain",1.05f);
+            EditorUtility.SetDirty(flowing);EditorUtility.SetDirty(membrane);
 
             string audioPath="Assets/Liminal/Audio/TidalMemory.wav";
             var audioImporter=(AudioImporter)AssetImporter.GetAtPath(audioPath);
@@ -52,8 +56,8 @@ namespace Liminal.Editor
             var cameraObj=new GameObject("Camera / abyss");
             var camera=cameraObj.AddComponent<Camera>();camera.tag="MainCamera";
             camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(0.001f,0.003f,0.006f,1);
-            camera.nearClipPlane=0.1f;camera.farClipPlane=400;camera.fieldOfView=54;camera.allowHDR=true;
-            camera.transform.position=new Vector3(0,3,-16);camera.transform.LookAt(new Vector3(0,0,37));
+            camera.nearClipPlane=0.1f;camera.farClipPlane=750;camera.fieldOfView=54;camera.allowHDR=true;
+            camera.transform.position=Anatomy.Focus(0)+new Vector3(30,13,-84);camera.transform.LookAt(Anatomy.Focus(0));
             cameraObj.AddComponent<AudioListener>();
             var cameraData=camera.GetUniversalAdditionalCameraData();cameraData.renderPostProcessing=true;
             cameraData.antialiasing=AntialiasingMode.FastApproximateAntialiasing;
@@ -63,6 +67,8 @@ namespace Liminal.Editor
             var game=new GameObject("LIMINAL").AddComponent<Experience>();
             game.soundtrack=AssetDatabase.LoadAssetAtPath<AudioClip>(audioPath);
             game.particles=particles;game.ribbons=ribbons;game.sceneCamera=camera;
+            game.advectedParticles=flowing;game.membrane=membrane;
+            game.particleSimulation=AssetDatabase.LoadAssetAtPath<ComputeShader>("Assets/Liminal/Shaders/LeviathanFlow.compute");
             string scenePath=Generated+"/AbyssalChoir.unity";
             EditorSceneManager.SaveScene(scene,scenePath);
             EditorBuildSettings.scenes=new[]{new EditorBuildSettingsScene(scenePath,true)};
@@ -74,7 +80,7 @@ namespace Liminal.Editor
             PlayerSettings.SetGraphicsAPIs(BuildTarget.StandaloneWindows64,new[]{GraphicsDeviceType.Direct3D11});
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64,false);
             AssetDatabase.SaveAssets();
-            if(!game.soundtrack||!particles.shader.isSupported||!renderer.postProcessData) throw new Exception("Production asset validation failed");
+            if(!game.soundtrack||!particles.shader.isSupported||!renderer.postProcessData||!game.particleSimulation||!flowing.shader.isSupported||!membrane.shader.isSupported) throw new Exception("Production asset validation failed");
             if(Math.Abs(game.soundtrack.length-Score.Duration)>0.02) throw new Exception("Soundtrack and authored score duration differ");
             if(Math.Abs(Score.NextEighth(3.14159)/(Score.BeatSeconds*0.5)-Math.Round(Score.NextEighth(3.14159)/(Score.BeatSeconds*0.5)))>0.000001)
                 throw new Exception("Score quantization failed");

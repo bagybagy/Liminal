@@ -4,13 +4,23 @@ namespace Liminal
 {
     public static class Anatomy
     {
+        public const float SpineDelay = 11.5f;
+        public const int SpineSamples = 257;
+        public static Vector3 Head(float song)
+        {
+            float a = song * 0.065f - 0.85f;
+            return new Vector3(Mathf.Sin(a) * 88 + Mathf.Sin(a * 2) * 14,
+                10 + Mathf.Sin(a * 2 + 0.6f) * 24 + Mathf.Sin(a * 0.5f) * 8,
+                35 + Mathf.Cos(a) * 104);
+        }
+        public static Vector3 Focus(float song) => Center(0.43f, song);
         public static Vector3 Center(float u, float song)
         {
-            float a = (u * 1.48f - 0.55f) * Mathf.PI + Mathf.Sin(song * 0.17f) * 0.22f;
-            float evolution=Mathf.SmoothStep(0,1,Mathf.InverseLerp(104,164,song));
-            return new Vector3(Mathf.Sin(a) * 26,
-                Mathf.Cos(a * 1.8f + song * 0.27f) * (6+evolution*2) + Mathf.Sin(u * 16 - song * 0.65f) * 1.1f + evolution*2,
-                34 + Mathf.Cos(a) * 9 + Mathf.Sin(u * 10 + song * 0.3f) * (3+evolution*3));
+            // Each vertebra follows the head's history, so turns propagate down the body.
+            float time = song - u * SpineDelay;
+            Vector3 forward = (Head(time + 0.02f) - Head(time - 0.02f)).normalized;
+            Vector3 side = Vector3.Cross(Vector3.up, forward).normalized;
+            return Head(time) + side * Mathf.Sin(u * 15 - song * 1.2f) * Mathf.Sin(u * Mathf.PI) * 1.8f;
         }
         public static float Width(float u) => (0.3f + Mathf.Pow(Mathf.Clamp01(Mathf.Sin((u * 0.88f + 0.07f) * Mathf.PI)), 0.65f) * 2.9f) *
             (1 - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.72f, 1, u)) * 0.9f) *
@@ -22,7 +32,16 @@ namespace Liminal
             Vector3 tangent = (Center(u + 0.002f, song) - Center(u - 0.002f, song)).normalized;
             Vector3 side = Vector3.Cross(Vector3.up, tangent).normalized;
             Vector3 up = Vector3.Cross(tangent, side).normalized;
-            return c + up * Width(u) * 0.42f - side * Width(u) * 0.92f;
+            float angle = 0.55f + Mathf.Round(u / 0.058f) % 2 * Mathf.PI;
+            return c + (up * Mathf.Sin(angle) + side * Mathf.Cos(angle)) * Width(u) * 1.06f;
+        }
+        public static void WriteSpine(Vector4[] samples, float song)
+        {
+            for (int i = 0; i < samples.Length; i++) {
+                float u = i / (float)(samples.Length - 1);
+                Vector3 p = Center(u, song);
+                samples[i] = new Vector4(p.x, p.y, p.z, Width(u));
+            }
         }
     }
 }

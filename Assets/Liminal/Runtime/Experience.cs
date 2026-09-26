@@ -7,6 +7,8 @@ namespace Liminal
     {
         public AudioClip soundtrack;
         public Material particles,ribbons;
+        public Material advectedParticles,membrane;
+        public ComputeShader particleSimulation;
         public Camera sceneCamera;
         public MusicTransport Music { get; private set; }
         public Encounter Combat { get; private set; }
@@ -22,9 +24,11 @@ namespace Liminal
             ProofActive=Array.Exists(Environment.GetCommandLineArgs(),s=>s=="--verify"||s=="--preview");
             Cursor.visible=ProofActive;
             World=gameObject.AddComponent<ParticleWorld>();
-            World.particleTemplate=particles;World.ribbonMaterial=ribbons;World.Initialize();
+            World.particleTemplate=particles;World.ribbonMaterial=ribbons;
+            World.advectedParticles=advectedParticles;World.membrane=membrane;World.particleSimulation=particleSimulation;World.Initialize();
             Music=gameObject.AddComponent<MusicTransport>();Music.soundtrack=soundtrack;Music.Initialize();
-            Flight=gameObject.AddComponent<Flight>();Flight.Initialize(World,sceneCamera);
+            var pilot=new GameObject("Traveler rig");pilot.transform.SetParent(transform,false);
+            Flight=pilot.AddComponent<Flight>();Flight.Initialize(World,sceneCamera);
             Combat=gameObject.AddComponent<Encounter>();Combat.Initialize(Music,World,Flight);
             var hud=gameObject.AddComponent<Hud>();hud.Experience=this;
             SetReducedMotion(PlayerPrefs.GetInt("reducedMotion",0)==1);
@@ -38,7 +42,7 @@ namespace Liminal
             if(!ProofActive && Input.GetKeyDown(KeyCode.Escape)) TogglePause();
             if(Music.Paused) return;
             float song=(float)Music.Time,dt=Mathf.Min(Time.unscaledDeltaTime,0.05f);
-            Flight.Tick(song,dt,!ProofActive&&!Combat.Ended);
+            if(!ProofActive) Flight.Tick(song,dt,!Combat.Ended);
             Combat.Tick(dt,!ProofActive);
             float evolution=Mathf.SmoothStep(0,1,Mathf.InverseLerp(104,164,song));
             float dissolve=Combat.Won?Mathf.Clamp01((song-Combat.EndTime)/9):0;
@@ -49,6 +53,7 @@ namespace Liminal
         public void TogglePause()
         {
             Music.SetPaused(!Music.Paused);Combat.AbandonLocks();Cursor.visible=Music.Paused;
+            Flight.SuspendInput();
             SaveSettings();
         }
         public void Restart() { Music.Restart();Combat.Restart();Cursor.visible=ProofActive; }
