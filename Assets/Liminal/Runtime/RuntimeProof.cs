@@ -25,6 +25,9 @@ namespace Liminal
         bool pausePassed;
         readonly List<float> litFractions=new();
         readonly List<float> renderAndReadbackMs=new();
+        bool spatialPassed;
+        float flightDistance;
+        Vector3 lastPlayerPosition;
         public void Initialize(Experience value)
         {
             experience=value;
@@ -35,6 +38,8 @@ namespace Liminal
             preview=Array.IndexOf(args,"--preview")>=0;
             wallStart=Time.realtimeSinceStartup;
             Application.logMessageReceived+=OnLog;
+            spatialPassed=VerifySpatialContracts();
+            lastPlayerPosition=experience.Flight.Position;
         }
         void OnLog(string message,string stack,LogType type)
         {
@@ -45,6 +50,9 @@ namespace Liminal
             if(!experience||!experience.Ready||finishing) return;
             float t=(float)experience.Music.Time;
             var e=experience.Combat;
+            if(!experience.Music.Paused) Pilot(t,Mathf.Min(Time.unscaledDeltaTime,0.05f));
+            flightDistance+=Vector3.Distance(lastPlayerPosition,experience.Flight.Position);
+            lastPlayerPosition=experience.Flight.Position;
             if(!sections.Contains(e.Section)) sections.Add(e.Section);
             if(t>5) frames.Add(Time.unscaledDeltaTime);
             if(!pausedTest && t>2) {
@@ -77,7 +85,7 @@ namespace Liminal
         {
             yield return new WaitForSecondsRealtime(0.1f);
             File.WriteAllText(Path.Combine(directory,"preview.json"),JsonUtility.ToJson(new Preview {
-                errors=errors.ToArray(),hits=experience.Combat.Hits,damage=experience.Combat.BossDamage,
+                errors=errors.ToArray(),spatialPassed=spatialPassed,flightDistance=flightDistance,hits=experience.Combat.Hits,damage=experience.Combat.BossDamage,
                 particles=experience.World.ParticleCount,renderAndReadbackMs=renderAndReadbackMs.ToArray()},true));
             Application.Quit(errors.Count==0?0:2);
         }
@@ -89,7 +97,8 @@ namespace Liminal
             bool victory=e.Won;
             int hits=e.Hits,damage=e.BossDamage,fired=e.Fired,locks=e.MaxLocks,points=e.Points;
             double impactDelay=e.MaxImpactDelay,gridError=experience.Music.MaxGridError;
-            int damageTaken=e.DamageTaken;
+            int damageTaken=e.DamageTaken,simulationSteps=experience.World.Serpent.SimulationSteps;
+            int missed=e.MissedScheduledHits,cancelled=e.CancelledAfterFinish;
             experience.Restart();
             bool restart=e.Points==0&&e.Hits==0&&!e.Ended&&!e.HasPending&&e.Locks.Count==0&&experience.Music.Time<0.05;
             for(int i=0;i<8;i++) e.ReceiveDamage();
@@ -97,10 +106,11 @@ namespace Liminal
             bool failure=e.Lost&&!e.Won;
             experience.Restart();
             yield return new WaitForSecondsRealtime(0.1f);
-            bool rendered=litFractions.Count>=4&&litFractions.All(x=>x>0.002f&&x<0.7f);
-            bool passed=victory&&restart&&failure&&pausePassed&&rendered&&damage==240&&locks==8&&errors.Count==0&&gridError<0.00001&&impactDelay<0.1;
+            bool rendered=litFractions.Count>=5&&litFractions.Take(4).All(x=>x>0.002f&&x<0.7f);
+            bool dissolved=litFractions.Count>=5&&litFractions[4]>0.0001f&&litFractions[4]<litFractions.Take(4).Min()*0.5f;
+            bool passed=victory&&restart&&failure&&pausePassed&&rendered&&dissolved&&spatialPassed&&flightDistance>300&&simulationSteps>500&&damage==240&&locks==8&&missed==0&&fired==hits+cancelled&&errors.Count==0&&gridError<0.00001&&impactDelay<0.1;
             var report=new Report {
-                passed=passed,won=victory,restart=restart,failure=failure,pause=pausePassed,rendered=rendered,litFractions=litFractions.ToArray(),
+                passed=passed,won=victory,restart=restart,failure=failure,pause=pausePassed,rendered=rendered,dissolved=dissolved,spatialPassed=spatialPassed,flightDistance=flightDistance,simulationSteps=simulationSteps,missedScheduledHits=missed,cancelledAfterFinish=cancelled,litFractions=litFractions.ToArray(),
                 hits=hits,fired=fired,bossDamage=damage,maxLocks=locks,score=points,damageTaken=damageTaken,
                 scheduledGridErrorMs=gridError*1000,maxVisualImpactDelayMs=impactDelay*1000,
                 logicUpdatesPerSecond=frames.Count/frames.Sum(),renderAndReadbackMs=renderAndReadbackMs.ToArray(),
@@ -129,13 +139,70 @@ namespace Liminal
             File.WriteAllBytes(Path.Combine(directory,name),image.EncodeToPNG());
             Destroy(image);rt.Release();Destroy(rt);
         }
-        [Serializable] sealed class Preview {public int hits,damage,particles;public float[] renderAndReadbackMs;public string[] errors;}
+        void Pilot(float song,float dt)
+        {
+            var flight=experience.Flight;
+            Vector3 focus=Anatomy.Focus(song);
+            Vector3 desired=focus+new Vector3(Mathf.Cos(song*.025f)*52,15,Mathf.Sin(song*.025f)*52);
+            Vector3 toward=focus-flight.Position;
+            Vector3 forward=flight.View.transform.forward;
+            float yaw=Mathf.Atan2(forward.x,forward.z)*Mathf.Rad2Deg;
+            float pitch=Mathf.Asin(Mathf.Clamp(forward.y,-1,1))*Mathf.Rad2Deg;
+            float targetYaw=Mathf.Atan2(toward.x,toward.z)*Mathf.Rad2Deg;
+            float targetPitch=Mathf.Atan2(toward.y,new Vector2(toward.x,toward.z).magnitude)*Mathf.Rad2Deg;
+            float blend=1-Mathf.Exp(-dt*3);
+            Vector2 look=new(Mathf.DeltaAngle(yaw,targetYaw)*blend/2.1f,(targetPitch-pitch)*blend/1.7f);
+            Vector3 motion=Vector3.ClampMagnitude((desired-flight.Position)/24,1);
+            Vector3 local=new(Vector3.Dot(motion,flight.View.transform.right),motion.y,Vector3.Dot(motion,flight.View.transform.forward));
+            flight.Step(song,dt,local,look,Vector3.Distance(desired,flight.Position)>90);
+        }
+        bool VerifySpatialContracts()
+        {
+            var flight=experience.Flight;
+            Vector3 worldOrigin=experience.World.transform.position;
+            Vector3 start=Anatomy.Focus(0);
+            flight.SetPose(start,Quaternion.identity);
+            for(int i=0;i<360;i++) flight.Step(0,1f/60,Vector3.forward,Vector2.zero,true);
+            bool freedom=Vector3.Distance(start,flight.Position)>220;
+            bool cameraBehind=Vector3.Dot(flight.Position-flight.View.transform.position,flight.View.transform.forward)>5;
+            bool stableWorld=Vector3.Distance(worldOrigin,experience.World.transform.position)<0.001f;
+            flight.SetPose(start,Quaternion.identity);
+            flight.Step(0,1f/60,Vector3.zero,new Vector2(180/2.1f,0),false);
+            bool turnCamera=Vector3.Dot(flight.Position-flight.View.transform.position,flight.View.transform.forward)>=6.99f;
+            flight.SetPose(start,Quaternion.identity);
+            flight.Step(0,1f/60,Vector3.zero,new Vector2(130/2.1f,30/1.7f),false);
+            Quaternion orientation=flight.View.transform.rotation;
+            for(int i=0;i<300;i++) flight.Step(0,1f/60,Vector3.zero,Vector2.zero,false);
+            bool heading=Quaternion.Angle(orientation,flight.View.transform.rotation)<.1f;
+            Vector3 min=Vector3.one*10000,max=-min;
+            for(int i=0;i<=180;i++) {Vector3 p=Anatomy.Head(i);min=Vector3.Min(min,p);max=Vector3.Max(max,p);}
+            Vector3 travel=max-min;
+            bool roaming=travel.x>160&&travel.y>40&&travel.z>190;
+            flight.SetPose(start,Quaternion.identity);
+            var e=experience.Combat;
+            var fixture=new LockTarget {id=-1,hp=2,kind=TargetKind.Ray,born=0,origin=start+Vector3.forward*45,position=start+Vector3.forward*45};
+            fixture.visual=PointCloud.Place("Range proof",experience.World.NodeMesh,experience.World.NodeMaterial,transform);
+            fixture.visual.transform.position=fixture.position;e.Targets.Add(fixture);
+            Vector3 screen=flight.View.WorldToScreenPoint(fixture.position);
+            e.AcquireAt((Vector2)screen+Vector2.right*e.LockRadiusPixels*.82f);
+            bool generous=e.Locks.Contains(fixture);
+            e.AbandonLocks();flight.SetPose(start-Vector3.forward*100,Quaternion.identity);
+            bool range=!e.CanAcquire(fixture);
+            flight.SetPose(start,Quaternion.identity);e.Acquire(fixture);
+            flight.SetPose(start-Vector3.forward*100,Quaternion.identity);e.Release();
+            bool retained=e.HasPending;
+            experience.Restart();
+            bool result=freedom&&cameraBehind&&turnCamera&&stableWorld&&heading&&roaming&&generous&&range&&retained;
+            if(!result) errors.Add($"Spatial proof: freedom={freedom}, cameraBehind={cameraBehind}, turnCamera={turnCamera}, stableWorld={stableWorld}, heading={heading}, roaming={roaming}, radius={generous}, range={range}, retained={retained}");
+            return result;
+        }
+        [Serializable] sealed class Preview {public int hits,damage,particles;public bool spatialPassed;public float flightDistance;public float[] renderAndReadbackMs;public string[] errors;}
         [Serializable] sealed class Report
         {
-            public bool passed,won,restart,failure,pause,rendered;
-            public int hits,fired,bossDamage,maxLocks,score,damageTaken,particles;
+            public bool passed,won,restart,failure,pause,rendered,dissolved,spatialPassed;
+            public int hits,fired,bossDamage,maxLocks,score,damageTaken,particles,simulationSteps,missedScheduledHits,cancelledAfterFinish;
             public double scheduledGridErrorMs,maxVisualImpactDelayMs;
-            public float logicUpdatesPerSecond;
+            public float logicUpdatesPerSecond,flightDistance;
             public float[] litFractions,renderAndReadbackMs;
             public int[] sections;
             public string[] errors;
