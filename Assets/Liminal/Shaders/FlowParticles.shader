@@ -20,7 +20,9 @@ Shader "Liminal/Advected Light"
             CBUFFER_START(UnityPerMaterial)
             float _Gain;
             CBUFFER_END
-            float _Song,_Pulse,_Evolution,_Dissolve,_Reduced;
+            float _Song,_Pulse,_Evolution,_Dissolve,_Reduced,_ResonanceClock,_Released;
+            uint _ResonanceEventCount;
+            StructuredBuffer<float4> _ResonanceEvents;
             struct Vary {float4 positionCS:SV_POSITION;float2 uv:TEXCOORD0;float4 color:COLOR;};
             Vary Vert(uint vertexID:SV_VertexID)
             {
@@ -49,13 +51,24 @@ Shader "Liminal/Advected Light"
                 float3 teal=float3(.025,.52,.64), pearl=float3(.42,.93,.75), gold=float3(1,.54,.13);
                 float3 color=lerp(teal,pearl,p.seed*.8);
                 color=lerp(color,gold,(p.anatomy.w>.5 && p.anatomy.w<1.5?.52:accent*.5)+_Evolution*.4);
-                float life=wake?sin(saturate(p.age/p.life)*3.14159):1;
+                float resonanceGlow=0;
+                [loop] for(uint eventIndex=0;eventIndex<_ResonanceEventCount;eventIndex++) {
+                    float4 eventData=_ResonanceEvents[eventIndex];
+                    float eventAge=_ResonanceClock-eventData.y;
+                    if(eventAge<0 || eventAge>3.5) continue;
+                    float center=frac(eventData.x*.91+eventAge*.19);
+                    resonanceGlow+=exp(-pow((p.anatomy.x-center)/.065,2))*exp(-eventAge*.72);
+                }
+                float life=wake && _Released<.5?sin(saturate(p.age/p.life)*3.14159):1;
                 float brightness=wake?.20:p.anatomy.w>1.5?.10:1.0+rim*.8;
+                brightness+=resonanceGlow*2.3;
+                if(_Released>.5) { color=lerp(color,float3(.20,.92,.82),.35); brightness=max(brightness,.48); }
                 if(p.anatomy.w<-.5) { color=gold;brightness=2.8; }
                 float pulse=1+_Pulse*.24*(1-_Reduced);
                 Vary o;
                 o.positionCS=TransformWorldToHClip(pos);o.uv=uv;
-                o.color=float4(color*brightness*life*_Gain*pulse*(1-_Dissolve)*exp(-distance*.0016),1);
+                float dissolve=_Released>.5?0:_Dissolve;
+                o.color=float4(color*brightness*life*_Gain*pulse*(1-dissolve)*exp(-distance*.0016),1);
                 return o;
             }
             half4 Frag(Vary i):SV_Target

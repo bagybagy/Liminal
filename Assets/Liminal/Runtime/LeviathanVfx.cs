@@ -8,15 +8,31 @@ namespace Liminal
     public sealed class LeviathanVfx : MonoBehaviour
     {
         public const int SimulatedParticles = 262144;
+        const int ResonanceEventCapacity = 16;
         readonly Vector4[] spineSamples = new Vector4[Anatomy.SpineSamples];
+        readonly List<Vector4> resonanceEvents = new(ResonanceEventCapacity);
+        readonly Vector4[] resonanceEventData = new Vector4[ResonanceEventCapacity];
         GraphicsBuffer particles, spine;
+        GraphicsBuffer resonanceBuffer;
         ComputeShader simulation;
         Material lightMaterial, skinMaterial;
         Mesh skinMesh;
         int initializeKernel, simulateKernel;
         float previousSong = -1;
+        float previousProgress;
+        float resonanceClock;
+        float releaseClock;
+        float releaseSong;
+        bool resonanceEnabled;
+        bool released;
+        bool releasePosePending;
+        bool simulationResetPending = true;
         public int SimulationSteps { get; private set; }
+        public int InitializationCount { get; private set; }
         public bool Ready => particles != null;
+        public bool Released => released;
+        public bool ReleaseSettled => released && releaseClock >= 12f;
+        public int ParticleCount => Ready ? SimulatedParticles : 0;
 
         public void Initialize(ComputeShader compute, Material light, Material membrane)
         {
@@ -27,6 +43,7 @@ namespace Liminal
             skinMaterial = new Material(membrane);
             particles = new GraphicsBuffer(GraphicsBuffer.Target.Structured, SimulatedParticles, 64);
             spine = new GraphicsBuffer(GraphicsBuffer.Target.Structured, Anatomy.SpineSamples, 16);
+            resonanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, ResonanceEventCapacity, 16);
             initializeKernel = simulation.FindKernel("Initialize");
             simulateKernel = simulation.FindKernel("Simulate");
             foreach (int kernel in new[] { initializeKernel, simulateKernel }) {
@@ -35,8 +52,15 @@ namespace Liminal
             }
             lightMaterial.SetBuffer("_Particles", particles);
             lightMaterial.SetBuffer("_Spine", spine);
+            lightMaterial.SetBuffer("_ResonanceEvents", resonanceBuffer);
             skinMaterial.SetBuffer("_Spine", spine);
+            simulation.SetBuffer(simulateKernel, "_ResonanceEvents", resonanceBuffer);
             simulation.SetInt("_Count", SimulatedParticles);
+            simulation.SetInt("_ResonanceEventCount", 0);
+            lightMaterial.SetInt("_ResonanceEventCount", 0);
+            simulation.SetVector("_SanctumCenter", CaveLayout.Rooms[1].Center);
+            Vector3 roomRadius = CaveLayout.Rooms[1].Radius;
+            simulation.SetVector("_SanctumRadius", new Vector3(roomRadius.x * 0.62f, roomRadius.y, roomRadius.z * 0.60f));
             skinMesh = CreateMembrane();
             PointCloud.Place("Leviathan / translucent living membrane", skinMesh, skinMaterial, transform);
             Tick(0, 0, 0);
@@ -47,23 +71,77 @@ namespace Liminal
         {
             if (!Ready) return;
             float delta = song - previousSong;
-            bool reset = previousSong < 0 || delta < -0.001f || delta > 0.5f;
-            if (!reset && delta < 1f / 120f) return;
-            Anatomy.WriteSpine(spineSamples, song);
-            spine.SetData(spineSamples);
-            simulation.SetFloat("_Song", song);
+            resonanceClock = song;
+            if (released) releaseClock = Mathf.Max(0, song - releaseSong);
+            bool reset = simulationResetPending || (!resonanceEnabled && !released && (previousSong < 0 || delta < -0.001f || delta > 0.5f));
+            if (!reset && !released && delta < 1f / 120f) return;
+            if (!released || previousSong < 0 || releasePosePending) {
+                Anatomy.WriteSpine(spineSamples, released ? releaseSong : song);
+                spine.SetData(spineSamples);
+                releasePosePending = false;
+            }
+            simulation.SetFloat("_Song", released ? releaseSong : song);
             simulation.SetFloat("_Evolution", evolution);
             simulation.SetFloat("_Dissolve", dissolve);
             simulation.SetFloat("_Pulse", Score.Pulse(song));
             simulation.SetVector("_HeadVelocity", (Anatomy.Head(song + 0.02f) - Anatomy.Head(song - 0.02f)) / 0.04f);
+            simulation.SetFloat("_ResonanceClock", resonanceClock);
+            simulation.SetFloat("_Released", released ? 1 : 0);
+            simulation.SetFloat("_ReleaseBlend", released ? Mathf.SmoothStep(0, 1, releaseClock / 12f) : 0);
+            lightMaterial.SetFloat("_ResonanceClock", resonanceClock);
+            lightMaterial.SetFloat("_Released", released ? 1 : 0);
+            skinMaterial.SetFloat("_Released", released ? 1 : 0);
+            skinMaterial.SetFloat("_ReleaseBlend", released ? Mathf.SmoothStep(0, 1, releaseClock / 12f) : 0);
+            UploadResonanceEvents();
             if (reset) {
                 simulation.Dispatch(initializeKernel, SimulatedParticles / 128, 1, 1);
+                simulationResetPending = false;
+                InitializationCount++;
             } else {
-                simulation.SetFloat("_Delta", Mathf.Min(delta, 0.05f));
-                simulation.Dispatch(simulateKernel, SimulatedParticles / 128, 1, 1);
+                float advanced = resonanceEnabled || released ? Mathf.Clamp(delta, 0, 0.3f) : Mathf.Min(delta, 0.05f);
+                int steps = resonanceEnabled || released ? Mathf.Clamp(Mathf.CeilToInt(advanced / 0.05f), 1, 6) : 1;
+                float stepDelta = advanced / steps;
+                for (int step = 0; step < steps; step++) {
+                    float stepSong = song - advanced + (step + 1) * stepDelta;
+                    if (resonanceEnabled && !released) {
+                        Anatomy.WriteSpine(spineSamples, stepSong);
+                        spine.SetData(spineSamples);
+                    }
+                    simulation.SetFloat("_Delta", stepDelta);
+                    simulation.SetFloat("_Song", released ? releaseSong : stepSong);
+                    simulation.Dispatch(simulateKernel, SimulatedParticles / 128, 1, 1);
+                }
                 SimulationSteps++;
             }
             previousSong = song;
+        }
+
+        public void SetResonance(float progress, bool completed, float song)
+        {
+            resonanceEnabled = true;
+            resonanceClock = song;
+            progress = Mathf.Clamp01(progress);
+            if (progress > previousProgress) {
+                if (resonanceEvents.Count == ResonanceEventCapacity) resonanceEvents.RemoveAt(0);
+                resonanceEvents.Add(new Vector4(progress, song, 0, 0));
+                previousProgress = progress;
+            }
+            if (completed && !released) {
+                released = true;
+                releaseSong = song;
+                releaseClock = 0;
+                releasePosePending = true;
+            }
+        }
+
+        void UploadResonanceEvents()
+        {
+            resonanceEvents.RemoveAll(e => resonanceClock - e.y > 3.5f);
+            Array.Clear(resonanceEventData, 0, resonanceEventData.Length);
+            for (int i = 0; i < resonanceEvents.Count; i++) resonanceEventData[i] = resonanceEvents[i];
+            resonanceBuffer.SetData(resonanceEventData);
+            simulation.SetInt("_ResonanceEventCount", resonanceEvents.Count);
+            lightMaterial.SetInt("_ResonanceEventCount", resonanceEvents.Count);
         }
 
         void Render(ScriptableRenderContext context, Camera camera)
@@ -78,7 +156,12 @@ namespace Liminal
             Graphics.RenderPrimitives(settings, MeshTopology.Triangles, SimulatedParticles * 6);
         }
 
-        public void ResetSimulation() { previousSong = -1; SimulationSteps = 0; }
+        public void ResetSimulation()
+        {
+            previousSong = -1; SimulationSteps = 0; previousProgress = 0; simulationResetPending = true;
+            resonanceClock = 0; releaseClock = 0; releaseSong = 0; releasePosePending = false;
+            resonanceEnabled = false; released = false; resonanceEvents.Clear();
+        }
 
         static Mesh CreateMembrane()
         {
@@ -111,7 +194,7 @@ namespace Liminal
         void OnDestroy()
         {
             RenderPipelineManager.beginCameraRendering -= Render;
-            particles?.Dispose(); spine?.Dispose(); particles = null; spine = null;
+            particles?.Dispose(); spine?.Dispose(); resonanceBuffer?.Dispose(); particles = null; spine = null; resonanceBuffer = null;
             if (simulation) Destroy(simulation);
             if (lightMaterial) Destroy(lightMaterial);
             if (skinMaterial) Destroy(skinMaterial);

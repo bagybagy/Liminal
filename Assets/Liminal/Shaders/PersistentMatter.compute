@@ -1,0 +1,203 @@
+#pragma kernel Initialize
+#pragma kernel Simulate
+
+struct MatterSeed
+{
+    float4 form;
+    float4 destination;
+    float4 color;
+    float4 traits;
+};
+
+struct MatterGroup
+{
+    float4x4 localToWorld;
+    float4 state;
+    float4 impulse;
+};
+
+struct MatterParticle
+{
+    float4 positionAge;
+    float4 velocityEnergy;
+    float4 colorSize;
+    float4 identityState;
+};
+
+StructuredBuffer<MatterSeed> _Seeds;
+StructuredBuffer<MatterGroup> _Groups;
+RWStructuredBuffer<MatterParticle> _Particles;
+uint _Count;
+float _Delta, _Song, _CurrentEnergy;
+float4 _Current;
+float3 _CurrentVelocity, _Player, _PlayerVelocity;
+
+float Hash(float n)
+{
+    return frac(sin(n * 127.1 + 311.7) * 43758.5453);
+}
+
+float3 Curl(float3 p, float t)
+{
+    return float3(cos(p.y * 0.63 + t) * 0.63 + sin(p.z * 0.77 - t * 0.6) * 0.77,
+        cos(p.z * 0.51 + t * 0.7) * 0.51 + sin(p.x * 0.67 + t * 0.8) * 0.67,
+        cos(p.x * 0.59 - t * 0.9) * 0.59 + sin(p.y * 0.71 - t) * 0.71);
+}
+
+float3 Deform(float3 p, float3 localForm, float seed, float kind, float tail, float song)
+{
+    if (kind > 0.5 && kind < 1.5)
+    {
+        if (localForm.y < 0.0)
+        {
+            float u = saturate(-localForm.y / 24.0);
+            p.x += sin(song * 1.3 + seed * 2.7 + u * 5.0) * u * 0.72;
+            p.z += cos(song * 1.1 + seed * 2.1 + u * 4.0) * u * 0.72;
+        }
+        p.y += saturate((localForm.y + 0.4) * 0.8) * sin(song * 2.0 + seed * 3.0) * 0.10;
+    }
+    else if (kind > 1.5 && kind < 2.5)
+    {
+        p.y += sin(song * 8.0 + seed * 3.0) * tail * 0.16;
+        p.x += sin(song * 4.5 + seed * 2.0) * tail * 0.10;
+    }
+    else if (kind > 2.5)
+    {
+        float whaleTail = pow(saturate((-localForm.z - 8.0) / 74.0), 1.7);
+        p.y += sin(song * 0.78 + localForm.z * 0.047) * whaleTail * 5.5;
+        p.x += sin(song * 0.61 + localForm.z * 0.052) * whaleTail * 2.2;
+        float fin = saturate((abs(localForm.x) - 9.0) / 28.0) * saturate((localForm.z - 1.0) / 15.0);
+        p.y += sin(song * 0.82 + seed * 0.7) * fin * 0.9;
+    }
+    return p;
+}
+
+float3 FormTarget(MatterSeed seed, MatterGroup group, float song)
+{
+    float animationPhase = seed.traits.y > 1.5 && seed.traits.y < 2.5 ? seed.traits.x : seed.traits.z;
+    float3 local = Deform(seed.form.xyz, seed.form.xyz, animationPhase, seed.traits.y, seed.traits.w, song);
+    return mul(group.localToWorld, float4(local, 1.0)).xyz;
+}
+
+[numthreads(128, 1, 1)]
+void Initialize(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _Count) return;
+    MatterSeed seed = _Seeds[id.x];
+    MatterGroup group = _Groups[(uint)round(seed.traits.x)];
+    MatterParticle p;
+    p.positionAge = float4(FormTarget(seed, group, _Song), 0.0);
+    p.velocityEnergy = float4(0, 0, 0, group.state.z);
+    p.colorSize = float4(seed.color.rgb, max(0.001, seed.form.w));
+    p.identityState = float4(id.x, round(seed.traits.x), group.state.x, 0.0);
+    _Particles[id.x] = p;
+}
+
+[numthreads(128, 1, 1)]
+void Simulate(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _Count) return;
+    MatterSeed seed = _Seeds[id.x];
+    MatterParticle p = _Particles[id.x];
+    MatterGroup group = _Groups[(uint)p.identityState.y];
+    float phase = group.state.x;
+    float age = max(0.0, group.state.y);
+    float energy = max(0.0, group.state.z);
+    float kind = seed.traits.y;
+    float3 position = p.positionAge.xyz;
+    float3 velocity = p.velocityEnergy.xyz;
+    float3 target = FormTarget(seed, group, _Song);
+    float3 acceleration = 0;
+
+    if (phase < 0.5)
+    {
+        float3 offset = target - position;
+        if (kind < 0.5)
+        {
+            acceleration += offset * 0.14 - velocity * 0.78;
+            float3 currentOffset = position - _Current.xyz;
+            float currentWeight = saturate(1.0 - length(currentOffset) / max(0.01, _Current.w));
+            acceleration += _CurrentVelocity * currentWeight * _CurrentEnergy * 0.12;
+            acceleration += Curl(position * 0.035, _Song * 0.18 + seed.traits.z * 13.0) * currentWeight * _CurrentEnergy * 0.18;
+        }
+        else
+        {
+            float stiffness = kind > 1.5 && kind < 2.5 ? 78.0 : kind > 2.5 ? 42.0 : 54.0;
+            float damping = 2.0 * sqrt(stiffness);
+            acceleration += offset * stiffness - velocity * damping;
+            acceleration += Curl(position * 0.12, _Song * 0.45 + seed.traits.z * 9.0) * (0.10 + energy * 0.22);
+        }
+    }
+    else if (phase < 1.5)
+    {
+        if (kind > 1.5 && kind < 2.5)
+        {
+            float stiffness = 84.0;
+            acceleration += (target - position) * stiffness - velocity * (2.0 * sqrt(stiffness));
+        }
+        else
+        {
+            float3 outward = position - group.impulse.xyz;
+            if (dot(outward, outward) < 0.01) outward = float3(Hash(id.x + 2.0) - 0.5, Hash(id.x + 8.0) - 0.5, Hash(id.x + 17.0) - 0.5);
+            float tail = saturate(seed.traits.w);
+            float3 steering = mul((float3x3)group.localToWorld, float3(0, 0, 1));
+            float3 scatterTarget = target + normalize(outward) * (2.0 + tail * 12.0) + steering * (tail * 5.0);
+            acceleration += (scatterTarget - position) * 8.0 - velocity * 3.2;
+            acceleration += normalize(outward) * max(0.0, group.impulse.w) * 0.8;
+        }
+    }
+    else if (phase < 2.5)
+    {
+        float erupt = 1.0 - smoothstep(0.0, 2.1, age);
+        float settle = smoothstep(0.35, 10.0, age);
+        float travel = smoothstep(0.45, 2.4, age);
+        float3 toDestination = seed.destination.xyz - position;
+        float3 axis = normalize(toDestination + float3(0.001, 0.002, 0.003));
+        float3 radial = Curl(position * 0.045 + seed.traits.z, _Song * 0.32 + seed.traits.z * 11.0);
+        float3 vortex = cross(axis, radial);
+        acceleration += radial * (7.0 * erupt) + normalize(vortex + 0.0001) * (3.5 * erupt);
+        acceleration += toDestination * lerp(0.015, 12.0, settle) * travel - velocity * lerp(1.4, 5.2, settle);
+        acceleration += vortex * (0.7 * (1.0 - settle));
+        float3 origin = group.impulse.xyz;
+        float3 burst = position - origin;
+        acceleration += normalize(burst + 0.0001) * max(0.0, group.impulse.w) * erupt;
+    }
+    else
+    {
+        float3 destination = seed.destination.xyz;
+        float3 offset = destination - position;
+        acceleration += offset * 10.0 - velocity * 5.8;
+        float3 currentOffset = position - _Current.xyz;
+        float currentWeight = saturate(1.0 - length(currentOffset) / max(0.01, _Current.w));
+        acceleration += _CurrentVelocity * currentWeight * (0.35 + _CurrentEnergy * 0.12);
+        acceleration += Curl(position * 0.035, _Song * 0.18 + seed.traits.z * 13.0) * currentWeight * _CurrentEnergy * 0.12;
+    }
+
+    float playerDistance = length(position - _Player);
+    float playerWake = saturate(1.0 - playerDistance / 22.0);
+    if (kind < 0.5)
+    {
+        float remembered = p.identityState.w;
+        float3 wake = normalize(position - _Player + float3(0.001, 0.002, 0.003));
+        float currentWake = saturate(1.0 - length(position - _Current.xyz) / max(0.01, _Current.w)) * saturate(_CurrentEnergy);
+        acceleration += wake * playerWake * (1.6 + length(_PlayerVelocity) * 0.28) - velocity * playerWake * 0.42;
+        float3 currentRadial = normalize(position - _Current.xyz + float3(0.001, 0.002, 0.003));
+        acceleration += currentRadial * currentWake * (1.4 + length(_CurrentVelocity) * 0.2);
+        acceleration += _CurrentVelocity * currentWake * 0.14;
+        remembered = saturate(max(remembered * exp(-_Delta * 0.22), max(playerWake * 0.9, currentWake * 0.95)));
+        p.identityState.w = remembered;
+    }
+
+    float step = min(_Delta, 1.0 / 60.0);
+    velocity += acceleration * step;
+    velocity *= exp(-step * (phase > 1.5 ? 0.65 : 1.0));
+    float maxSpeed = phase > 1.5 && phase < 2.5 ? 46.0 : 24.0;
+    velocity = clamp(length(velocity), 0.0, maxSpeed) * normalize(velocity + 0.000001);
+    position += velocity * step;
+
+    float impact = saturate(energy * exp(-max(0.0, age) * (phase > 1.5 ? 0.8 : 2.5)));
+    p.positionAge = float4(position, p.positionAge.w + step);
+    p.velocityEnergy = float4(velocity, impact);
+    p.identityState.z = phase;
+    _Particles[id.x] = p;
+}

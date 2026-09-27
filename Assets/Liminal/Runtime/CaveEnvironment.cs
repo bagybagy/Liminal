@@ -33,6 +33,7 @@ namespace Liminal
             particleMaterial = new Material(owner.particleTemplate);
             particleMaterial.SetFloat("_Mode", 0f);
             particleMaterial.SetFloat("_Gain", 1.25f);
+            particleMaterial.SetFloat("_CaveWaveEnergy", 0f);
             materials.Add(particleMaterial);
             Material surfaceTemplate = owner.cavernSurface;
             if (!surfaceTemplate) {
@@ -471,6 +472,8 @@ namespace Liminal
             lights[slot] = new Vector4(position.x, position.y, position.z, lightStrength[slot]);
             lightUntil[slot] = clock + LightLifetime;
             surfaceMaterial.SetVectorArray(LightArrayId, lights);
+            particleMaterial.SetVector("_CaveWave", new Vector4(position.x, position.y, position.z, clock));
+            particleMaterial.SetFloat("_CaveWaveEnergy", Mathf.Clamp(strength, 0f, 4f));
         }
 
         public void ResetLighting()
@@ -479,6 +482,7 @@ namespace Liminal
             Array.Clear(lightUntil, 0, lightUntil.Length);
             Array.Clear(lightStrength, 0, lightStrength.Length);
             if (surfaceMaterial) surfaceMaterial.SetVectorArray(LightArrayId, lights);
+            if (particleMaterial) particleMaterial.SetFloat("_CaveWaveEnergy", 0f);
         }
 
         void OnDestroy()

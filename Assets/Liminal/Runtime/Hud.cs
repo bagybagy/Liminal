@@ -36,10 +36,10 @@ namespace Liminal
                 float progressValue=1-e.BossDamage/(float)e.BossDamageGoal;
                 if(Experience.CavernMode) {
                     int room=Experience.CurrentRoom;
-                    status=room==0?"LANTERNS  "+Experience.Marine.IlluminatedJellies.ToString("D2")+" / "+Experience.Marine.JellyCount.ToString("D2"):
-                        room==1?(e.SerpentComplete?"SERPENT RESONATES":"RESONANCE  "+e.BossDamage.ToString("D2")+" / "+e.BossDamageGoal):
-                        "HORIZON  "+Experience.Marine.WhaleResonance+" / 8";
-                    progressValue=room==0?Experience.Marine.IlluminatedJellies/(float)Mathf.Max(1,Experience.Marine.JellyCount):
+                    status=room==0?"GARDEN  "+Experience.Marine.CompletedJellies.ToString("D2")+" / "+Experience.Marine.JellyCount.ToString("D2"):
+                        room==1?(e.SerpentComplete?"SERPENT RELEASED":"RESONANCE  "+e.BossDamage.ToString("D2")+" / "+e.BossDamageGoal):
+                        (Experience.Marine.WhaleReleased?"HORIZON RELEASED":"HORIZON  "+Experience.Marine.WhaleResonance+" / 8");
+                    progressValue=room==0?Experience.Marine.CompletedJellies/(float)Mathf.Max(1,Experience.Marine.JellyCount):
                         room==1?e.BossDamage/(float)e.BossDamageGoal:Experience.Marine.WhaleResonance/8f;
                 }
                 Text(new Rect((w-bw)*0.5f,28,bw,24),status,small,Muted,TextAnchor.MiddleCenter);
@@ -80,7 +80,7 @@ namespace Liminal
                 Fill(new Rect(0,h-5,w,5),new Color(1,0.18f,0.07f,e.DamageFlash));
             }
             if(Experience.CavernMode && Experience.WhaleAwakenedAt>=0 && t-Experience.WhaleAwakenedAt<7 && !music.Paused)
-                Text(new Rect(20,h*.74f,w-40,46),"HORIZON RESONATES",title,White,TextAnchor.MiddleCenter);
+                Text(new Rect(20,h*.74f,w-40,46),"HORIZON RELEASED",title,White,TextAnchor.MiddleCenter);
             if(music.Paused) PausePanel(w,h);
             else if(e.Ended && t-e.EndTime>4) Results(w,h);
         }
@@ -94,6 +94,9 @@ namespace Liminal
                 Vector2 center=new(projected.x,Screen.height-projected.y);
                 int index=e.Locks.IndexOf(target);
                 bool canAcquire=e.CanAcquire(target);
+                if(target.kind==TargetKind.Environment && index<0 && !canAcquire) continue;
+                if(target.kind==TargetKind.Environment && index<0 &&
+                    Vector2.Distance(projected,Experience.Flight.AimScreenPosition)>e.LockRadiusPixels*1.5f) continue;
                 bool distantOrgan=target.kind==TargetKind.Organ && index<0 && !canAcquire;
                 float radius=distantOrgan?11:target.kind==TargetKind.Organ?15:20;
                 Color col=index>=0?Gold:distantOrgan?new Color(0.54f,0.68f,0.69f,0.15f):target.kind==TargetKind.Threat?new Color(1,0.34f,0.20f,0.88f):new Color(Cyan.r,Cyan.g,Cyan.b,0.42f);

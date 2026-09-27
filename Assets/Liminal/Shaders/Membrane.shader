@@ -19,7 +19,7 @@ Shader "Liminal/Bioluminescent Membrane"
             CBUFFER_START(UnityPerMaterial)
             float _Gain;
             CBUFFER_END
-            float _Song,_Evolution,_Dissolve,_Pulse,_Reduced;
+            float _Song,_Evolution,_Dissolve,_Pulse,_Reduced,_Released,_ReleaseBlend;
             struct Input {float4 positionOS:POSITION;float2 uv:TEXCOORD0;float2 data:TEXCOORD1;};
             struct Vary {float4 positionCS:SV_POSITION;float3 positionWS:TEXCOORD0;float3 normalWS:TEXCOORD1;float4 param:TEXCOORD2;};
             Vary Vert(Input i)
@@ -53,6 +53,7 @@ Shader "Liminal/Bioluminescent Membrane"
                 float opacity=fin?.025+vein*.17+pow(i.param.w,8)*.11:.018+rim*.29+vein*.055+ribs*.04;
                 if(fin) opacity*=1-i.param.w*.6;
                 opacity*=(1-_Dissolve)*(1+_Pulse*.12*(1-_Reduced));
+                opacity*=1-saturate(_ReleaseBlend);
                 return half4(col*_Gain,opacity);
             }
             ENDHLSL

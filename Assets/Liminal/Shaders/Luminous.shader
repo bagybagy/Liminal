@@ -5,6 +5,7 @@ Shader "Liminal/Luminous"
         _Tint ("Tint", Color) = (1,1,1,1)
         _Gain ("Radiance", Float) = 1
         _Mode ("Geometry", Float) = 0
+        _CaveWaveEnergy ("Environment response", Float) = 0
     }
     SubShader
     {
@@ -24,6 +25,8 @@ Shader "Liminal/Luminous"
             float4 _Tint;
             float _Gain, _Mode;
             float4 _Burst;
+            float4 _CaveWave;
+            float _CaveWaveEnergy;
             CBUFFER_END
             float _Song, _Pulse, _Evolution, _Dissolve, _Reduced;
             float3 Curve(float u)
@@ -45,6 +48,7 @@ Shader "Liminal/Luminous"
                 float3 p = input.positionOS.xyz;
                 float size = input.uv.z;
                 float twinkle = 0.85 + 0.15*sin(_Song*1.1+input.data.x*31);
+                float resonance = 0;
                 if (_Mode > 0.5 && _Mode < 1.5)
                 {
                     float u = p.x, angle = p.y;
@@ -75,6 +79,16 @@ Shader "Liminal/Luminous"
                     p.y += sin(p.x*0.06+p.z*0.04+_Song*0.16)*input.data.y;
                     p = TransformObjectToWorld(p);
                     twinkle *= 0.92 + 0.08*_Pulse*(1-_Reduced);
+                    if (_CaveWaveEnergy > 0)
+                    {
+                        float age = max(0, _Song - _CaveWave.w);
+                        float3 delta = p - _CaveWave.xyz;
+                        float radius = length(delta);
+                        float ring = exp(-pow((radius-age*32)/7,2)) * exp(-age*0.18);
+                        float flash = exp(-radius/85-age*1.2);
+                        resonance = (ring*2+flash*3)*_CaveWaveEnergy;
+                        p += delta/max(radius,1)*ring*_CaveWaveEnergy*0.65;
+                    }
                 }
                 float3 toCamera = _WorldSpaceCameraPos-p;
                 float distance = length(toCamera);
@@ -85,6 +99,8 @@ Shader "Liminal/Luminous"
                 o.positionCS = TransformWorldToHClip(p);
                 o.uv = input.uv.xy;
                 float3 col = input.color.rgb;
+                col = lerp(col, float3(0.78,0.95,1), saturate(resonance*0.18));
+                twinkle *= 1+resonance;
                 if (_Mode > 0.5 && _Mode < 1.5)
                     col = lerp(col, col.gbr*float3(1.8,0.7,0.3)+float3(0.24,0.04,0), _Evolution*0.72);
                 o.color = float4(col*_Tint.rgb*_Gain*twinkle*exp(-distance*0.0018),1);

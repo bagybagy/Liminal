@@ -6,6 +6,8 @@ namespace Liminal
 {
     public sealed class ParticleWorld : MonoBehaviour
     {
+        public ComputeShader matterSimulation;
+        public Material matterLight;
         public Material particleTemplate, ribbonMaterial, cavernSurface, marineLight;
         public Material advectedParticles, membrane;
         public ComputeShader particleSimulation;

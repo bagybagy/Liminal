@@ -9,6 +9,8 @@ namespace Liminal
         public Material particles,ribbons;
         public Material advectedParticles,membrane;
         public Material cavernSurface,marineLight;
+        public Material matterLight;
+        public ComputeShader matterSimulation;
         public ComputeShader particleSimulation;
         public Camera sceneCamera;
         public MusicTransport Music { get; private set; }
@@ -38,6 +40,7 @@ namespace Liminal
             World=gameObject.AddComponent<ParticleWorld>();
             World.particleTemplate=particles;World.ribbonMaterial=ribbons;
             World.cavernSurface=cavernSurface;World.marineLight=marineLight;
+            World.matterSimulation=matterSimulation;World.matterLight=matterLight;
             World.advectedParticles=advectedParticles;World.membrane=membrane;World.particleSimulation=particleSimulation;World.Initialize(CavernMode);
             Music=gameObject.AddComponent<MusicTransport>();Music.soundtrack=soundtrack;Music.LoopSoundtrack=CavernMode;Music.Initialize();
             var pilot=new GameObject("Traveler rig");pilot.transform.SetParent(transform,false);
@@ -72,6 +75,7 @@ namespace Liminal
                 sceneCamera.backgroundColor=Color.Lerp(sceneCamera.backgroundColor,atmosphere,dt*.8f);
             }
             Combat.Tick(dt,!ProofActive);
+            if(CavernMode) World.Serpent.SetResonance(Combat.BossDamage/(float)Combat.BossDamageGoal,Combat.SerpentComplete,song);
             float evolution=CavernMode?(Combat.SerpentComplete?1:.25f):Mathf.SmoothStep(0,1,Mathf.InverseLerp(104,164,song));
             float dissolve=!CavernMode && Combat.Won?Mathf.Clamp01((song-Combat.EndTime)/9):0;
             World.Tick(song,evolution,dissolve,ReducedMotion);

@@ -5,7 +5,11 @@
 RWStructuredBuffer<FlowParticle> _Particles;
 uint _Count;
 float _Delta, _Song, _Evolution, _Dissolve, _Pulse;
+float _ResonanceClock, _Released, _ReleaseBlend;
+uint _ResonanceEventCount;
 float3 _HeadVelocity;
+float3 _SanctumCenter, _SanctumRadius;
+StructuredBuffer<float4> _ResonanceEvents;
 float Hash(uint n)
 {
     n = (n ^ 61) ^ (n >> 16); n *= 9; n ^= n >> 4; n *= 0x27d4eb2d; n ^= n >> 15;
@@ -72,6 +76,19 @@ void Simulate(uint3 id : SV_DispatchThreadID)
     if(id.x>=_Count) return;
     FlowParticle p=_Particles[id.x];
     p.previous=p.position;
+    if(_Released>0.5)
+    {
+        float phase=frac(p.anatomy.x*.83+p.seed*.37)*6.2831853*3+_ResonanceClock*.11;
+        float strand=p.seed*6.2831853;
+        float3 target=_SanctumCenter+float3(cos(phase+strand*.18)*_SanctumRadius.x,
+            -_SanctumRadius.y*.58+sin(phase*.47+strand)*_SanctumRadius.y*.20,
+            sin(phase+strand*.18)*_SanctumRadius.z);
+        p.age+=_Delta;
+        p.position=lerp(p.position,target,saturate(_Delta*(.45+_ReleaseBlend*.65)));
+        p.velocity=(p.position-p.previous)/max(.001,_Delta);
+        _Particles[id.x]=p;
+        return;
+    }
     p.age+=_Delta;
     if(p.anatomy.w>2.5)
     {
@@ -96,6 +113,18 @@ void Simulate(uint3 id : SV_DispatchThreadID)
         p.position=lerp(p.position,target,1-exp(-_Delta*strength));
         p.velocity=(p.position-old)/max(.001,_Delta);
     }
+    float3 impulse=0;
+    [loop] for(uint eventIndex=0;eventIndex<_ResonanceEventCount;eventIndex++) {
+        float4 eventData=_ResonanceEvents[eventIndex];
+        float eventAge=_ResonanceClock-eventData.y;
+        if(eventAge<0 || eventAge>3.5) continue;
+        float center=frac(eventData.x*.91+eventAge*.19);
+        float band=exp(-pow((p.anatomy.x-center)/.065,2))*exp(-eventAge*.72);
+        float3 radial=normalize(p.position-SampleSpine(p.anatomy.x).xyz+float3(.001,.001,.001));
+        impulse+=radial*band;
+    }
+    p.velocity+=impulse*(_Delta*2.8);
+    p.position+=impulse*(_Delta*.12);
     p.position += Curl(p.position*.1,p.seed*27)*_Dissolve*_Delta*14;
     _Particles[id.x]=p;
 }
