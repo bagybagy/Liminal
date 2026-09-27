@@ -6,7 +6,7 @@ namespace Liminal
 {
     public sealed class ParticleWorld : MonoBehaviour
     {
-        public Material particleTemplate, ribbonMaterial;
+        public Material particleTemplate, ribbonMaterial, cavernSurface, marineLight;
         public Material advectedParticles, membrane;
         public ComputeShader particleSimulation;
         Material environmentMaterial;
@@ -15,7 +15,8 @@ namespace Liminal
         public Mesh NodeMesh { get; private set; }
         public Mesh EnemyMesh { get; private set; }
         int particleCount;
-        public int ParticleCount => particleCount + LeviathanVfx.SimulatedParticles;
+        public int ParticleCount => particleCount + (Caverns ? Caverns.ParticleCount : 0) + LeviathanVfx.SimulatedParticles;
+        public CaveEnvironment Caverns { get; private set; }
         readonly List<Mesh> meshes = new();
         readonly List<Material> materials = new();
         readonly Burst[] bursts = new Burst[28];
@@ -25,11 +26,17 @@ namespace Liminal
         static readonly Color Ice = new(0.18f,0.92f,1.0f), Gold = new(1,0.61f,0.20f), Pearl = new(0.75f,1,0.91f);
         sealed class Burst { public Material material; public GameObject obj; public float until; }
 
-        public void Initialize()
+        public void Initialize(bool caverns = false)
         {
             environmentMaterial = Material(0, 1.4f);
             NodeMaterial = Material(0, 2.4f);
-            BuildEnvironment(); BuildSerpent(); BuildSmallForms(); BuildBursts();
+            if (caverns) {
+                var obj = new GameObject("Cavern environment");
+                obj.transform.SetParent(transform, false);
+                Caverns = obj.AddComponent<CaveEnvironment>();
+                Caverns.Initialize(this);
+            } else BuildEnvironment();
+            BuildSerpent(); BuildSmallForms(); BuildBursts();
         }
         Material Material(int mode, float gain)
         {

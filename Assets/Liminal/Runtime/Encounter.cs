@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Liminal
 {
-    public enum TargetKind { Organ, Ray, Threat }
+    public enum TargetKind { Organ, Ray, Threat, Environment }
     public sealed class LockTarget
     {
         public int id, hp, reserved;
@@ -12,6 +12,7 @@ namespace Liminal
         public float u, born, deadline;
         public Vector3 position, origin, destination, direction, lateral, vertical;
         public GameObject visual;
+        public Action<LockTarget,float> onHit;
         public bool Available => hp-reserved>0 && visual && visual.activeSelf;
     }
 
@@ -39,6 +40,10 @@ namespace Liminal
         public bool Won { get; private set; }
         public bool Lost { get; private set; }
         public bool Ended => Won||Lost;
+        public bool ExplorationMode { get; set; }
+        public int ActiveRoom { get; set; } = 0;
+        public int BossDamageGoal => ExplorationMode ? 80 : 240;
+        public bool SerpentComplete => BossDamage >= BossDamageGoal;
         public float EndTime { get; private set; }
         public float DamageFlash { get; private set; }
         public float LastHitTime { get; private set; } = -10;
@@ -51,6 +56,8 @@ namespace Liminal
         public int Dodged { get; private set; }
         public int DamageTaken { get; private set; }
         public event Action Hit;
+        bool explorationOrgansActivated;
+        bool hostilesCleared;
         static readonly Color Cyan = new(0.3f,1,0.91f), Amber = new(1,0.65f,0.22f);
         sealed class Shot
         {
@@ -84,11 +91,15 @@ namespace Liminal
         {
             foreach(var s in shots) { s.line.enabled=false; lines.Push(s.line); }
             shots.Clear(); Locks.Clear();
-            for(int i=Targets.Count-1;i>=16;i--) { Destroy(Targets[i].visual); Targets.RemoveAt(i); }
+            for(int i=Targets.Count-1;i>=0;i--) {
+                if(Targets[i].kind==TargetKind.Environment) { Targets.RemoveAt(i); continue; }
+                if(i>=16) { Destroy(Targets[i].visual); Targets.RemoveAt(i); }
+            }
             foreach(var t in Targets) { t.hp=0;t.reserved=0;t.visual.SetActive(false); }
             Points=Combo=BestCombo=Hits=Fired=BossDamage=Dodged=DamageTaken=CancelledAfterFinish=MissedScheduledHits=0;
             Life=8;Charge=0;Won=Lost=false;EndTime=0;DamageFlash=0;
             lastSection=-1;lastBeat=-1;nextWave=16;MaxImpactDelay=0;MaxLocks=0;LastHitTime=-10;
+            explorationOrgansActivated=false;hostilesCleared=false;
             world.ResetEffects(); flight.ResetFlight();
         }
         public void Tick(float dt,bool input)
@@ -96,8 +107,15 @@ namespace Liminal
             float song=(float)music.Time;
             Section=Score.Section(song);
             DamageFlash=Mathf.MoveTowards(DamageFlash,0,dt*1.6f);
+            if(ExplorationMode && ActiveRoom==1 && !explorationOrgansActivated) {
+                explorationOrgansActivated=true;
+                foreach(var t in Targets) if(t.kind==TargetKind.Organ) {
+                    t.hp=5;t.reserved=0;t.visual.SetActive(true);
+                    world.BurstAt(Anatomy.Node(t.u,song),song,Cyan,0.35f);
+                }
+            }
             if(Section!=lastSection) {
-                if(!Ended && Section>=2 && Section<=4) foreach(var t in Targets) if(t.kind==TargetKind.Organ) {
+                if(!ExplorationMode && !Ended && Section>=2 && Section<=4) foreach(var t in Targets) if(t.kind==TargetKind.Organ) {
                     t.hp+=5; t.visual.SetActive(true);
                     world.BurstAt(Anatomy.Node(t.u,song),song,Cyan,0.35f);
                 }
@@ -105,25 +123,33 @@ namespace Liminal
             }
             int beat=Mathf.FloorToInt(song/(float)Score.BeatSeconds);
             if(beat!=lastBeat && !Ended) {
-                if(beat>=nextWave && beat<376) { SpawnWave(song,beat); nextWave=beat+(Section==1?16:32); }
-                if(beat>=104 && beat<384 && beat%8==0) SpawnThreat(song);
+                bool spawnHostiles=!ExplorationMode || (ActiveRoom==1 && !SerpentComplete);
+                if(spawnHostiles && beat>=nextWave && (ExplorationMode || beat<376)) { SpawnWave(song,beat); nextWave=beat+(Section==1?16:32); }
+                if(spawnHostiles && (ExplorationMode || beat>=104) && (ExplorationMode || beat<384) && beat%8==0) SpawnThreat(song);
                 lastBeat=beat;
+            }
+            if(ExplorationMode && SerpentComplete && !hostilesCleared) {
+                hostilesCleared=true;
+                foreach(var t in Targets) if(t.kind==TargetKind.Ray || t.kind==TargetKind.Threat)
+                    t.hp=t.reserved>0?t.reserved:0;
+                Locks.RemoveAll(t=>t.kind==TargetKind.Ray || t.kind==TargetKind.Threat);
             }
             UpdateTargets(song);
             UpdateShots(song);
             Locks.RemoveAll(t=>!t.Available);
             if(!Ended && input) {
-                if(Input.GetMouseButton(0)) AcquireAt(Input.mousePosition);
+                if(Input.GetMouseButton(0)) AcquireAt(flight.AimScreenPosition);
                 if(Input.GetMouseButtonUp(0)) Release();
                 if(Input.GetKeyDown(KeyCode.Space)) Nova();
             }
-            if(!Ended && BossDamage>=240) Finish(true,song);
-            if(!Ended && (Life<=0 || song>=Score.Duration-8)) Finish(false,song);
+            if(!Ended && !ExplorationMode && BossDamage>=240) Finish(true,song);
+            if(!Ended && (Life<=0 || (!ExplorationMode && song>=Score.Duration-8))) Finish(false,song);
         }
         void UpdateTargets(float song)
         {
             for(int i=Targets.Count-1;i>=0;i--) {
                 var t=Targets[i];
+                if(t.kind==TargetKind.Environment) continue;
                 if(t.kind==TargetKind.Organ) t.position=Anatomy.Node(t.u,song);
                 else if(t.kind==TargetKind.Ray) {
                     float age=song-t.born;
@@ -201,6 +227,7 @@ namespace Liminal
         {
             if(Ended || target==null || !target.Available || Locks.Count>=8 || Locks.Contains(target)) return false;
             if(Vector3.Distance(flight.Position,target.position)>LockRange) return false;
+            if(ExplorationMode && !CaveLayout.LineOfSight(flight.Position,target.position)) return false;
             Vector3 projected=flight.View.WorldToViewportPoint(target.position);
             return projected.z>=flight.View.nearClipPlane && projected.z<=flight.View.farClipPlane &&
                 projected.x>=0 && projected.x<=1 && projected.y>=0 && projected.y<=1;
@@ -257,6 +284,7 @@ namespace Liminal
             target.hp--;Hits++;Combo++;BestCombo=Mathf.Max(BestCombo,Combo);
             Points+=100*(1+Mathf.Min(7,Combo/8));Charge=Mathf.Min(1,Charge+0.018f);
             if(target.kind==TargetKind.Organ) BossDamage++;
+            if(target.kind==TargetKind.Environment) target.onHit?.Invoke(target,song);
             world.BurstAt(target.position,song,target.kind==TargetKind.Organ?Cyan:Amber);
             LastHitTime=song;Hit?.Invoke();
         }
@@ -279,5 +307,14 @@ namespace Liminal
             if(won) for(int i=0;i<16;i++) world.BurstAt(Anatomy.Center(i/16f,song),song,Cyan,2);
         }
         public void AbandonLocks() => Locks.Clear();
+
+        public LockTarget RegisterEnvironment(GameObject visual,Action<LockTarget,float> onHit)
+        {
+            if(visual==null) return null;
+            var target=new LockTarget { id=nextId++,kind=TargetKind.Environment,hp=1,
+                position=visual.transform.position,visual=visual,onHit=onHit };
+            Targets.Add(target);
+            return target;
+        }
     }
 }

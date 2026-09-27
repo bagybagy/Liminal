@@ -7,8 +7,9 @@ namespace Liminal
     {
         const float CruiseSpeed = 24f;
         const float BoostSpeed = 52f;
-        const float Acceleration = 40f;
-        const float CoastDamping = 2.2f;
+        const float Acceleration = CruiseSpeed / 0.7f;
+        const float BoostAcceleration = BoostSpeed / 0.7f;
+        const float CoastDamping = 3.53f;
         const float ArenaSoftStart = 300f;
         const float ArenaRadius = 350f;
 
@@ -17,6 +18,8 @@ namespace Liminal
         public Vector3 Velocity => velocity;
         public float Speed => velocity.magnitude;
         public Vector3 Emitter => Position;
+        public Vector2 AimScreenPosition => new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+        public bool IsCursorCaptured => ownsCursorLock;
         public bool ReducedMotion;
 
         Vector3 velocity;
@@ -27,10 +30,13 @@ namespace Liminal
         float pitch;
         float bank;
         bool ownsCursorLock;
+        bool ignoreLookDelta;
+        ParticleWorld world;
         GameObject avatar;
 
         public void Initialize(ParticleWorld world, Camera camera)
         {
+            this.world = world;
             View = camera;
             DestroyAvatar();
 
@@ -58,6 +64,11 @@ namespace Liminal
 
         public void ResetFlight()
         {
+            if (world != null && world.Caverns != null)
+            {
+                SetPose(CaveLayout.Spawn, CaveLayout.SpawnRotation);
+                return;
+            }
             Vector3 focus = Anatomy.Focus(0f);
             Vector3 start = focus + new Vector3(30f, 10f, -75f);
             arenaCenter = new Vector3(0f,10f,35f);
@@ -86,6 +97,7 @@ namespace Liminal
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
             ownsCursorLock = false;
+            ignoreLookDelta = true;
         }
 
         public void Tick(float song, float dt, bool controls)
@@ -101,15 +113,18 @@ namespace Liminal
                 localMove.z = (Input.GetKey(KeyCode.W) ? 1f : 0f) - (Input.GetKey(KeyCode.S) ? 1f : 0f);
                 boost = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
 
-                if (Input.GetMouseButton(1))
+                if (Application.isFocused)
                 {
                     if (!ownsCursorLock)
                     {
                         Cursor.lockState = CursorLockMode.Locked;
                         Cursor.visible = false;
                         ownsCursorLock = true;
+                        ignoreLookDelta = true;
                     }
-                    lookDelta = new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y"));
+                    Vector2 delta = new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y"));
+                    if (ignoreLookDelta) ignoreLookDelta = false;
+                    else lookDelta = delta;
                 }
                 else
                 {
@@ -149,15 +164,20 @@ namespace Liminal
             if (direction.sqrMagnitude > 0f)
             {
                 float targetSpeed = boost ? BoostSpeed : CruiseSpeed;
-                velocity = Vector3.MoveTowards(velocity, direction * targetSpeed, Acceleration * dt);
+                velocity = Vector3.MoveTowards(velocity, direction * targetSpeed,
+                    (boost ? BoostAcceleration : Acceleration) * dt);
             }
             else if (dt > 0f)
             {
                 velocity *= Mathf.Exp(-CoastDamping * dt);
             }
 
-            ApplyArenaBoundary(dt);
-            transform.position += velocity * dt;
+            if (world == null || world.Caverns == null)
+                ApplyArenaBoundary(dt);
+            Vector3 nextPosition = transform.position + velocity * dt;
+            if (world != null && world.Caverns != null)
+                nextPosition = CaveLayout.Constrain(nextPosition, ref velocity);
+            transform.position = nextPosition;
             UpdateRig(song, dt, yawRate);
         }
 
@@ -191,6 +211,8 @@ namespace Liminal
                     View.transform.position -= View.transform.forward * (7f - behind);
                     cameraVelocity = Vector3.ProjectOnPlane(cameraVelocity, View.transform.forward);
                 }
+                if (world != null && world.Caverns != null)
+                    View.transform.position = CaveLayout.Constrain(View.transform.position, ref cameraVelocity);
 
                 float targetFov = 54f + (ReducedMotion ? 0f : Score.Pulse(song) * 0.3f);
                 float fovBlend = 1f - Mathf.Exp(-5f * dt);
@@ -213,9 +235,13 @@ namespace Liminal
         {
             if (View != null)
             {
-                View.transform.SetPositionAndRotation(
-                    transform.position - playerRotation * Vector3.forward * 9f + Vector3.up * 2.8f,
-                    playerRotation);
+                Vector3 cameraPosition = transform.position - playerRotation * Vector3.forward * 9f + Vector3.up * 2.8f;
+                if (world != null && world.Caverns != null)
+                {
+                    Vector3 cameraMotion = Vector3.zero;
+                    cameraPosition = CaveLayout.Constrain(cameraPosition, ref cameraMotion);
+                }
+                View.transform.SetPositionAndRotation(cameraPosition, playerRotation);
                 View.fieldOfView = 54f;
             }
 
@@ -244,6 +270,11 @@ namespace Liminal
         {
             SuspendInput();
             DestroyAvatar();
+        }
+
+        void OnApplicationFocus(bool focused)
+        {
+            if (!focused) SuspendInput();
         }
     }
 }

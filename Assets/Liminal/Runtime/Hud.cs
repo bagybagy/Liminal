@@ -26,17 +26,29 @@ namespace Liminal
             var e=Experience.Combat; var music=Experience.Music;
             float w=Screen.width,h=Screen.height,t=(float)music.Time;
             Text(new Rect(32,25,220,32),"L I M I N A L",number,White);
-            Text(new Rect(33,59,250,20),"01   /   ABYSSAL CHOIR",small,Muted);
+            string roomName=Experience.CavernMode?CaveLayout.Rooms[Experience.CurrentRoom].Name:"ABYSSAL CHOIR";
+            Text(new Rect(33,59,300,20),(Experience.CavernMode?Experience.CurrentRoom+1:1).ToString("D2")+"   /   "+roomName,small,Muted);
             Text(new Rect(w-246,27,214,32),e.Points.ToString("D7"),number,White,TextAnchor.UpperRight);
             Text(new Rect(w-246,59,214,20),"RESONANCE  " + (1+Mathf.Min(7,e.Combo/8)).ToString("D2"),small,Cyan,TextAnchor.UpperRight);
             if(!music.Paused && !e.Ended) {
                 float bw=Mathf.Min(340,w*0.28f);
-                Text(new Rect((w-bw)*0.5f,28,bw,24),Score.SectionName(e.Section),small,Muted,TextAnchor.MiddleCenter);
+                string status=Score.SectionName(e.Section);
+                float progressValue=1-e.BossDamage/(float)e.BossDamageGoal;
+                if(Experience.CavernMode) {
+                    int room=Experience.CurrentRoom;
+                    status=room==0?"LANTERNS  "+Experience.Marine.IlluminatedJellies.ToString("D2")+" / "+Experience.Marine.JellyCount.ToString("D2"):
+                        room==1?(e.SerpentComplete?"SERPENT RESONATES":"RESONANCE  "+e.BossDamage.ToString("D2")+" / "+e.BossDamageGoal):
+                        "HORIZON  "+Experience.Marine.WhaleResonance+" / 8";
+                    progressValue=room==0?Experience.Marine.IlluminatedJellies/(float)Mathf.Max(1,Experience.Marine.JellyCount):
+                        room==1?e.BossDamage/(float)e.BossDamageGoal:Experience.Marine.WhaleResonance/8f;
+                }
+                Text(new Rect((w-bw)*0.5f,28,bw,24),status,small,Muted,TextAnchor.MiddleCenter);
                 Fill(new Rect((w-bw)*0.5f,56,bw,1),new Color(0.15f,0.25f,0.27f));
-                Fill(new Rect((w-bw)*0.5f,56,bw*(1-e.BossDamage/240f),1),e.Section>=3?Gold:Cyan);
+                Fill(new Rect((w-bw)*0.5f,56,bw*Mathf.Clamp01(progressValue),1),Experience.CavernMode?CaveLayout.Rooms[Experience.CurrentRoom].Accent:e.Section>=3?Gold:Cyan);
                 DrawTargets();
                 DrawBattleReadouts(w,h,t);
-                Vector2 aim=Experience.ProofActive?new Vector2(w*0.5f,h*0.5f):new Vector2(Input.mousePosition.x,h-Input.mousePosition.y);
+                Vector2 aim=Experience.Flight.AimScreenPosition;
+                aim.y=h-aim.y;
                 Color cursor=e.Locks.Count>0?Gold:White;
                 Ring(aim,e.LockRadiusPixels,new Color(White.r,White.g,White.b,0.16f),96);
                 Ring(aim,13+e.Locks.Count*0.55f,cursor*0.8f,32);
@@ -52,11 +64,11 @@ namespace Liminal
             Text(new Rect(w-205,h-66,172,18),"OVERDRIVE",small,e.Charge>=1?Gold:Muted,TextAnchor.UpperRight);
             Fill(new Rect(w-174,h-39,140,2),new Color(0.2f,0.27f,0.29f));
             Fill(new Rect(w-174,h-39,140*e.Charge,2),Gold);
-            float progress=Mathf.Clamp01(t/(float)Score.Duration);
+            float progress=Experience.CavernMode?Experience.RoomsVisited/3f:Mathf.Clamp01(t/(float)Score.Duration);
             Fill(new Rect(0,h-2,w*progress,2),Cyan*0.65f);
             if(t<7 && !music.Paused) {
                 float a=Mathf.Min(t/2,1)*Mathf.Clamp01((7-t)/2);
-                Text(new Rect(20,h*0.30f,w-40,50),"ABYSSAL CHOIR",title,new Color(0.85f,0.98f,0.94f,a),TextAnchor.MiddleCenter);
+                Text(new Rect(20,h*0.30f,w-40,50),Experience.CavernMode?"LANTERN GROTTO":"ABYSSAL CHOIR",title,new Color(0.85f,0.98f,0.94f,a),TextAnchor.MiddleCenter);
                 Text(new Rect(20,h*0.30f+52,w-40,24),"T I D A L   M E M O R Y",small,new Color(0.46f,0.7f,0.74f,a),TextAnchor.MiddleCenter);
             }
             if(e.Combo>=2 && t-e.LastHitTime<1.2f && !e.Ended) {
@@ -67,6 +79,8 @@ namespace Liminal
                 Fill(new Rect(0,0,w,5),new Color(1,0.18f,0.07f,e.DamageFlash));
                 Fill(new Rect(0,h-5,w,5),new Color(1,0.18f,0.07f,e.DamageFlash));
             }
+            if(Experience.CavernMode && Experience.WhaleAwakenedAt>=0 && t-Experience.WhaleAwakenedAt<7 && !music.Paused)
+                Text(new Rect(20,h*.74f,w-40,46),"HORIZON RESONATES",title,White,TextAnchor.MiddleCenter);
             if(music.Paused) PausePanel(w,h);
             else if(e.Ended && t-e.EndTime>4) Results(w,h);
         }
@@ -105,9 +119,15 @@ namespace Liminal
         {
             var flight=Experience.Flight;
             Vector3 focus=Anatomy.Focus(song);
+            string destination="SERPENT";
+            if(Experience.CavernMode) {
+                int room=Experience.CurrentRoom;
+                if(room==2) {focus=Experience.Marine.WhalePosition;destination="HORIZON";}
+                else if(room==0 || Experience.Combat.SerpentComplete) {focus=CaveLayout.ForwardWaypoint(flight.Position,room);destination="DESCENT";}
+            }
             float distance=Vector3.Distance(flight.Position,focus);
             Text(new Rect(33,h-98,190,20),flight.Speed.ToString("F0")+" M/S",small,Muted);
-            Text(new Rect(w*0.5f-120,65,240,22),distance.ToString("F0")+" M",small,
+            Text(new Rect(w*0.5f-120,65,240,22),destination+"  "+distance.ToString("F0")+" M",small,
                 distance<=Encounter.LockRange?Cyan:Muted,TextAnchor.MiddleCenter);
             Vector3 relative=flight.View.transform.InverseTransformPoint(focus);
             Vector3 viewport=flight.View.WorldToViewportPoint(focus);

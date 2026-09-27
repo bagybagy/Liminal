@@ -43,6 +43,8 @@ namespace Liminal.Editor
             var ribbons=CreateMaterial("Liminal/Ribbon",Generated+"/Ribbons.mat");
             var flowing=CreateMaterial("Liminal/Advected Light",Generated+"/FlowingParticles.mat");
             var membrane=CreateMaterial("Liminal/Bioluminescent Membrane",Generated+"/Membrane.mat");
+            var cavern=CreateMaterial("Liminal/Cavern Surface",Generated+"/CavernSurface.mat");
+            var marine=CreateMaterial("Liminal/Marine Light",Generated+"/MarineLight.mat");
             flowing.SetFloat("_Gain",0.55f);membrane.SetFloat("_Gain",1.05f);
             EditorUtility.SetDirty(flowing);EditorUtility.SetDirty(membrane);
 
@@ -56,7 +58,7 @@ namespace Liminal.Editor
             var cameraObj=new GameObject("Camera / abyss");
             var camera=cameraObj.AddComponent<Camera>();camera.tag="MainCamera";
             camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(0.001f,0.003f,0.006f,1);
-            camera.nearClipPlane=0.1f;camera.farClipPlane=750;camera.fieldOfView=54;camera.allowHDR=true;
+            camera.nearClipPlane=0.1f;camera.farClipPlane=1600;camera.fieldOfView=54;camera.allowHDR=true;
             camera.transform.position=Anatomy.Focus(0)+new Vector3(30,13,-84);camera.transform.LookAt(Anatomy.Focus(0));
             cameraObj.AddComponent<AudioListener>();
             var cameraData=camera.GetUniversalAdditionalCameraData();cameraData.renderPostProcessing=true;
@@ -68,6 +70,7 @@ namespace Liminal.Editor
             game.soundtrack=AssetDatabase.LoadAssetAtPath<AudioClip>(audioPath);
             game.particles=particles;game.ribbons=ribbons;game.sceneCamera=camera;
             game.advectedParticles=flowing;game.membrane=membrane;
+            game.cavernSurface=cavern;game.marineLight=marine;
             game.particleSimulation=AssetDatabase.LoadAssetAtPath<ComputeShader>("Assets/Liminal/Shaders/LeviathanFlow.compute");
             string scenePath=Generated+"/AbyssalChoir.unity";
             EditorSceneManager.SaveScene(scene,scenePath);
