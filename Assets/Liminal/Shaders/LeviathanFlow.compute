@@ -78,13 +78,30 @@ void Simulate(uint3 id : SV_DispatchThreadID)
     p.previous=p.position;
     if(_Released>0.5)
     {
-        float phase=frac(p.anatomy.x*.83+p.seed*.37)*6.2831853*3+_ResonanceClock*.11;
-        float strand=p.seed*6.2831853;
-        float3 target=_SanctumCenter+float3(cos(phase+strand*.18)*_SanctumRadius.x,
-            -_SanctumRadius.y*.58+sin(phase*.47+strand)*_SanctumRadius.y*.20,
-            sin(phase+strand*.18)*_SanctumRadius.z);
+        float schoolHash=Hash(id.x*19+71);
+        float school=floor(schoolHash*5);
+        float u=p.anatomy.x;
+        float t=_ResonanceClock;
+        float longitudinal=(u-.5)*2;
+        float withinSchool=Hash(id.x*73+37);
+        float phase=longitudinal*(5.2+school*.37)+t*(.48+school*.075)+(withinSchool-.5)*.5;
+        float envelope=.58+.42*pow(saturate(1-longitudinal*longitudinal),.42);
+        float lobe=1+.16*sin(longitudinal*13+t*.55+school*1.7)+.09*sin(longitudinal*27-t*.73+p.anatomy.z*9);
+        float gap=saturate(.48+.52*sin(phase*1.45+school*2.1+t*.18));
+        float angle=phase+school*1.256637;
+        float crossAngle=Hash(id.x*53+17)*6.2831853;
+        float crossRadius=(3+5*envelope)*sqrt(Hash(id.x*97+13));
+        float radius=(15+8*gap)*lobe*envelope;
+        float vertical=longitudinal*(_SanctumRadius.y*.58)+sin(angle*1.6+t*.31)*5;
+        float3 target=_SanctumCenter+float3(cos(angle)*(radius+cos(crossAngle)*crossRadius)+sin(longitudinal*4+t*.21)*6,
+            vertical+sin(crossAngle)*crossRadius,
+            sin(angle)*(radius+cos(crossAngle)*crossRadius)+longitudinal*10+cos(t*.27+school)*4);
+        float3 tangent=float3(-sin(angle),.12*cos(angle*1.6),cos(angle));
+        float3 currentFlow=tangent*(8+school*1.6)+Curl(p.position*.035,t*.7+p.seed*8)*3.2;
         p.age+=_Delta;
-        p.position=lerp(p.position,target,saturate(_Delta*(.45+_ReleaseBlend*.65)));
+        float attraction=1-exp(-_Delta*(.7+_ReleaseBlend*1.25));
+        float3 advected=p.position+currentFlow*_Delta;
+        p.position=lerp(advected,target,attraction);
         p.velocity=(p.position-p.previous)/max(.001,_Delta);
         _Particles[id.x]=p;
         return;
@@ -93,7 +110,6 @@ void Simulate(uint3 id : SV_DispatchThreadID)
     if(p.anatomy.w>2.5)
     {
         if(p.age>=p.life) {
-            float generation=floor(_Song/p.life);
             p.position=Anchor(p);
             p.previous=p.position;
             p.velocity=_HeadVelocity*.2+Curl(p.position*.2,_Song)*.4;
@@ -118,7 +134,7 @@ void Simulate(uint3 id : SV_DispatchThreadID)
         float4 eventData=_ResonanceEvents[eventIndex];
         float eventAge=_ResonanceClock-eventData.y;
         if(eventAge<0 || eventAge>3.5) continue;
-        float center=frac(eventData.x*.91+eventAge*.19);
+        float center=saturate(eventData.x+eventAge*.025);
         float band=exp(-pow((p.anatomy.x-center)/.065,2))*exp(-eventAge*.72);
         float3 radial=normalize(p.position-SampleSpine(p.anatomy.x).xyz+float3(.001,.001,.001));
         impulse+=radial*band;

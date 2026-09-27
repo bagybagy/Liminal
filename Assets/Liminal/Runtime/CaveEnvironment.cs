@@ -65,6 +65,7 @@ namespace Liminal
         Mesh Mesh(PointCloud points, string name)
         {
             Mesh mesh = points.Build(name, 2400f);
+            mesh.bounds = CaveLayout.WorldBounds;
             meshes.Add(mesh);
             return mesh;
         }
@@ -121,7 +122,7 @@ namespace Liminal
             surfaceMesh.SetColors(colors);
             surfaceMesh.SetTriangles(triangles, 0);
             surfaceMesh.RecalculateNormals();
-            surfaceMesh.bounds = new Bounds(new Vector3(0, 0, 100), new Vector3(1000, 1000, 1900));
+            surfaceMesh.bounds = CaveLayout.WorldBounds;
             meshes.Add(surfaceMesh);
         }
 
@@ -244,7 +245,7 @@ namespace Liminal
             if (vertices.Count == 0) return;
             var mesh = new Mesh { name = "Dark tapered cavern spires", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             mesh.SetVertices(vertices); mesh.SetColors(colors); mesh.SetTriangles(triangles, 0); mesh.RecalculateNormals();
-            mesh.bounds = new Bounds(new Vector3(0, 0, 100), new Vector3(1000, 1000, 1900));
+            mesh.bounds = CaveLayout.WorldBounds;
             meshes.Add(mesh);
             var obj = new GameObject("Pillars and hanging stone");
             obj.transform.SetParent(transform, false);

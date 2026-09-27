@@ -16,6 +16,10 @@ namespace Liminal
         bool initialized, disposed;
         float previousSong = float.NaN;
         Vector3 currentCenter, currentVelocity, playerPosition, playerVelocity;
+        Vector3 whaleVelocity;
+        Vector4[] whalePatches = new Vector4[16];
+        float whaleSurfaceActivity, whaleTurn;
+        int whaleGroup = -1;
         float currentRadius = 1f, currentEnergy;
 
         public int ParticleCount { get; private set; }
@@ -89,6 +93,29 @@ namespace Liminal
             playerVelocity = velocity;
         }
 
+        public void SetWhaleMotion(Vector3 velocity, float surfaceActivity, float turn)
+        {
+            whaleVelocity = velocity;
+            whaleSurfaceActivity = Mathf.Clamp01(surfaceActivity);
+            whaleTurn = Mathf.Clamp01(turn);
+        }
+
+        public void SetWhaleGroup(int groupIndex)
+        {
+            if (groupData == null || groupIndex < 0 || groupIndex >= groupData.Length)
+                throw new ArgumentOutOfRangeException(nameof(groupIndex));
+            whaleGroup = groupIndex;
+            if (drawMaterial) drawMaterial.SetInt("_WhaleGroup", whaleGroup);
+        }
+
+        public void SetWhalePatches(Vector4[] patches)
+        {
+            if (patches == null || patches.Length != whalePatches.Length)
+                throw new ArgumentException("Whale resonator patches must contain exactly 16 entries.", nameof(patches));
+            Array.Copy(patches, whalePatches, whalePatches.Length);
+            if (drawMaterial) drawMaterial.SetVectorArray("_WhalePatches", whalePatches);
+        }
+
         public void Tick(float song, float dt)
         {
             if (!Ready) return;
@@ -102,6 +129,9 @@ namespace Liminal
             simulation.SetFloat("_CurrentEnergy", currentEnergy);
             simulation.SetVector("_Player", playerPosition);
             simulation.SetVector("_PlayerVelocity", playerVelocity);
+            simulation.SetVector("_WhaleVelocity", whaleVelocity);
+            simulation.SetFloat("_WhaleSurfaceActivity", whaleSurfaceActivity);
+            simulation.SetFloat("_WhaleTurn", whaleTurn);
 
             if (!initialized)
             {
@@ -144,7 +174,7 @@ namespace Liminal
             var settings = new RenderParams(drawMaterial)
             {
                 camera = camera,
-                worldBounds = new Bounds(new Vector3(0f, 0f, 180f), new Vector3(1200f, 1200f, 1800f)),
+                worldBounds = CaveLayout.WorldBounds,
                 shadowCastingMode = ShadowCastingMode.Off,
                 receiveShadows = false
             };

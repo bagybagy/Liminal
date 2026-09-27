@@ -7,7 +7,7 @@ namespace Liminal
     public enum TargetKind { Organ, Ray, Threat, Environment }
     public sealed class LockTarget
     {
-        public int id, hp, reserved;
+        public int id, hp, reserved, organIndex;
         public TargetKind kind;
         public float u, born, deadline;
         public Vector3 position, origin, destination, direction, lateral, vertical;
@@ -56,8 +56,12 @@ namespace Liminal
         public int Dodged { get; private set; }
         public int DamageTaken { get; private set; }
         public event Action Hit;
-        bool explorationOrgansActivated;
+        bool organsActivated;
         bool hostilesCleared;
+        public int SerpentRound { get; private set; }
+        float organWaveResetAt = -1;
+        public bool OrganWaveResetPending => organWaveResetAt >= 0;
+        static readonly MaterialPropertyBlock OrganProperties = new();
         static readonly Color Cyan = new(0.3f,1,0.91f), Amber = new(1,0.65f,0.22f);
         sealed class Shot
         {
@@ -71,7 +75,7 @@ namespace Liminal
         {
             music=transport; world=particles; flight=pilot;
             for(int i=0;i<16;i++) {
-                var t=new LockTarget {id=nextId++,kind=TargetKind.Organ,u=0.025f+i*0.058f};
+                var t=new LockTarget {id=nextId++,kind=TargetKind.Organ,organIndex=i,u=0.025f+i*0.058f};
                 t.visual=PointCloud.Place("Organ "+i,world.NodeMesh,world.NodeMaterial,transform);
                 t.visual.SetActive(false); Targets.Add(t);
             }
@@ -99,7 +103,7 @@ namespace Liminal
             Points=Combo=BestCombo=Hits=Fired=BossDamage=Dodged=DamageTaken=CancelledAfterFinish=MissedScheduledHits=0;
             Life=8;Charge=0;Won=Lost=false;EndTime=0;DamageFlash=0;
             lastSection=-1;lastBeat=-1;nextWave=16;MaxImpactDelay=0;MaxLocks=0;LastHitTime=-10;
-            explorationOrgansActivated=false;hostilesCleared=false;
+            organsActivated=false;hostilesCleared=false;SerpentRound=0;organWaveResetAt=-1;
             world.ResetEffects(); flight.ResetFlight();
         }
         public void Tick(float dt,bool input)
@@ -107,18 +111,13 @@ namespace Liminal
             float song=(float)music.Time;
             Section=Score.Section(song);
             DamageFlash=Mathf.MoveTowards(DamageFlash,0,dt*1.6f);
-            if(ExplorationMode && ActiveRoom==1 && !explorationOrgansActivated) {
-                explorationOrgansActivated=true;
-                foreach(var t in Targets) if(t.kind==TargetKind.Organ) {
-                    t.hp=5;t.reserved=0;t.visual.SetActive(true);
-                    world.BurstAt(Anatomy.Node(t.u,song),song,Cyan,0.35f);
-                }
-            }
+            if(ExplorationMode && ActiveRoom==1 && !organsActivated) ActivateOrganWave(song);
             if(Section!=lastSection) {
-                if(!ExplorationMode && !Ended && Section>=2 && Section<=4) foreach(var t in Targets) if(t.kind==TargetKind.Organ) {
-                    t.hp+=5; t.visual.SetActive(true);
-                    world.BurstAt(Anatomy.Node(t.u,song),song,Cyan,0.35f);
-                }
+                if(!ExplorationMode && !Ended && Section>=2 && Section<=4)
+                    foreach(var t in Targets) if(t.kind==TargetKind.Organ) {
+                        t.hp+=5; t.visual.SetActive(true);
+                        world.BurstAt(Anatomy.Node(t.u,song),song,Cyan,0.35f);
+                    }
                 lastSection=Section;
             }
             int beat=Mathf.FloorToInt(song/(float)Score.BeatSeconds);
@@ -136,6 +135,7 @@ namespace Liminal
             }
             UpdateTargets(song);
             UpdateShots(song);
+            AdvanceOrganWaves(song);
             Locks.RemoveAll(t=>!t.Available);
             if(!Ended && input) {
                 if(Input.GetMouseButton(0)) AcquireAt(flight.AimScreenPosition);
@@ -144,6 +144,43 @@ namespace Liminal
             }
             if(!Ended && !ExplorationMode && BossDamage>=240) Finish(true,song);
             if(!Ended && (Life<=0 || (!ExplorationMode && song>=Score.Duration-8))) Finish(false,song);
+        }
+        void ActivateOrganWave(float song)
+        {
+            organsActivated=true; SerpentRound=1;
+            foreach(var t in Targets) if(t.kind==TargetKind.Organ) {
+                t.hp=1; t.visual.SetActive(true); SetOrganMarker(t,0);
+                world.Serpent.SetOrganState(t.organIndex,t.u,0,song,true);
+                world.BurstAt(Anatomy.Node(t.u,song),song,Cyan,0.35f);
+            }
+        }
+        void AdvanceOrganWaves(float song)
+        {
+            if(!ExplorationMode || ActiveRoom!=1 || !organsActivated || SerpentComplete) return;
+            bool depleted=true, pending=false;
+            foreach(var t in Targets) if(t.kind==TargetKind.Organ) {
+                depleted &= t.hp<=0;
+                pending |= t.reserved>0;
+            }
+            if(!depleted || pending) return;
+            if(organWaveResetAt<0) {
+                float beat=(float)Score.BeatSeconds;
+                organWaveResetAt=Mathf.Ceil((song+Mathf.Max(1f,beat*2))/beat)*beat;
+            }
+            if(song<organWaveResetAt || SerpentRound>=5) return;
+            organWaveResetAt=-1; SerpentRound++;
+            foreach(var t in Targets) if(t.kind==TargetKind.Organ) {
+                t.hp=1; t.visual.SetActive(true); SetOrganMarker(t,0);
+                world.Serpent.SetOrganState(t.organIndex,t.u,0,song,true);
+                world.BurstAt(Anatomy.Node(t.u,song),song,Cyan,0.35f);
+            }
+        }
+        static void SetOrganMarker(LockTarget target,float warmth)
+        {
+            var renderer=target.visual.GetComponent<Renderer>();
+            renderer.GetPropertyBlock(OrganProperties);
+            OrganProperties.SetColor("_Tint",Color.Lerp(Color.white,new Color(1f,0.24f,0.055f),warmth));
+            renderer.SetPropertyBlock(OrganProperties);
         }
         void UpdateTargets(float song)
         {
@@ -171,7 +208,9 @@ namespace Liminal
                     }
                 }
                 t.visual.transform.position=t.position;
-                t.visual.SetActive(t.hp>0 && !Ended);
+                bool activeOrgan=t.kind==TargetKind.Organ && ExplorationMode
+                    ? organsActivated && !SerpentComplete : t.hp>0;
+                t.visual.SetActive(activeOrgan && !Ended);
                 if(t.kind!=TargetKind.Organ && t.reserved==0 && (t.hp<=0 || song-t.born>26)) {
                     Locks.Remove(t);Destroy(t.visual);Targets.RemoveAt(i);
                 }
@@ -283,7 +322,13 @@ namespace Liminal
         {
             target.hp--;Hits++;Combo++;BestCombo=Mathf.Max(BestCombo,Combo);
             Points+=100*(1+Mathf.Min(7,Combo/8));Charge=Mathf.Min(1,Charge+0.018f);
-            if(target.kind==TargetKind.Organ) BossDamage++;
+            if(target.kind==TargetKind.Organ) {
+                BossDamage++;
+                if(ExplorationMode) {
+                    SetOrganMarker(target,1);
+                    world.Serpent.SetOrganState(target.organIndex,target.u,1,song,true);
+                }
+            }
             if(target.kind==TargetKind.Environment) target.onHit?.Invoke(target,song);
             world.BurstAt(target.position,song,target.kind==TargetKind.Organ?Cyan:Amber);
             LastHitTime=song;Hit?.Invoke();

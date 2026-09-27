@@ -46,6 +46,8 @@ namespace Liminal.Editor
             var cavern=CreateMaterial("Liminal/Cavern Surface",Generated+"/CavernSurface.mat");
             var marine=CreateMaterial("Liminal/Marine Light",Generated+"/MarineLight.mat");
             var matter=CreateMaterial("Liminal/Persistent Matter",Generated+"/PersistentMatter.mat");
+            var horizon=CreateMaterial("Liminal/Horizon Water",Generated+"/HorizonWater.mat");
+            var spray=CreateMaterial("Liminal/Horizon Spray",Generated+"/HorizonSpray.mat");
             flowing.SetFloat("_Gain",0.55f);membrane.SetFloat("_Gain",1.05f);
             EditorUtility.SetDirty(flowing);EditorUtility.SetDirty(membrane);
 
@@ -73,6 +75,7 @@ namespace Liminal.Editor
             game.advectedParticles=flowing;game.membrane=membrane;
             game.cavernSurface=cavern;game.marineLight=marine;
             game.matterLight=matter;
+            game.horizonSurface=horizon;game.horizonSpray=spray;
             game.matterSimulation=AssetDatabase.LoadAssetAtPath<ComputeShader>("Assets/Liminal/Shaders/PersistentMatter.compute");
             game.particleSimulation=AssetDatabase.LoadAssetAtPath<ComputeShader>("Assets/Liminal/Shaders/LeviathanFlow.compute");
             string scenePath=Generated+"/AbyssalChoir.unity";
@@ -87,6 +90,7 @@ namespace Liminal.Editor
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64,false);
             AssetDatabase.SaveAssets();
             if(!game.soundtrack||!particles.shader.isSupported||!renderer.postProcessData||!game.particleSimulation||!flowing.shader.isSupported||!membrane.shader.isSupported||!game.matterSimulation||!matter.shader.isSupported) throw new Exception("Production asset validation failed");
+            if(!horizon.shader.isSupported||!spray.shader.isSupported) throw new Exception("Horizon shader validation failed");
             if(Math.Abs(game.soundtrack.length-Score.Duration)>0.02) throw new Exception("Soundtrack and authored score duration differ");
             if(Math.Abs(Score.NextEighth(3.14159)/(Score.BeatSeconds*0.5)-Math.Round(Score.NextEighth(3.14159)/(Score.BeatSeconds*0.5)))>0.000001)
                 throw new Exception("Score quantization failed");

@@ -18,13 +18,21 @@ namespace Liminal
                 new Color(.12f,.83f,.76f),new Color(.83f,.98f,.88f)),
             new("SERPENT SANCTUM",new Vector3(0,10,35),new Vector3(215,110,225),
                 new Color(.20f,.55f,.66f),new Color(1,.62f,.22f)),
-            new("HORIZON WHALE",new Vector3(90,-260,650),new Vector3(310,160,330),
+            new("HORIZON WHALE",new Vector3(90,-360,1120),new Vector3(700,300,720),
                 new Color(.24f,.44f,.86f),new Color(.80f,.88f,1))
         };
         public const float PassageRadius=34f;
+        public static float HorizonSurfaceY => Rooms[2].Center.y+65f;
+        public static Bounds WorldBounds {
+            get {
+                var bounds=new Bounds(Rooms[0].Center,Rooms[0].Radius*2.16f);
+                for(int i=1;i<Rooms.Length;i++) bounds.Encapsulate(new Bounds(Rooms[i].Center,Rooms[i].Radius*2.16f));
+                return bounds;
+            }
+        }
         public static readonly Vector3[][] Passages = {
             new[] {new Vector3(0,180,-360),new Vector3(60,130,-285),new Vector3(55,65,-195),new Vector3(0,35,-115)},
-            new[] {new Vector3(110,-25,175),new Vector3(190,-95,320),new Vector3(170,-190,430),new Vector3(90,-235,475)}
+            new[] {new Vector3(110,-25,175),new Vector3(190,-95,320),new Vector3(170,-190,430),new Vector3(90,-315,570)}
         };
         public static Vector3 Spawn => Rooms[0].Center+new Vector3(0,-4,-70);
         public static Quaternion SpawnRotation => Quaternion.LookRotation(new Vector3(0,-.05f,1));

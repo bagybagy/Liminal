@@ -10,6 +10,7 @@ namespace Liminal
         public Material advectedParticles,membrane;
         public Material cavernSurface,marineLight;
         public Material matterLight;
+        public Material horizonSurface,horizonSpray;
         public ComputeShader matterSimulation;
         public ComputeShader particleSimulation;
         public Camera sceneCamera;
@@ -18,6 +19,7 @@ namespace Liminal
         public ParticleWorld World { get; private set; }
         public Flight Flight { get; private set; }
         public MarineLife Marine { get; private set; }
+        public HorizonWater Horizon { get; private set; }
         public bool CavernMode { get; private set; }
         public int CurrentRoom { get; private set; }
         public int RoomsVisited { get; private set; }
@@ -48,7 +50,8 @@ namespace Liminal
             Combat=gameObject.AddComponent<Encounter>();Combat.ExplorationMode=CavernMode;Combat.Initialize(Music,World,Flight);
             if(CavernMode) {
                 Marine=gameObject.AddComponent<MarineLife>();Marine.Initialize(World,Combat);
-                sceneCamera.farClipPlane=1600;
+                Horizon=gameObject.AddComponent<HorizonWater>();Horizon.Initialize(horizonSurface,horizonSpray);
+                sceneCamera.farClipPlane=2300;
             }
             var hud=gameObject.AddComponent<Hud>();hud.Experience=this;
             SetReducedMotion(PlayerPrefs.GetInt("reducedMotion",0)==1);
@@ -69,6 +72,7 @@ namespace Liminal
                 if(!visitedRooms[CurrentRoom]) {visitedRooms[CurrentRoom]=true;RoomsVisited++;}
                 Combat.ActiveRoom=CurrentRoom;
                 Marine.Tick(song,dt,Flight.Position);
+                Horizon.Tick(song,dt,Marine.WhalePosition,Marine.WhaleRotation,Marine.WhaleVelocity,Marine.WhaleReleased);
                 World.Caverns.Tick(song,dt,Flight.Position);
                 Color atmosphere=CaveLayout.Rooms[CurrentRoom].Color*.006f;
                 atmosphere.a=1;
@@ -79,7 +83,7 @@ namespace Liminal
             float evolution=CavernMode?(Combat.SerpentComplete?1:.25f):Mathf.SmoothStep(0,1,Mathf.InverseLerp(104,164,song));
             float dissolve=!CavernMode && Combat.Won?Mathf.Clamp01((song-Combat.EndTime)/9):0;
             World.Tick(song,evolution,dissolve,ReducedMotion);
-            if(CavernMode && !whaleCalled && Marine.WhaleResonance>=8) {whaleCalled=true;WhaleAwakenedAt=Music.Time;Music.WhaleCall();}
+            if(CavernMode && !whaleCalled && Marine.WhaleReleased) {whaleCalled=true;WhaleAwakenedAt=Music.Time;Music.WhaleCall();}
             if(ProofActive) {Cursor.lockState=CursorLockMode.None;Cursor.visible=true;}
         }
         public void SetReducedMotion(bool value) { ReducedMotion=value;Flight.ReducedMotion=value; }
@@ -93,7 +97,7 @@ namespace Liminal
         {
             Music.Restart();Combat.Restart();
             if(CavernMode) {
-                Marine.ResetLife();World.Caverns.ResetLighting();
+                Marine.ResetLife();World.Caverns.ResetLighting();Horizon.ResetWater();
                 Array.Clear(visitedRooms,0,visitedRooms.Length);RoomsVisited=0;CurrentRoom=0;whaleCalled=false;WhaleAwakenedAt=-1;
             }
             Cursor.visible=ProofActive;

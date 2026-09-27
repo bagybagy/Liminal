@@ -38,9 +38,9 @@ namespace Liminal
                     int room=Experience.CurrentRoom;
                     status=room==0?"GARDEN  "+Experience.Marine.CompletedJellies.ToString("D2")+" / "+Experience.Marine.JellyCount.ToString("D2"):
                         room==1?(e.SerpentComplete?"SERPENT RELEASED":"RESONANCE  "+e.BossDamage.ToString("D2")+" / "+e.BossDamageGoal):
-                        (Experience.Marine.WhaleReleased?"HORIZON RELEASED":"HORIZON  "+Experience.Marine.WhaleResonance+" / 8");
+                        (Experience.Marine.WhaleReleased?"HORIZON RELEASED":"HORIZON  "+Experience.Marine.WhaleResonance+" / "+MarineLife.WhaleDamageGoal);
                     progressValue=room==0?Experience.Marine.CompletedJellies/(float)Mathf.Max(1,Experience.Marine.JellyCount):
-                        room==1?e.BossDamage/(float)e.BossDamageGoal:Experience.Marine.WhaleResonance/8f;
+                        room==1?e.BossDamage/(float)e.BossDamageGoal:Experience.Marine.WhaleResonance/(float)MarineLife.WhaleDamageGoal;
                 }
                 Text(new Rect((w-bw)*0.5f,28,bw,24),status,small,Muted,TextAnchor.MiddleCenter);
                 Fill(new Rect((w-bw)*0.5f,56,bw,1),new Color(0.15f,0.25f,0.27f));

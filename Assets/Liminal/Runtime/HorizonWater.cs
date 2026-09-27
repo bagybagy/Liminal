@@ -1,0 +1,268 @@
+using System;
+using UnityEngine;
+using UnityEngine.Rendering;
+
+namespace Liminal
+{
+    public sealed class HorizonWater : MonoBehaviour
+    {
+        const int RingCount = 72;
+        const int SideCount = 192;
+        const int EventCapacity = 24;
+        const int SprayBeadsPerEvent = 256;
+        const int SprayVerticesPerEvent = SprayBeadsPerEvent * 6;
+        const float WhaleHalfLength = 142f;
+        const float EventLifetime = 14f;
+
+        readonly Vector4[] eventData = new Vector4[EventCapacity * 2];
+        GraphicsBuffer eventBuffer;
+        Material surfaceMaterial, sprayMaterial;
+        Mesh surfaceMesh;
+        Vector3 center;
+        Vector2 radii;
+        int writeIndex, activeEvents;
+        float previousSong = -1f, lastBirthSong = -100f;
+        Vector3 lastBirthPosition;
+        float previousBowSide, previousSternSide, previousLeftFinSide, previousRightFinSide;
+        bool haveBirthPosition, havePreviousPose;
+
+        public float SurfaceHeight { get; private set; }
+        public int WaveEventCount => activeEvents;
+        public int SurfaceCrossings { get; private set; }
+        public bool Ready => surfaceMesh != null && eventBuffer != null && surfaceMaterial != null && sprayMaterial != null;
+
+        public void Initialize(Material surfaceTemplate, Material sprayTemplate)
+        {
+            if (!surfaceTemplate || !sprayTemplate)
+                throw new InvalidOperationException("Horizon Water requires surface and spray material templates.");
+            var room = CaveLayout.Rooms[2];
+            center = room.Center;
+            SurfaceHeight = CaveLayout.HorizonSurfaceY;
+            radii = new Vector2(Mathf.Min(room.Radius.x * 0.96f, 672f), Mathf.Min(room.Radius.z * 0.96f, 690f));
+            surfaceMaterial = new Material(surfaceTemplate) { name = "Horizon water / runtime" };
+            sprayMaterial = new Material(sprayTemplate) { name = "Horizon spray / runtime" };
+            eventBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, EventCapacity * 2, 16);
+            surfaceMaterial.SetBuffer("_WaterEvents", eventBuffer);
+            sprayMaterial.SetBuffer("_WaterEvents", eventBuffer);
+            surfaceMaterial.SetInt("_WaterEventCount", 0);
+            sprayMaterial.SetInt("_WaterEventCount", 0);
+            surfaceMaterial.SetVector("_WaterCenter", new Vector4(center.x, SurfaceHeight, center.z, 0));
+            surfaceMaterial.SetVector("_WaterRadii", new Vector4(radii.x, radii.y, 0, 0));
+            surfaceMesh = CreateSurface();
+            ResetWater();
+            RenderPipelineManager.beginCameraRendering += Render;
+        }
+
+        public void Tick(float song, float dt, Vector3 whalePosition, Quaternion whaleRotation, Vector3 whaleVelocity, bool released)
+        {
+            if (!Ready) return;
+            if (previousSong >= 0f && song < previousSong - 0.001f) ResetWater();
+            previousSong = song;
+
+            Vector3 forward = whaleRotation * Vector3.forward;
+            Vector3 bow = whalePosition + forward * WhaleHalfLength;
+            Vector3 stern = whalePosition - forward * WhaleHalfLength;
+            Vector3 leftFin = whalePosition + whaleRotation * (MarineLife.DeformWhaleLocal(new Vector3(-55f, -5f, 4f), song) * 1.8f);
+            Vector3 rightFin = whalePosition + whaleRotation * (MarineLife.DeformWhaleLocal(new Vector3(55f, -5f, 4f), song) * 1.8f);
+            float bowSide = bow.y - SurfaceHeight;
+            float sternSide = stern.y - SurfaceHeight;
+            float leftFinSide = leftFin.y - SurfaceHeight;
+            float rightFinSide = rightFin.y - SurfaceHeight;
+            float centerSide = whalePosition.y - SurfaceHeight;
+
+            if (!released && havePreviousPose)
+            {
+                DetectCrossing(previousBowSide, bowSide, bow, whaleVelocity, song);
+                DetectCrossing(previousSternSide, sternSide, stern, whaleVelocity, song);
+                DetectCrossing(previousLeftFinSide, leftFinSide, leftFin, whaleVelocity, song);
+                DetectCrossing(previousRightFinSide, rightFinSide, rightFin, whaleVelocity, song);
+            }
+            previousBowSide = bowSide;
+            previousSternSide = sternSide;
+            previousLeftFinSide = leftFinSide;
+            previousRightFinSide = rightFinSide;
+            havePreviousPose = true;
+
+            Vector3 samplePosition = whalePosition;
+            float nearDistance = Mathf.Abs(centerSide);
+            ConsiderSurfacePoint(bow, bowSide, ref samplePosition, ref nearDistance);
+            ConsiderSurfacePoint(stern, sternSide, ref samplePosition, ref nearDistance);
+            ConsiderSurfacePoint(leftFin, leftFinSide, ref samplePosition, ref nearDistance);
+            ConsiderSurfacePoint(rightFin, rightFinSide, ref samplePosition, ref nearDistance);
+            Vector3 sampleVelocity = whaleVelocity;
+            bool nearSurface = nearDistance < 66f;
+            if (!released && nearSurface)
+            {
+                float spacing = Vector3.Distance(samplePosition, lastBirthPosition);
+                if (!haveBirthPosition || (spacing >= 28f && song - lastBirthSong >= 0.18f))
+                {
+                    float proximity = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(1f - nearDistance / 66f));
+                    AddEvent(samplePosition, sampleVelocity, song, 0.72f * proximity);
+                }
+            }
+            UploadEvents(song);
+        }
+
+        static bool Crossed(float before, float after) => (before < 0f && after >= 0f) || (before > 0f && after <= 0f);
+
+        void DetectCrossing(float before, float after, Vector3 position, Vector3 velocity, float song)
+        {
+            if (!Crossed(before, after)) return;
+            SurfaceCrossings = Mathf.Min(SurfaceCrossings + 1, 999999);
+            AddEvent(position, velocity, song, 1.65f);
+        }
+
+        static void ConsiderSurfacePoint(Vector3 position, float side, ref Vector3 nearest, ref float distance)
+        {
+            float candidate = Mathf.Abs(side);
+            if (candidate >= distance) return;
+            nearest = position;
+            distance = candidate;
+        }
+
+        void AddEvent(Vector3 position, Vector3 velocity, float song, float strength)
+        {
+            int slot = writeIndex;
+            Vector3 horizontal = new Vector3(velocity.x, 0f, velocity.z);
+            Vector3 direction = horizontal.sqrMagnitude > 0.01f ? horizontal.normalized : Vector3.forward;
+            int first = slot * 2;
+            eventData[first] = new Vector4(position.x, SurfaceHeight, position.z, song);
+            eventData[first + 1] = new Vector4(direction.x, direction.z, Mathf.Clamp(horizontal.magnitude, 0f, 28f), strength);
+            writeIndex = (writeIndex + 1) % EventCapacity;
+            activeEvents = Mathf.Min(activeEvents + 1, EventCapacity);
+            lastBirthPosition = position;
+            lastBirthSong = song;
+            haveBirthPosition = true;
+        }
+
+        void UploadEvents(float song)
+        {
+            int live = 0;
+            for (int i = 0; i < EventCapacity; i++)
+                if (eventData[i * 2 + 1].w > 0f && song - eventData[i * 2].w <= EventLifetime) live++;
+            activeEvents = live;
+            eventBuffer.SetData(eventData);
+            surfaceMaterial.SetFloat("_Song", song);
+            sprayMaterial.SetFloat("_Song", song);
+            surfaceMaterial.SetInt("_WaterEventCount", EventCapacity);
+            sprayMaterial.SetInt("_WaterEventCount", EventCapacity);
+        }
+
+        public void ResetWater()
+        {
+            Array.Clear(eventData, 0, eventData.Length);
+            if (eventBuffer != null) eventBuffer.SetData(eventData);
+            writeIndex = activeEvents = SurfaceCrossings = 0;
+            lastBirthSong = -100f;
+            previousSong = -1f;
+            haveBirthPosition = havePreviousPose = false;
+            if (surfaceMaterial) surfaceMaterial.SetInt("_WaterEventCount", 0);
+            if (sprayMaterial) sprayMaterial.SetInt("_WaterEventCount", 0);
+        }
+
+        public float SampleHeight(float x, float z, float song)
+        {
+            float baseWave = Mathf.Sin(x * 0.014f + z * 0.007f + song * 0.48f) * 0.7f
+                + Mathf.Sin(-x * 0.008f + z * 0.018f - song * 0.34f) * 0.44f
+                + Mathf.Sin(x * 0.036f - z * 0.025f + song * 0.82f) * 0.12f;
+            float events = 0f;
+            for (int i = 0; i < EventCapacity; i++)
+            {
+                Vector4 origin = eventData[i * 2];
+                Vector4 motion = eventData[i * 2 + 1];
+                float age = song - origin.w;
+                if (motion.w <= 0f || age < 0f || age > EventLifetime) continue;
+                float dx = x - origin.x - motion.x * motion.z * age * 0.32f;
+                float dz = z - origin.z - motion.y * motion.z * age * 0.32f;
+                float radius = Mathf.Sqrt(dx * dx + dz * dz);
+                float envelope = Mathf.Exp(-Mathf.Abs(radius - age * (12f + motion.z * 0.35f)) * 0.014f) * Mathf.Exp(-age * 0.12f);
+                float phase = radius * 0.16f - age * (2.1f + motion.z * 0.035f);
+                float wakeAxis = Mathf.Abs(dx * motion.y - dz * motion.x);
+                float backward = Mathf.Max(0f, -(dx * motion.x + dz * motion.y));
+                float vWake = Mathf.Exp(-Mathf.Pow((wakeAxis-backward*.24f)/3.5f,2))
+                    * Mathf.SmoothStep(0,1,Mathf.InverseLerp(8,24,backward))*Mathf.Exp(-backward*.0033f);
+                events += (Mathf.Sin(phase) * 0.9f + vWake * 1.4f) * envelope * motion.w;
+            }
+            return SurfaceHeight + baseWave + events * 1.05f;
+        }
+
+        public float SurfaceEnergyAt(Vector3 position, float song)
+        {
+            float energy = 0f;
+            for (int i = 0; i < EventCapacity; i++)
+            {
+                Vector4 origin = eventData[i * 2];
+                if (eventData[i * 2 + 1].w <= 0f) continue;
+                float age = song - origin.w;
+                if (age < 0f || age > EventLifetime) continue;
+                Vector4 motion = eventData[i * 2 + 1];
+                float dx = position.x - origin.x - motion.x * motion.z * age * 0.32f;
+                float dz = position.z - origin.z - motion.y * motion.z * age * 0.32f;
+                float radius = Mathf.Sqrt(dx * dx + dz * dz);
+                float ring = Mathf.Exp(-Mathf.Abs(radius - (8f + age * (12f + motion.z * 0.35f))) * 0.08f);
+                energy += ring * motion.w * Mathf.Exp(-age * 0.12f);
+            }
+            return energy;
+        }
+
+        Mesh CreateSurface()
+        {
+            int vertexCount = 1 + RingCount * SideCount;
+            var vertices = new Vector3[vertexCount];
+            var triangles = new int[(SideCount + (RingCount - 1) * SideCount * 2) * 3];
+            vertices[0] = Vector3.zero;
+            for (int ring = 1; ring <= RingCount; ring++)
+            {
+                float r = ring / (float)RingCount;
+                for (int side = 0; side < SideCount; side++)
+                {
+                    float angle = side * (Mathf.PI * 2f / SideCount);
+                    vertices[1 + (ring - 1) * SideCount + side] = new Vector3(Mathf.Cos(angle) * radii.x * r, 0f, Mathf.Sin(angle) * radii.y * r);
+                }
+            }
+            int index = 0;
+            for (int side = 0; side < SideCount; side++)
+            {
+                int next = (side + 1) % SideCount;
+                triangles[index++] = 0;
+                triangles[index++] = 1 + side;
+                triangles[index++] = 1 + next;
+            }
+            for (int ring = 1; ring < RingCount; ring++)
+                for (int side = 0; side < SideCount; side++)
+                {
+                    int next = (side + 1) % SideCount;
+                    int innerA = 1 + (ring - 1) * SideCount + side;
+                    int innerB = 1 + (ring - 1) * SideCount + next;
+                    int outerA = innerA + SideCount, outerB = innerB + SideCount;
+                    triangles[index++] = innerA; triangles[index++] = outerA; triangles[index++] = innerB;
+                    triangles[index++] = innerB; triangles[index++] = outerA; triangles[index++] = outerB;
+                }
+            var mesh = new Mesh { name = "Horizon water / bounded tessellated ellipse", indexFormat = IndexFormat.UInt32 };
+            mesh.vertices = vertices;
+            mesh.triangles = triangles;
+            mesh.bounds = new Bounds(Vector3.zero, new Vector3(radii.x * 2f, 60f, radii.y * 2f));
+            mesh.UploadMeshData(true);
+            return mesh;
+        }
+
+        void Render(ScriptableRenderContext context, Camera camera)
+        {
+            if (!Ready || (camera.cameraType != CameraType.Game && camera.cameraType != CameraType.SceneView)) return;
+            var bounds = CaveLayout.WorldBounds;
+            var surfaceParams = new RenderParams(surfaceMaterial) { camera = camera, worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false };
+            Graphics.RenderMesh(surfaceParams, surfaceMesh, 0, Matrix4x4.Translate(new Vector3(center.x, SurfaceHeight, center.z)));
+            var sprayParams = new RenderParams(sprayMaterial) { camera = camera, worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false };
+            Graphics.RenderPrimitives(sprayParams, MeshTopology.Triangles, EventCapacity * SprayVerticesPerEvent);
+        }
+
+        void OnDestroy()
+        {
+            RenderPipelineManager.beginCameraRendering -= Render;
+            eventBuffer?.Dispose(); eventBuffer = null;
+            if (surfaceMaterial) Destroy(surfaceMaterial);
+            if (sprayMaterial) Destroy(sprayMaterial);
+            if (surfaceMesh) Destroy(surfaceMesh);
+        }
+    }
+}

@@ -293,6 +293,8 @@ MonoBehaviour:
   cavernSurface: {fileID: 2100000, guid: bcc67fd2f2608324398b7d88cf9ecccd, type: 2}
   marineLight: {fileID: 2100000, guid: 68b13bc8c3829414dac204a90e2d2644, type: 2}
   matterLight: {fileID: 2100000, guid: 38f764bb8f0edaf418d645a7266cf641, type: 2}
+  horizonSurface: {fileID: 2100000, guid: 5f6245c208cd84646b33dd5bc5149040, type: 2}
+  horizonSpray: {fileID: 2100000, guid: a95db1b813b4dd34cb8cbb843ba105c1, type: 2}
   matterSimulation: {fileID: 7200000, guid: 1742f79b20514425a5a7ca97771a6e31, type: 3}
   particleSimulation: {fileID: 7200000, guid: 615f679acf5fc3849adef0d17093b718, type: 3}
   sceneCamera: {fileID: 776871750}

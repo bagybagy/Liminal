@@ -9,11 +9,13 @@ namespace Liminal
     {
         public const int SimulatedParticles = 262144;
         const int ResonanceEventCapacity = 16;
+        const int OrganCapacity = 16;
         readonly Vector4[] spineSamples = new Vector4[Anatomy.SpineSamples];
         readonly List<Vector4> resonanceEvents = new(ResonanceEventCapacity);
         readonly Vector4[] resonanceEventData = new Vector4[ResonanceEventCapacity];
+        readonly Vector4[] organStateData = new Vector4[OrganCapacity];
         GraphicsBuffer particles, spine;
-        GraphicsBuffer resonanceBuffer;
+        GraphicsBuffer resonanceBuffer, organStateBuffer;
         ComputeShader simulation;
         Material lightMaterial, skinMaterial;
         Mesh skinMesh;
@@ -33,6 +35,8 @@ namespace Liminal
         public bool Released => released;
         public bool ReleaseSettled => released && releaseClock >= 12f;
         public int ParticleCount => Ready ? SimulatedParticles : 0;
+        public int OrganStateCount => OrganCapacity;
+        public float OrganHeat(int index) => index >= 0 && index < OrganCapacity ? organStateData[index].y : 0;
 
         public void Initialize(ComputeShader compute, Material light, Material membrane)
         {
@@ -44,6 +48,7 @@ namespace Liminal
             particles = new GraphicsBuffer(GraphicsBuffer.Target.Structured, SimulatedParticles, 64);
             spine = new GraphicsBuffer(GraphicsBuffer.Target.Structured, Anatomy.SpineSamples, 16);
             resonanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, ResonanceEventCapacity, 16);
+            organStateBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, OrganCapacity, 16);
             initializeKernel = simulation.FindKernel("Initialize");
             simulateKernel = simulation.FindKernel("Simulate");
             foreach (int kernel in new[] { initializeKernel, simulateKernel }) {
@@ -53,11 +58,15 @@ namespace Liminal
             lightMaterial.SetBuffer("_Particles", particles);
             lightMaterial.SetBuffer("_Spine", spine);
             lightMaterial.SetBuffer("_ResonanceEvents", resonanceBuffer);
+            lightMaterial.SetBuffer("_OrganStates", organStateBuffer);
             skinMaterial.SetBuffer("_Spine", spine);
             simulation.SetBuffer(simulateKernel, "_ResonanceEvents", resonanceBuffer);
             simulation.SetInt("_Count", SimulatedParticles);
             simulation.SetInt("_ResonanceEventCount", 0);
             lightMaterial.SetInt("_ResonanceEventCount", 0);
+            lightMaterial.SetInt("_OrganStateCount", OrganCapacity);
+            Array.Clear(organStateData, 0, organStateData.Length);
+            organStateBuffer.SetData(organStateData);
             simulation.SetVector("_SanctumCenter", CaveLayout.Rooms[1].Center);
             Vector3 roomRadius = CaveLayout.Rooms[1].Radius;
             simulation.SetVector("_SanctumRadius", new Vector3(roomRadius.x * 0.62f, roomRadius.y, roomRadius.z * 0.60f));
@@ -93,6 +102,7 @@ namespace Liminal
             skinMaterial.SetFloat("_Released", released ? 1 : 0);
             skinMaterial.SetFloat("_ReleaseBlend", released ? Mathf.SmoothStep(0, 1, releaseClock / 12f) : 0);
             UploadResonanceEvents();
+            organStateBuffer.SetData(organStateData);
             if (reset) {
                 simulation.Dispatch(initializeKernel, SimulatedParticles / 128, 1, 1);
                 simulationResetPending = false;
@@ -121,16 +131,22 @@ namespace Liminal
             resonanceEnabled = true;
             resonanceClock = song;
             progress = Mathf.Clamp01(progress);
-            if (progress > previousProgress) {
-                if (resonanceEvents.Count == ResonanceEventCapacity) resonanceEvents.RemoveAt(0);
-                resonanceEvents.Add(new Vector4(progress, song, 0, 0));
-                previousProgress = progress;
-            }
+            previousProgress = Mathf.Max(previousProgress, progress);
             if (completed && !released) {
                 released = true;
                 releaseSong = song;
                 releaseClock = 0;
                 releasePosePending = true;
+            }
+        }
+
+        public void SetOrganState(int index, float u, float warmth, float song, bool active)
+        {
+            if (index < 0 || index >= OrganCapacity) return;
+            organStateData[index] = new Vector4(Mathf.Clamp01(u), Mathf.Clamp01(warmth), song, active ? 1 : 0);
+            if (warmth > 0) {
+                if (resonanceEvents.Count == ResonanceEventCapacity) resonanceEvents.RemoveAt(0);
+                resonanceEvents.Add(new Vector4(Mathf.Clamp01(u), song, 0, 0));
             }
         }
 
@@ -161,6 +177,8 @@ namespace Liminal
             previousSong = -1; SimulationSteps = 0; previousProgress = 0; simulationResetPending = true;
             resonanceClock = 0; releaseClock = 0; releaseSong = 0; releasePosePending = false;
             resonanceEnabled = false; released = false; resonanceEvents.Clear();
+            Array.Clear(organStateData, 0, organStateData.Length);
+            if (organStateBuffer != null) organStateBuffer.SetData(organStateData);
         }
 
         static Mesh CreateMembrane()
@@ -194,7 +212,8 @@ namespace Liminal
         void OnDestroy()
         {
             RenderPipelineManager.beginCameraRendering -= Render;
-            particles?.Dispose(); spine?.Dispose(); resonanceBuffer?.Dispose(); particles = null; spine = null; resonanceBuffer = null;
+            particles?.Dispose(); spine?.Dispose(); resonanceBuffer?.Dispose(); organStateBuffer?.Dispose();
+            particles = null; spine = null; resonanceBuffer = null; organStateBuffer = null;
             if (simulation) Destroy(simulation);
             if (lightMaterial) Destroy(lightMaterial);
             if (skinMaterial) Destroy(skinMaterial);
