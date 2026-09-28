@@ -38,18 +38,21 @@ Shader "Liminal/Horizon Water"
                     float age = _Song - origin.w;
                     if (age < 0 || age > 14) continue;
                     float4 motion = _WaterEvents[i * 2 + 1];
-                    float2 delta = p - origin.xz - motion.xy * motion.z * age * 0.32;
+                    float2 delta = p - origin.xz - motion.xy * motion.z * age * 0.06;
                     float radius = length(delta);
-                    float phase = radius * 0.16 - age * (2.1 + motion.z * 0.035);
-                    float envelope = exp(-abs(radius - age * (12 + motion.z * 0.35)) * 0.014) * exp(-age * 0.12);
+                    float rippleRadius = 3 + age * (4 + motion.z * 0.1);
+                    float ripple = sin(radius * 0.34 - age * 2.4)
+                        * exp(-abs(radius - rippleRadius) * 0.18) * exp(-age * 0.62);
+                    float side = delta.x * motion.y - delta.y * motion.x;
                     float backward = max(0, -dot(delta, motion.xy));
-                    float wakeAxis = abs(delta.x * motion.y - delta.y * motion.x);
-                    float armDistance = wakeAxis - backward * 0.24;
-                    float vWake = exp(-pow(armDistance / 3.5, 2)) * smoothstep(8, 24, backward)
-                        * exp(-backward * 0.0033);
-                    sum += (sin(phase) * 0.9 + vWake * 1.4) * envelope * motion.w;
+                    float wakeWidth = 2.8 + backward * 0.018;
+                    float wakeGate = smoothstep(4, 15, backward) * exp(-backward * 0.012) * exp(-age * 0.24);
+                    float shoulder = exp(-pow((abs(side) - backward * 0.22) / wakeWidth, 2)) * wakeGate;
+                    float channel = exp(-pow(side / (wakeWidth * 0.42), 2)) * wakeGate;
+                    float impact = smoothstep(0.85, 1.3, motion.w);
+                    sum += (ripple * (0.12 + impact * 0.15) + shoulder * 0.42 - channel * 0.14) * motion.w;
                 }
-                return sum;
+                return clamp(sum, -0.75, 0.85);
             }
 
             float EventCrest(float2 p)
@@ -61,18 +64,29 @@ Shader "Liminal/Horizon Water"
                     float age = _Song - origin.w;
                     if (age < 0 || age > 14) continue;
                     float4 motion = _WaterEvents[i * 2 + 1];
-                    float2 delta = p - origin.xz - motion.xy * motion.z * age * 0.32;
+                    float2 delta = p - origin.xz - motion.xy * motion.z * age * 0.06;
                     float radius = length(delta);
-                    float phase = radius * 0.16 - age * (2.1 + motion.z * 0.035);
-                    float ringEnvelope = exp(-abs(radius - age * (12 + motion.z * 0.35)) * 0.032) * exp(-age * 0.12);
-                    float ring = pow(saturate(0.5 + 0.5 * sin(phase)), 20) * ringEnvelope;
+                    float impact = smoothstep(0.85, 1.3, motion.w);
+                    float ringRadius = 3 + age * (4 + motion.z * 0.1);
+                    float phase = radius * 0.34 - age * 2.4;
+                    float ringEnvelope = exp(-abs(radius - ringRadius) * 0.28) * exp(-age * 0.62);
+                    float2 radial = delta / max(radius, 0.001);
+                    float2 local = float2(dot(radial, motion.xy), radial.x * motion.y - radial.y * motion.x);
+                    float cos2 = local.x * local.x - local.y * local.y;
+                    float sin2 = 2 * local.x * local.y;
+                    float arc = cos2 * cos2 - sin2 * sin2;
+                    float breakup = smoothstep(-0.15, 0.5, arc);
+                    float ring = age < 2.4 ? pow(saturate(0.5 + 0.5 * sin(phase)), 10) * ringEnvelope * breakup * impact * 0.44 : 0;
+                    float side = delta.x * motion.y - delta.y * motion.x;
                     float backward = max(0, -dot(delta, motion.xy));
-                    float wakeAxis = abs(delta.x * motion.y - delta.y * motion.x);
-                    float arm = exp(-pow((wakeAxis - backward * 0.24) / 3.2, 2))
-                        * smoothstep(8, 24, backward) * exp(-backward * 0.0033) * exp(-age * 0.08);
-                    sum += (ring * 0.72 + arm * 0.9) * motion.w;
+                    float wakeWidth = 2.8 + backward * 0.018;
+                    float wakeGate = smoothstep(4, 15, backward) * exp(-backward * 0.012) * exp(-age * 0.24);
+                    float arm = exp(-pow((abs(side) - backward * 0.22) / wakeWidth, 2)) * wakeGate;
+                    float pulse = smoothstep(-0.15, 0.55, sin(backward * 0.16 + i * 2.1));
+                    float channel = exp(-pow(side / (wakeWidth * 0.42), 2)) * wakeGate;
+                    sum += ring + arm * pulse * motion.w * 0.32 - channel * motion.w * 0.14;
                 }
-                return saturate(sum);
+                return clamp(sum, -0.4, 0.7);
             }
 
             float Height(float2 p)
@@ -81,7 +95,7 @@ Shader "Liminal/Horizon Water"
                 float baseWave = sin(dot(p, float2(0.014, 0.007)) + t * 0.48) * 0.7
                     + sin(dot(p, float2(-0.008, 0.018)) - t * 0.34) * 0.44
                     + sin(dot(p, float2(0.036, -0.025)) + t * 0.82) * 0.12;
-                return baseWave + EventWave(p) * 1.05;
+                return baseWave + EventWave(p);
             }
 
             Varyings Vert(Attributes input)
@@ -107,7 +121,7 @@ Shader "Liminal/Horizon Water"
                 float fresnel = pow(1 - facing, 3.2);
                 float3 faceNormal = normalView < 0 ? -normal : normal;
                 float3 halfVector = normalize(view + normalize(float3(-0.34, 0.86, 0.38)));
-                float specular = pow(saturate(dot(faceNormal, halfVector)), 32) * 0.28;
+                float specular = pow(saturate(dot(faceNormal, halfVector)), 32) * 0.18;
                 float2 p = i.positionWS.xz;
                 float2 warp = float2(
                     sin(p.y * 0.019 + p.x * 0.009 + _Song * 0.18),
@@ -117,18 +131,19 @@ Shader "Liminal/Horizon Water"
                 float shimmerB = sin(dot(shimmerP, float2(-0.048, 0.089)) - _Song * 0.37
                     + sin(dot(p, float2(0.021, 0.026)) + _Song * 0.23) * 1.3);
                 float crest = pow(saturate(0.5 + 0.5 * (shimmerA * 0.66 + shimmerB * 0.34)), 20);
-                float eventCrest = EventCrest(p);
+                float eventSignal = EventCrest(p);
+                float eventCrest = saturate(eventSignal);
+                float wakeShadow = saturate(-eventSignal * 2.2);
                 float narrowSpecular = specular * crest;
                 float3 deep = float3(0.002, 0.012, 0.017);
-                float3 cyan = float3(0.055, 0.66, 0.68);
-                float3 pearl = float3(0.74, 1.0, 0.91);
-                float3 gold = float3(1.0, 0.58, 0.26);
-                float luminous = saturate(crest * 0.85 + eventCrest * 0.9 + narrowSpecular * 0.55);
-                float3 color = lerp(deep, cyan, crest * 0.72 + eventCrest * 0.48);
-                color = lerp(color, pearl, saturate(crest * 0.38 + eventCrest * 0.55 + narrowSpecular));
-                color = lerp(color, gold, eventCrest * 0.08);
-                float alpha = min(0.16, 0.025 + fresnel * 0.035 + crest * 0.075 + eventCrest * 0.075 + narrowSpecular * 0.055);
-                return half4(color * (1 + luminous * 0.24), alpha);
+                float3 cyan = float3(0.028, 0.32, 0.35);
+                float3 pearl = float3(0.48, 0.78, 0.74);
+                float luminous = saturate(crest * 0.55 + eventCrest * 0.62 + narrowSpecular * 0.35);
+                float3 color = lerp(deep, cyan, saturate(crest * 0.42 + eventCrest * 0.42));
+                color = lerp(color, pearl, saturate(crest * 0.18 + eventCrest * 0.28 + narrowSpecular * 0.45));
+                color = lerp(color, deep * 0.72, wakeShadow * 0.2);
+                float alpha = min(0.1, 0.018 + fresnel * 0.025 + crest * 0.042 + eventCrest * 0.045 + narrowSpecular * 0.03);
+                return half4(color * (1 + luminous * 0.12), alpha);
             }
             ENDHLSL
         }

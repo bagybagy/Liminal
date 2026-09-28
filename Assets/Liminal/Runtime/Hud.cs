@@ -95,10 +95,10 @@ namespace Liminal
                 int index=e.Locks.IndexOf(target);
                 bool canAcquire=e.CanAcquire(target);
                 if(target.kind==TargetKind.Environment && index<0 && !canAcquire) continue;
-                if(target.kind==TargetKind.Environment && index<0 &&
+                if(target.kind==TargetKind.Environment && !target.isWhale && index<0 &&
                     Vector2.Distance(projected,Experience.Flight.AimScreenPosition)>e.LockRadiusPixels*1.5f) continue;
                 bool distantOrgan=target.kind==TargetKind.Organ && index<0 && !canAcquire;
-                float radius=distantOrgan?11:target.kind==TargetKind.Organ?15:20;
+                float radius=distantOrgan?11:target.isWhale?9:target.kind==TargetKind.Organ?15:20;
                 Color col=index>=0?Gold:distantOrgan?new Color(0.54f,0.68f,0.69f,0.15f):target.kind==TargetKind.Threat?new Color(1,0.34f,0.20f,0.88f):new Color(Cyan.r,Cyan.g,Cyan.b,0.42f);
                 if(index>=0) {
                     Ring(center,radius+5,col,36);

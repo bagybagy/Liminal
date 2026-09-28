@@ -8,8 +8,11 @@ namespace Liminal
     public sealed class PersistentMatter : IDisposable
     {
         const int Threads = 128;
+        public const int WhaleRingCount = 12;
+        public const int WhaleTargetsPerRing = 4;
+        public const int WhalePatchCount = WhaleRingCount * WhaleTargetsPerRing;
         MatterGroup[] groupData;
-        GraphicsBuffer seeds, groups, particles;
+        GraphicsBuffer seeds, groups, particles, whalePatchBuffer;
         ComputeShader simulation;
         Material drawMaterial;
         int initializeKernel, simulateKernel;
@@ -17,7 +20,7 @@ namespace Liminal
         float previousSong = float.NaN;
         Vector3 currentCenter, currentVelocity, playerPosition, playerVelocity;
         Vector3 whaleVelocity;
-        Vector4[] whalePatches = new Vector4[16];
+        Vector4[] whalePatches = new Vector4[WhalePatchCount];
         float whaleSurfaceActivity, whaleTurn;
         int whaleGroup = -1;
         float currentRadius = 1f, currentEnergy;
@@ -25,7 +28,7 @@ namespace Liminal
         public int ParticleCount { get; private set; }
         public int InitializationCount { get; private set; }
         public int SimulationSteps { get; private set; }
-        public bool Ready => !disposed && particles != null && seeds != null && groups != null;
+        public bool Ready => !disposed && particles != null && seeds != null && groups != null && whalePatchBuffer != null;
 
         public PersistentMatter() { }
 
@@ -55,16 +58,20 @@ namespace Liminal
             seeds = new GraphicsBuffer(GraphicsBuffer.Target.Structured, ParticleCount, 64);
             groups = new GraphicsBuffer(GraphicsBuffer.Target.Structured, groupCount, 96);
             particles = new GraphicsBuffer(GraphicsBuffer.Target.Structured, ParticleCount, 64);
+            whalePatchBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, WhalePatchCount, 16);
             seeds.SetData(seedData);
+            whalePatchBuffer.SetData(whalePatches);
 
             initializeKernel = simulation.FindKernel("Initialize");
             simulateKernel = simulation.FindKernel("Simulate");
             simulation.SetBuffer(initializeKernel, "_Seeds", seeds);
             simulation.SetBuffer(initializeKernel, "_Groups", groups);
             simulation.SetBuffer(initializeKernel, "_Particles", particles);
+            simulation.SetBuffer(initializeKernel, "_WhalePatches", whalePatchBuffer);
             simulation.SetBuffer(simulateKernel, "_Seeds", seeds);
             simulation.SetBuffer(simulateKernel, "_Groups", groups);
             simulation.SetBuffer(simulateKernel, "_Particles", particles);
+            simulation.SetBuffer(simulateKernel, "_WhalePatches", whalePatchBuffer);
             simulation.SetInt("_Count", ParticleCount);
             drawMaterial.SetBuffer("_Particles", particles);
             RenderPipelineManager.beginCameraRendering += Render;
@@ -105,15 +112,16 @@ namespace Liminal
             if (groupData == null || groupIndex < 0 || groupIndex >= groupData.Length)
                 throw new ArgumentOutOfRangeException(nameof(groupIndex));
             whaleGroup = groupIndex;
+            if (simulation) simulation.SetInt("_WhaleGroup", whaleGroup);
             if (drawMaterial) drawMaterial.SetInt("_WhaleGroup", whaleGroup);
         }
 
         public void SetWhalePatches(Vector4[] patches)
         {
             if (patches == null || patches.Length != whalePatches.Length)
-                throw new ArgumentException("Whale resonator patches must contain exactly 16 entries.", nameof(patches));
+                throw new ArgumentException("Whale resonator patches must contain exactly 48 entries.", nameof(patches));
             Array.Copy(patches, whalePatches, whalePatches.Length);
-            if (drawMaterial) drawMaterial.SetVectorArray("_WhalePatches", whalePatches);
+            if (whalePatchBuffer != null) whalePatchBuffer.SetData(whalePatches);
         }
 
         public void Tick(float song, float dt)
@@ -186,8 +194,8 @@ namespace Liminal
             if (disposed) return;
             disposed = true;
             RenderPipelineManager.beginCameraRendering -= Render;
-            seeds?.Dispose(); groups?.Dispose(); particles?.Dispose();
-            seeds = null; groups = null; particles = null;
+            seeds?.Dispose(); groups?.Dispose(); particles?.Dispose(); whalePatchBuffer?.Dispose();
+            seeds = null; groups = null; particles = null; whalePatchBuffer = null;
             if (simulation) UnityEngine.Object.Destroy(simulation);
             if (drawMaterial) UnityEngine.Object.Destroy(drawMaterial);
         }

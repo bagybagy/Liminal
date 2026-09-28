@@ -9,9 +9,11 @@ namespace Liminal
         const int JellyTotal = 15;
         const int SchoolTotal = 7;
         const int FishPerSchool = 28;
-        public const int WhaleDamageGoal = 80;
-        public const int WhaleOrganCount = 16;
-        const int WhaleRounds = 5;
+        const int WhaleRounds = 2;
+        const int WhaleRingCount = PersistentMatter.WhaleRingCount;
+        const int WhaleTargetsPerRing = PersistentMatter.WhaleTargetsPerRing;
+        public const int WhaleOrganCount = PersistentMatter.WhalePatchCount;
+        public const int WhaleDamageGoal = WhaleOrganCount * WhaleRounds;
         const int AmbientCount = 16000;
         const float FishScatterSeconds = 8f;
         const float JellySettleSeconds = 10f;
@@ -247,24 +249,70 @@ namespace Liminal
             whaleRotation = initialRotation;
             whaleGroup = NewGroup(Matrix4x4.TRS(initial, whaleRotation, Vector3.one));
             var random = new System.Random(72941);
-            float R(float min, float max) => min + (float)random.NextDouble() * (max - min);
-            const int body = 60000;
+            const int body = 86000;
+            const int profileSteps = 256;
+            const float minZ = -78f, maxZ = 75f;
+            var surfaceArea = new float[profileSteps + 1];
+            float previousWeight = WhaleSurfaceWeight(minZ);
+            for (int step = 1; step <= profileSteps; step++)
+            {
+                float z = Mathf.Lerp(minZ, maxZ, step / (float)profileSteps);
+                float weight = WhaleSurfaceWeight(z);
+                surfaceArea[step] = surfaceArea[step - 1] + (previousWeight + weight) *
+                    0.5f * ((maxZ - minZ) / profileSteps);
+                previousWeight = weight;
+            }
+
             for (int i = 0; i < body; i++)
             {
-                float z = R(-82, 76); Vector2 radius = WhaleRadius(z);
-                float a = R(0, Mathf.PI * 2), shell = R(0.86f, 1.04f);
+                float quantile = (i + 0.2f + WhaleHash(i + 17) * 0.6f) / body;
+                float area = quantile * surfaceArea[profileSteps];
+                int low = 0, high = profileSteps;
+                while (high - low > 1)
+                {
+                    int middle = (low + high) >> 1;
+                    if (surfaceArea[middle] < area) low = middle;
+                    else high = middle;
+                }
+                float segment = Mathf.InverseLerp(surfaceArea[low], surfaceArea[high], area);
+                float z = Mathf.Lerp(minZ + (maxZ - minZ) * low / profileSteps,
+                    minZ + (maxZ - minZ) * high / profileSteps, segment);
+                Vector2 radius = WhaleRadius(z);
+                float a = Mathf.Repeat(i * 0.6180339f + (WhaleHash(i + 86017) - 0.5f) * 0.15f, 1f) * Mathf.PI * 2f;
+                float shell = 0.94f + WhaleHash(i + 120013) * 0.08f;
                 Vector3 p = new(Mathf.Cos(a) * radius.x * shell, Mathf.Sin(a) * radius.y * shell, z);
-                float pleat = 0.5f + 0.5f * Mathf.Cos(a * 9 + z * 0.045f);
-                Color c = Color.Lerp(new Color(0.30f, 0.58f, 0.85f), new Color(0.85f, 0.94f, 1f), Mathf.Pow(pleat, 12) * 0.85f);
-                if (Mathf.Sin(a) < -0.58f) c = Color.Lerp(c, new Color(0.36f, 0.72f, 1f), 0.43f);
-                AddSeed(whaleGroup, p, R(0.045f, 0.105f), c * R(0.64f, 1.12f), WhaleKind, R(0, 1), Mathf.Abs(z) / 82f,
+                float ribPhase = a * 9f + z * 0.13f + Mathf.Sin(z * 0.045f + a * 2.1f) * 0.7f;
+                float rib = Mathf.Pow(0.5f + 0.5f * Mathf.Cos(ribPhase), 12f);
+                float flow = 0.5f + 0.5f * Mathf.Sin(a * 3.2f + z * 0.035f + Mathf.Sin(a * 1.7f - z * 0.02f) * 0.6f);
+                Color c = Color.Lerp(new Color(0.014f, 0.055f, 0.19f), new Color(0.025f, 0.22f, 0.49f), 0.24f + flow * 0.38f);
+                c = Color.Lerp(c, new Color(0.015f, 0.48f, 0.66f), rib * 0.40f);
+                if (Mathf.Sin(a) < -0.58f) c = Color.Lerp(c, new Color(0.14f, 0.055f, 0.34f), 0.24f);
+                float seed = WhaleHash(i + 172009);
+                float radiusJitter = WhaleHash(i + 215017);
+                AddSeed(whaleGroup, p, 0.036f + radiusJitter * 0.034f, c, WhaleKind, seed, Mathf.Abs(z) / 82f,
                     WhaleGarden(i, body));
             }
+
+            // Keep fin and fluke samples stable as body density changes.
+            for (int i = 0; i < 60000 * 6; i++) random.NextDouble();
             AddWhaleFinSeeds(new Vector3(-10, -5, 4), -1, random);
             AddWhaleFinSeeds(new Vector3(10, -5, 4), 1, random);
             AddFlukeSeeds(random);
             AddWhaleHeadDetails();
+            AddWhaleLuminousLines();
             ambientGroup = NewGroup(Matrix4x4.identity);
+        }
+
+        void AddWhaleLuminousLines()
+        {
+            // A small continuous layer supplies anatomy and moving light among quiet surface grains.
+            for(int strand=0;strand<8;strand++) for(int j=0;j<480;j++) {
+                float z=Mathf.Lerp(-74f,74f,j/479f);
+                float angle=strand*Mathf.PI*.25f+Mathf.Sin(z*.028f+strand*.4f)*.20f+z*.006f;
+                Vector2 radius=WhaleRadius(z)*1.035f;
+                Vector3 point=new(Mathf.Cos(angle)*radius.x,Mathf.Sin(angle)*radius.y,z);
+                AddSeed(whaleGroup,point,.14f,new Color(.08f,.75f,1f),WhaleKind,strand*.127f,2f,WhaleGarden(seeds.Count,0));
+            }
         }
 
         void AddWhaleFinSeeds(Vector3 root, int side, System.Random random)
@@ -285,8 +333,9 @@ namespace Liminal
                     {
                         Vector3 p = root + new Vector3(side * span, -1.6f + camber + layer * thickness,
                             -u * 22f - chordPos * chord + twist * (0.5f - v));
-                        AddSeed(whaleGroup, p, 0.065f, Color.Lerp(new Color(0.10f, 0.48f, 0.78f), new Color(0.58f, 0.84f, 0.87f), v) * 0.92f,
-                            WhaleKind, u, v, WhaleGarden(seeds.Count, seeds.Capacity));
+                        bool rim=v<.035f || v>.965f;
+                        AddSeed(whaleGroup, p, rim?.13f:0.065f, Color.Lerp(new Color(0.10f, 0.48f, 0.78f), new Color(0.58f, 0.84f, 0.87f), v) * 0.92f,
+                            WhaleKind, u, rim?2f:v, WhaleGarden(seeds.Count, seeds.Capacity));
                     }
                 }
             }
@@ -353,8 +402,18 @@ namespace Liminal
 
         void BuildWhaleTargets()
         {
+            whaleRoot.transform.SetPositionAndRotation(whalePosition, whaleRotation);
+            whaleRoot.transform.localScale = Vector3.one * 1.8f;
             for (int i = 0; i < WhaleOrganCount; i++)
-                whaleAnchors.Add(NewAnchor("Whale resonator " + (i + 1), whalePosition));
+            {
+                int ring = i / WhaleTargetsPerRing;
+                int quadrant = i % WhaleTargetsPerRing;
+                bool lateral = quadrant == 0 || quadrant == 2;
+                string region = ring == 0 && lateral ? "fluke" :
+                    (ring == 5 || ring == 6) && lateral ? "fin" : ring >= 10 ? "head" : "body";
+                Vector3 position = whaleRoot.transform.TransformPoint(WhaleTargetLocal(i, 0f));
+                whaleAnchors.Add(NewAnchor("Whale resonator " + (i + 1).ToString("00") + " / " + region, position));
+            }
         }
 
         void AddSeed(int group, Vector3 local, float radius, Color color, int kind, float seed, float tail, Vector3 destination)
@@ -390,6 +449,55 @@ namespace Liminal
             return new Vector2(width, width * 0.77f);
         }
 
+        static float WhaleHash(int value)
+        {
+            unchecked
+            {
+                uint hash = (uint)value;
+                hash ^= hash >> 16;
+                hash *= 0x7feb352du;
+                hash ^= hash >> 15;
+                hash *= 0x846ca68bu;
+                hash ^= hash >> 16;
+                return (hash & 0x00ffffffu) / 16777216f;
+            }
+        }
+
+        static float WhaleSurfaceWeight(float z)
+        {
+            const float offset = 0.25f;
+            Vector2 radius = WhaleRadius(z);
+            Vector2 before = WhaleRadius(z - offset), after = WhaleRadius(z + offset);
+            float dx = (after.x - before.x) / (offset * 2f);
+            float dy = (after.y - before.y) / (offset * 2f);
+            float a = radius.x, b = radius.y;
+            float perimeter = Mathf.PI * (3f * (a + b) -
+                Mathf.Sqrt(Mathf.Max(0f, (3f * a + b) * (a + 3f * b))));
+            return perimeter * Mathf.Sqrt(1f + dx * dx + dy * dy);
+        }
+
+        static Vector3 WhaleTargetLocal(int index, float song)
+        {
+            int ring = index / WhaleTargetsPerRing;
+            int quadrant = index % WhaleTargetsPerRing;
+            float z = Mathf.Lerp(-68f, 68f, ring / (float)(WhaleRingCount - 1));
+            float angle = quadrant * Mathf.PI * 0.5f + ((ring & 1) == 0 ? -0.045f : 0.045f);
+            Vector2 radius = WhaleRadius(z) * 1.08f;
+            Vector3 local = new(Mathf.Cos(angle) * radius.x, Mathf.Sin(angle) * radius.y, z);
+
+            if (ring == 0 && (quadrant == 0 || quadrant == 2))
+                local = new Vector3(quadrant == 0 ? 21f : -21f, 3.2f, -74f);
+            else if ((ring == 5 || ring == 6) && (quadrant == 0 || quadrant == 2))
+            {
+                float u = ring == 5 ? 0.48f : 0.23f;
+                float chord = Mathf.Lerp(15f, 0f, Mathf.Pow(u, 0.72f)) + 3.5f * Mathf.Sin(u * Mathf.PI);
+                local = new Vector3((quadrant == 0 ? 1f : -1f) * (10f + u * 45f),
+                    -5f - 1.6f + 0.9f + chord * 0.11f + 0.72f, 4f - u * 22f);
+            }
+
+            return DeformWhaleLocal(local, song);
+        }
+
         void RegisterTargets()
         {
             jellyTargets.Clear(); fishTargets.Clear(); whaleTargets.Clear();
@@ -406,7 +514,11 @@ namespace Liminal
             for (int i = 0; i < whaleAnchors.Count; i++)
             {
                 int index = i;
-                whaleTargets.Add(combat.RegisterEnvironment(whaleAnchors[i], (target, song) => HitWhale(index, target, song)));
+                LockTarget target = combat.RegisterEnvironment(whaleAnchors[i], (hitTarget, song) => HitWhale(index, hitTarget, song));
+                target.organIndex = index;
+                target.acquireRange = 220f;
+                target.isWhale = true;
+                whaleTargets.Add(target);
             }
         }
 
@@ -524,8 +636,11 @@ namespace Liminal
             }
             for (int i = 0; i < whaleTargets.Count; i++)
             {
-                whaleAnchors[i].transform.SetPositionAndRotation(whalePosition, whaleRotation);
-                whaleTargets[i].hp = 1; whaleTargets[i].reserved = 0;
+                LockTarget target = whaleTargets[i];
+                Vector3 position = whaleRoot.transform.TransformPoint(WhaleTargetLocal(i, 0f));
+                target.position = position;
+                target.visual.transform.SetPositionAndRotation(position, whaleRotation);
+                target.hp = 1; target.reserved = 0;
             }
             for (int i = 0; i < initialMatrices.Count; i++)
                 matter.SetGroup(i, initialMatrices[i], MatterPhase.Form, 0, 0, Vector3.zero, 0);
@@ -556,8 +671,6 @@ namespace Liminal
             playerPoseStarted = true;
             matter.Tick(song, dt);
             whalePulse = Mathf.MoveTowards(whalePulse, 0, dt * 0.24f);
-            for (int i = 0; i < whaleOrganHeat.Length; i++)
-                if (whaleOrganHeat[i] > 0f) whaleOrganHeat[i] = Mathf.Max(0.5f, Mathf.MoveTowards(whaleOrganHeat[i], 0f, dt * 0.22f));
         }
 
         void TickJellies(float song, float dt)
@@ -694,7 +807,7 @@ namespace Liminal
             whaleRoot.transform.SetPositionAndRotation(whalePosition, whaleRotation);
             whaleRoot.transform.localScale = Vector3.one * 1.8f;
             float phase = song * 0.045f;
-            whaleTurn = Mathf.Abs(Mathf.Sin(phase)) * 0.35f;
+            whaleTurn = Mathf.Abs(Mathf.Sin(phase));
             WhaleSurfaceActivity = Mathf.Clamp01((whalePosition.y - (CaveLayout.HorizonSurfaceY - 42f)) / 42f) *
                 Mathf.Clamp01(whaleVelocity.magnitude / 18f);
             float tailStroke = Mathf.Sin(song * 0.78f);
@@ -735,16 +848,12 @@ namespace Liminal
         {
             for (int i = 0; i < whaleTargets.Count; i++)
             {
-                float z = Mathf.Lerp(70f, -70f, (i + 0.5f) / WhaleOrganCount);
-                Vector2 radius = WhaleRadius(z) * 1.08f;
-                float a = i * 2.399f;
-                Vector3 local = new(Mathf.Cos(a) * radius.x, Mathf.Sin(a) * radius.y, z);
-                local = DeformWhaleLocal(local, song);
-                Vector3 pos = whaleRoot.transform.TransformPoint(local);
+                Vector3 pos = whaleRoot.transform.TransformPoint(WhaleTargetLocal(i, song));
                 LockTarget target = whaleTargets[i];
                 target.position = pos;
                 target.visual.transform.SetPositionAndRotation(pos, whaleRotation);
-                whaleOrganPatches[i] = new Vector4(pos.x, pos.y, pos.z, whaleOrganHeat[i]);
+                float patchGlow = litResonators.Contains(i) ? whaleOrganHeat[i] : 0.28f;
+                whaleOrganPatches[i] = new Vector4(pos.x, pos.y, pos.z, patchGlow);
                 if (!litResonators.Contains(i) && whaleRoundReadyAt < 0) target.hp = 1;
                 else target.hp = target.reserved;
             }

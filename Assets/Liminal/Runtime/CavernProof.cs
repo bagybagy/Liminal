@@ -26,6 +26,9 @@ namespace Liminal
         bool whaleFits,serpentRearmed,whaleRearmed;
         float whaleColorChange,whaleTrackingError;
         float whaleSettlementError;
+        float whaleChaseSeconds, whaleChaseTravel, whaleChaseMaxSpeed;
+        double playbackPhaseError;
+        bool rayMatterRetained;
         public void Initialize(Experience value)
         {
             experience=value;
@@ -110,6 +113,24 @@ namespace Liminal
             flight.SetPose(focus+new Vector3(35,12,-64),Quaternion.LookRotation(new Vector3(-35,-12,64)));
             yield return new WaitForSecondsRealtime(.4f);
             Capture("03-serpent-sanctum.png");
+            LockTarget ray=null;
+            foreach(var target in experience.Combat.Targets) if(target.kind==TargetKind.Ray && target.Available) {ray=target;break;}
+            Require(ray!=null,"Serpent stage must spawn a small enemy for the material transition test");
+            if(ray!=null) {
+                var originalMesh=ray.visual.GetComponent<MeshFilter>().sharedMesh;
+                yield return HitTargets(new[]{ray},1);
+                Require(ray.transformed && experience.Combat.Colonies.Count==1,"A killed ray must enter the colony pool");
+                yield return new WaitForSecondsRealtime(.9f);
+                Frame(ray.position,new Vector3(9,6,-20));
+                Capture("03d-ray-transfer.png");
+                yield return new WaitForSecondsRealtime(7.5f);
+                rayMatterRetained=ray.visual && ray.visual.activeSelf &&
+                    ray.visual.GetComponent<MeshFilter>().sharedMesh==originalMesh &&
+                    experience.Combat.Colonies.IsSettled(0,(float)experience.Music.Time);
+                Require(rayMatterRetained,"The defeated ray must retain its exact mesh and remain as settled matter");
+                Frame(experience.Combat.Colonies.RootAt(0)+Vector3.up*5,new Vector3(14,9,-24));
+                Capture("03e-ray-reef.png");
+            }
             var organs=new List<LockTarget>();
             foreach(var target in experience.Combat.Targets) if(target.kind==TargetKind.Organ) organs.Add(target);
             for(int round=0;round<5;round++) {
@@ -147,33 +168,16 @@ namespace Liminal
             yield return new WaitForSecondsRealtime(.4f);
             Capture("04-horizon-whale.png");
             var whaleOrgans=experience.Marine.WhaleResonatorTargets;
-            Require(whaleOrgans.Count==16,"Whale must have sixteen independently aimed organs");
-            for(int round=0;round<5;round++) {
-                if(round>0) {
-                    yield return WaitForRearm(whaleOrgans);
-                    whaleRearmed=true;
-                    foreach(var target in whaleOrgans) whaleRearmed&=target.Available;
-                    Require(whaleRearmed,"Whale must rearm all sixteen organs between rounds");
-                    Require(experience.Marine.WhaleOrganHeat(0)==0,"Whale hit patches must reset with their targets");
-                }
-                yield return HitTargets(whaleOrgans,8);
-                if(round==0) {
-                    Require(!whaleOrgans[0].Available && whaleOrgans[8].Available,"Whale hit patches must match spent organs");
-                    Require(experience.Marine.WhaleOrganHeat(0)>=.45f && experience.Marine.WhaleOrganHeat(8)==0,
-                        "Whale hit color must persist locally until the next round");
-                    Frame(experience.Marine.WhalePosition,experience.Marine.WhaleRotation*new Vector3(240,75,25));
-                    Capture("04a-whale-hit-patches.png");
-                }
-                yield return HitTargets(whaleOrgans,8);
-            }
+            Require(whaleOrgans.Count==MarineLife.WhaleOrganCount && whaleOrgans.Count>=48,"Whale must expose dense independently aimed organs");
+            yield return ChaseWhale();
             whaleHits=experience.Marine.WhaleResonance;
-            Require(whaleHits==MarineLife.WhaleDamageGoal && !experience.Combat.Ended,"Whale must require eighty scheduled hits without blocking flight");
+            Require(whaleHits==MarineLife.WhaleDamageGoal && !experience.Combat.Ended,"Whale must be completed by continuous flight and central reticle aiming");
             yield return new WaitForSecondsRealtime(1f);
             Capture("04b-whale-release.png");
             yield return new WaitForSecondsRealtime(11f);
             whaleReleased=experience.Marine.WhaleReleased;
             foreach(var target in experience.Marine.WhaleResonatorTargets) whaleReleased&=!target.Available;
-            Require(whaleReleased,"Whale must release its particles and permanently retire all sixteen organs");
+            Require(whaleReleased,"Whale must release its particles and permanently retire all organs");
             MatterParticle[] finalMatter=experience.Marine.Matter.Readback();
             Require(experience.Marine.Matter.InitializationCount==initializations,"Persistent pool must not be reinitialized during phase transitions");
             CheckMatter(initialMatter,finalMatter);
@@ -188,8 +192,12 @@ namespace Liminal
             Require(whaleSettlementError<2,"Whale release must physically reach its reef destinations in the expanded room");
             Frame(CaveLayout.Rooms[2].Center+Vector3.down*60,new Vector3(100,50,-150));
             Capture("04c-whale-memory.png");
-            Require(experience.Music.MaxGridError<.00001,"Hits must remain aligned with authored soundtrack");
+            Require(experience.Music.MaxGridError<.00001,"Hits must remain aligned with authored audio sample marks");
             double gridError=experience.Music.MaxGridError;
+            playbackPhaseError=experience.Music.MaxPlaybackPhaseError;
+            Require(playbackPhaseError<.08,"Actual AudioSource sample cursor must follow DSP transport within mixer buffer tolerance");
+            Require(experience.Music.DroppedNotes==0,"Scheduled notes must not be silently dropped");
+            CheckScoreLoops();
             Require(experience.Combat.MissedScheduledHits==0,"Neighbour reactions must not invalidate already scheduled hits");
             experience.TogglePause();
             double song=experience.Music.Time;
@@ -203,6 +211,7 @@ namespace Liminal
                 experience.Marine.IlluminatedJellies==0 && !experience.Combat.HasPending &&
                 Vector3.Distance(flight.Position,CaveLayout.Spawn)<.01f && !experience.Marine.WhaleReleased &&
                 experience.Marine.CompletedJellies==0 && !experience.World.Serpent.Released;
+            restartClean &= experience.Combat.Colonies.Count==0 && experience.Combat.Colonies.ReservedCount==0;
             int afterRestart=experience.Combat.Targets.Count;
             experience.Restart();
             Require(restartClean && experience.Combat.Targets.Count==afterRestart,"Restart must reset and not duplicate fauna targets");
@@ -217,10 +226,86 @@ namespace Liminal
                 whaleFits=whaleFits,serpentRearmed=serpentRearmed,whaleRearmed=whaleRearmed,surfaceCrossings=surfaceCrossings,waveEvents=waveEvents,
                 whaleColorChange=whaleColorChange,whaleTrackingError=whaleTrackingError,
                 whaleSettlementError=whaleSettlementError,
+                whaleChaseSeconds=whaleChaseSeconds,whaleChaseTravel=whaleChaseTravel,whaleChaseMaxSpeed=whaleChaseMaxSpeed,
+                playbackPhaseError=playbackPhaseError,
+                rayMatterRetained=rayMatterRetained,
                 renderedFractions=renderedFractions.ToArray(),errors=errors.ToArray(),gpu=SystemInfo.graphicsDeviceName};
             File.WriteAllText(Path.Combine(directory,"report.json"),JsonUtility.ToJson(report,true));
             Debug.Log("LIMINAL_CAVERNS_PROOF "+JsonUtility.ToJson(report));
             Application.Quit(report.passed?0:2);
+        }
+
+        void CheckScoreLoops()
+        {
+            double duration=AuthoredScore.Duration;
+            for(int loop=0;loop<10000;loop+=127) {
+                double edge=(loop+1)*duration;
+                Require(Math.Abs(AuthoredScore.Next(edge-.05,.1,true)-(edge+AuthoredScore.Data.beats[1]/(double)AuthoredScore.Data.sampleRate))<.000001,
+                    "Quantization must use exact clip samples at loop boundaries");
+            }
+            double chordChange=AuthoredScore.Data.harmony[2].sample/(double)AuthoredScore.Data.sampleRate;
+            Require(AuthoredScore.Note(0,0)!=AuthoredScore.Note(0,chordChange),"Shot harmony must follow the authored chord change");
+        }
+
+        IEnumerator ChaseWhale()
+        {
+            // Only the initial room entry uses SetPose. Every chase frame goes through real flight dynamics.
+            var flight=experience.Flight;
+            var combat=experience.Combat;
+            float start=Time.realtimeSinceStartup,deadline=start+110,lastRelease=start;
+            int lastRound=experience.Marine.WhaleRound;
+            LockTarget focus=null;
+            bool captured=false;
+            while(!experience.Marine.WhaleReleased && Time.realtimeSinceStartup<deadline) {
+                float dt=Mathf.Min(Time.unscaledDeltaTime,.05f);
+                if(focus==null || !focus.Available || combat.Locks.Contains(focus)) {
+                    focus=null;float best=float.MaxValue;
+                    foreach(var target in experience.Marine.WhaleResonatorTargets) {
+                        if(!target.Available || combat.Locks.Contains(target)) continue;
+                        Vector3 delta=target.position-flight.Position;
+                        float cost=Vector3.Angle(flight.transform.forward,delta)*3+delta.magnitude;
+                        if(cost<best) {best=cost;focus=target;}
+                    }
+                }
+                Vector3 aim=focus!=null?focus.position:experience.Marine.WhalePosition;
+                Vector3 offset=aim-flight.Position;
+                Vector3 forward=flight.transform.forward;
+                float desiredYaw=Mathf.Atan2(offset.x,offset.z)*Mathf.Rad2Deg;
+                float yaw=Mathf.Atan2(forward.x,forward.z)*Mathf.Rad2Deg;
+                float desiredPitch=Mathf.Asin(Mathf.Clamp(offset.normalized.y,-1,1))*Mathf.Rad2Deg;
+                float pitch=Mathf.Asin(Mathf.Clamp(forward.y,-1,1))*Mathf.Rad2Deg;
+                Vector2 look=new(Mathf.Clamp(Mathf.DeltaAngle(yaw,desiredYaw),-90*dt,90*dt)/2.1f,
+                    Mathf.Clamp(desiredPitch-pitch,-65*dt,65*dt)/1.7f);
+                Vector3 velocity=experience.Marine.WhaleVelocity+offset.normalized*(offset.magnitude-110)*.65f;
+                bool boost=velocity.magnitude>24;
+                float speed=boost?52:24;
+                Vector3 local=Quaternion.Inverse(flight.transform.rotation)*velocity/speed;
+                Vector3 before=flight.Position;
+                flight.Step((float)experience.Music.Time,dt,local,look,boost);
+                whaleChaseTravel+=Vector3.Distance(before,flight.Position);
+                whaleChaseMaxSpeed=Mathf.Max(whaleChaseMaxSpeed,flight.Speed);
+                combat.AcquireAt(flight.AimScreenPosition);
+                if(combat.Locks.Count==8 || (combat.Locks.Count>0 && Time.realtimeSinceStartup-lastRelease>1.8f)) {
+                    combat.Release();lastRelease=Time.realtimeSinceStartup;
+                }
+                if(!captured && experience.Marine.WhaleResonance>=8) {
+                    captured=true;Capture("04a-whale-hit-patches.png");
+                    bool hot=false,cold=false;
+                    for(int i=0;i<MarineLife.WhaleOrganCount;i++) {
+                        hot|=experience.Marine.WhaleOrganHeat(i)>=.45f;
+                        cold|=experience.Marine.WhaleOrganHeat(i)==0;
+                    }
+                    Require(hot&&cold,"Chase hits must leave local, not whole-body, patches");
+                }
+                if(experience.Marine.WhaleRound!=lastRound) {
+                    whaleRearmed=true;lastRound=experience.Marine.WhaleRound;
+                    foreach(var target in experience.Marine.WhaleResonatorTargets)
+                        Require(experience.Marine.WhaleOrganHeat(target.organIndex)==0,"Rearmed whale patches must clear their hit colors");
+                }
+                yield return null;
+            }
+            whaleChaseSeconds=Time.realtimeSinceStartup-start;
+            Require(whaleRearmed && whaleChaseTravel>50 && whaleChaseMaxSpeed<=52.1f,"Whale chase must move normally and complete both target rounds");
         }
 
         void CheckWhaleRoute()
@@ -375,6 +460,9 @@ namespace Liminal
             public bool whaleFits,serpentRearmed,whaleRearmed;
             public float whaleColorChange,whaleTrackingError;
             public float whaleSettlementError;
+            public float whaleChaseSeconds,whaleChaseTravel,whaleChaseMaxSpeed;
+            public double playbackPhaseError;
+            public bool rayMatterRetained;
             public float halfSpeed,cruiseSpeed,coastSpeed;
             public int jellyHits,fishResponses,serpentHits,whaleHits;
             public double gridError;

@@ -9,7 +9,7 @@ namespace Liminal
         const int RingCount = 72;
         const int SideCount = 192;
         const int EventCapacity = 24;
-        const int SprayBeadsPerEvent = 256;
+        const int SprayBeadsPerEvent = 320;
         const int SprayVerticesPerEvent = SprayBeadsPerEvent * 6;
         const float WhaleHalfLength = 142f;
         const float EventLifetime = 14f;
@@ -44,6 +44,7 @@ namespace Liminal
             eventBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, EventCapacity * 2, 16);
             surfaceMaterial.SetBuffer("_WaterEvents", eventBuffer);
             sprayMaterial.SetBuffer("_WaterEvents", eventBuffer);
+            sprayMaterial.SetInt("_SprayBeadsPerEvent", SprayBeadsPerEvent);
             surfaceMaterial.SetInt("_WaterEventCount", 0);
             sprayMaterial.SetInt("_WaterEventCount", 0);
             surfaceMaterial.SetVector("_WaterCenter", new Vector4(center.x, SurfaceHeight, center.z, 0));
@@ -172,18 +173,23 @@ namespace Liminal
                 Vector4 motion = eventData[i * 2 + 1];
                 float age = song - origin.w;
                 if (motion.w <= 0f || age < 0f || age > EventLifetime) continue;
-                float dx = x - origin.x - motion.x * motion.z * age * 0.32f;
-                float dz = z - origin.z - motion.y * motion.z * age * 0.32f;
+                float drift = motion.z * age * 0.06f;
+                float dx = x - origin.x - motion.x * drift;
+                float dz = z - origin.z - motion.y * drift;
                 float radius = Mathf.Sqrt(dx * dx + dz * dz);
-                float envelope = Mathf.Exp(-Mathf.Abs(radius - age * (12f + motion.z * 0.35f)) * 0.014f) * Mathf.Exp(-age * 0.12f);
-                float phase = radius * 0.16f - age * (2.1f + motion.z * 0.035f);
-                float wakeAxis = Mathf.Abs(dx * motion.y - dz * motion.x);
+                float rippleRadius = 3f + age * (4f + motion.z * 0.1f);
+                float ripple = Mathf.Sin(radius * 0.34f - age * 2.4f)
+                    * Mathf.Exp(-Mathf.Abs(radius - rippleRadius) * 0.18f) * Mathf.Exp(-age * 0.62f);
+                float side = dx * motion.y - dz * motion.x;
                 float backward = Mathf.Max(0f, -(dx * motion.x + dz * motion.y));
-                float vWake = Mathf.Exp(-Mathf.Pow((wakeAxis-backward*.24f)/3.5f,2))
-                    * Mathf.SmoothStep(0,1,Mathf.InverseLerp(8,24,backward))*Mathf.Exp(-backward*.0033f);
-                events += (Mathf.Sin(phase) * 0.9f + vWake * 1.4f) * envelope * motion.w;
+                float wakeWidth = 2.8f + backward * 0.018f;
+                float wakeGate = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(4f, 15f, backward)) * Mathf.Exp(-backward * 0.012f) * Mathf.Exp(-age * 0.24f);
+                float shoulder = Mathf.Exp(-Mathf.Pow((Mathf.Abs(side) - backward * 0.22f) / wakeWidth, 2f)) * wakeGate;
+                float channel = Mathf.Exp(-Mathf.Pow(side / (wakeWidth * 0.42f), 2f)) * wakeGate;
+                float impact = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.85f, 1.3f, motion.w));
+                events += (ripple * (0.12f + impact * 0.15f) + shoulder * 0.42f - channel * 0.14f) * motion.w;
             }
-            return SurfaceHeight + baseWave + events * 1.05f;
+            return SurfaceHeight + baseWave + Mathf.Clamp(events, -0.75f, 0.85f);
         }
 
         public float SurfaceEnergyAt(Vector3 position, float song)
@@ -196,11 +202,18 @@ namespace Liminal
                 float age = song - origin.w;
                 if (age < 0f || age > EventLifetime) continue;
                 Vector4 motion = eventData[i * 2 + 1];
-                float dx = position.x - origin.x - motion.x * motion.z * age * 0.32f;
-                float dz = position.z - origin.z - motion.y * motion.z * age * 0.32f;
+                float drift = motion.z * age * 0.06f;
+                float dx = position.x - origin.x - motion.x * drift;
+                float dz = position.z - origin.z - motion.y * drift;
                 float radius = Mathf.Sqrt(dx * dx + dz * dz);
-                float ring = Mathf.Exp(-Mathf.Abs(radius - (8f + age * (12f + motion.z * 0.35f))) * 0.08f);
-                energy += ring * motion.w * Mathf.Exp(-age * 0.12f);
+                float ringRadius = 3f + age * (4f + motion.z * 0.1f);
+                float ring = Mathf.Exp(-Mathf.Abs(radius - ringRadius) * 0.18f) * Mathf.Exp(-age * 0.62f);
+                float side = dx * motion.y - dz * motion.x;
+                float backward = Mathf.Max(0f, -(dx * motion.x + dz * motion.y));
+                float wakeWidth = 2.8f + backward * 0.018f;
+                float wake = Mathf.Exp(-Mathf.Pow((Mathf.Abs(side) - backward * 0.22f) / wakeWidth, 2f))
+                    * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(4f, 15f, backward)) * Mathf.Exp(-backward * 0.012f) * Mathf.Exp(-age * 0.24f);
+                energy += (ring * 0.25f + wake * 0.42f) * motion.w;
             }
             return energy;
         }
