@@ -10,6 +10,8 @@ namespace Liminal
         public int id, hp, reserved, organIndex;
         public TargetKind kind;
         public float u, born, deadline;
+        public float acquireRange = Encounter.LockRange;
+        public bool isWhale, transformed;
         public Vector3 position, origin, destination, direction, lateral, vertical;
         public GameObject visual;
         public Action<LockTarget,float> onHit;
@@ -26,6 +28,7 @@ namespace Liminal
         MusicTransport music;
         ParticleWorld world;
         Flight flight;
+        public DefeatedMarineForms Colonies { get; private set; }
         int nextId, lastSection=-1, lastBeat=-1, nextWave;
         public int Points { get; private set; }
         public int Combo { get; private set; }
@@ -74,6 +77,10 @@ namespace Liminal
         public void Initialize(MusicTransport transport,ParticleWorld particles,Flight pilot)
         {
             music=transport; world=particles; flight=pilot;
+            if(ExplorationMode) {
+                Colonies=gameObject.AddComponent<DefeatedMarineForms>();
+                Colonies.Initialize(world.EnemyMesh,world.NodeMaterial);
+            }
             for(int i=0;i<16;i++) {
                 var t=new LockTarget {id=nextId++,kind=TargetKind.Organ,organIndex=i,u=0.025f+i*0.058f};
                 t.visual=PointCloud.Place("Organ "+i,world.NodeMesh,world.NodeMaterial,transform);
@@ -97,8 +104,9 @@ namespace Liminal
             shots.Clear(); Locks.Clear();
             for(int i=Targets.Count-1;i>=0;i--) {
                 if(Targets[i].kind==TargetKind.Environment) { Targets.RemoveAt(i); continue; }
-                if(i>=16) { Destroy(Targets[i].visual); Targets.RemoveAt(i); }
+                if(i>=16) { if(!Targets[i].transformed) Destroy(Targets[i].visual); Targets.RemoveAt(i); }
             }
+            if(Colonies) Colonies.Reset();
             foreach(var t in Targets) { t.hp=0;t.reserved=0;t.visual.SetActive(false); }
             Points=Combo=BestCombo=Hits=Fired=BossDamage=Dodged=DamageTaken=CancelledAfterFinish=MissedScheduledHits=0;
             Life=8;Charge=0;Won=Lost=false;EndTime=0;DamageFlash=0;
@@ -135,6 +143,7 @@ namespace Liminal
             }
             UpdateTargets(song);
             UpdateShots(song);
+            if(Colonies) Colonies.Tick(song);
             AdvanceOrganWaves(song);
             Locks.RemoveAll(t=>!t.Available);
             if(!Ended && input) {
@@ -186,6 +195,7 @@ namespace Liminal
         {
             for(int i=Targets.Count-1;i>=0;i--) {
                 var t=Targets[i];
+                if(t.transformed) { Locks.Remove(t);Targets.RemoveAt(i);continue; }
                 if(t.kind==TargetKind.Environment) continue;
                 if(t.kind==TargetKind.Organ) t.position=Anatomy.Node(t.u,song);
                 else if(t.kind==TargetKind.Ray) {
@@ -212,6 +222,7 @@ namespace Liminal
                     ? organsActivated && !SerpentComplete : t.hp>0;
                 t.visual.SetActive(activeOrgan && !Ended);
                 if(t.kind!=TargetKind.Organ && t.reserved==0 && (t.hp<=0 || song-t.born>26)) {
+                    if(Colonies && t.kind==TargetKind.Ray) Colonies.Release(t.visual);
                     Locks.Remove(t);Destroy(t.visual);Targets.RemoveAt(i);
                 }
             }
@@ -219,6 +230,7 @@ namespace Liminal
         void SpawnWave(float song,int beat)
         {
             int count=Section<=1?6:4;
+            if(Colonies) count=Mathf.Min(count,Colonies.AvailableCapacity);
             Transform camera=flight.View.transform;
             Vector3 center=Vector3.Lerp(flight.Position,Anatomy.Center(0.5f,song),0.55f);
             for(int i=0;i<count;i++) {
@@ -230,6 +242,7 @@ namespace Liminal
                 t.vertical=camera.up;
                 t.position=t.origin;
                 t.visual=PointCloud.Place("Choir ray",world.EnemyMesh,world.NodeMaterial,transform);
+                if(Colonies && !Colonies.TryReserve(t.visual)) { Destroy(t.visual);continue; }
                 t.visual.transform.localScale=Vector3.one*0.45f;
                 t.visual.transform.rotation=Quaternion.LookRotation(t.direction,Vector3.up);
                 Targets.Add(t);
@@ -265,7 +278,7 @@ namespace Liminal
         public bool CanAcquire(LockTarget target)
         {
             if(Ended || target==null || !target.Available || Locks.Count>=8 || Locks.Contains(target)) return false;
-            if(Vector3.Distance(flight.Position,target.position)>LockRange) return false;
+            if(Vector3.Distance(flight.Position,target.position)>target.acquireRange) return false;
             if(ExplorationMode && !CaveLayout.LineOfSight(flight.Position,target.position)) return false;
             Vector3 projected=flight.View.WorldToViewportPoint(target.position);
             return projected.z>=flight.View.nearClipPlane && projected.z<=flight.View.farClipPlane &&
@@ -330,6 +343,8 @@ namespace Liminal
                 }
             }
             if(target.kind==TargetKind.Environment) target.onHit?.Invoke(target,song);
+            if(Colonies && target.kind==TargetKind.Ray && target.hp<=0)
+                target.transformed=Colonies.TryAdopt(target.visual,song,CaveLayout.NearestRoom(target.position));
             world.BurstAt(target.position,song,target.kind==TargetKind.Organ?Cyan:Amber);
             LastHitTime=song;Hit?.Invoke();
         }

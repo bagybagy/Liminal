@@ -47,7 +47,7 @@ namespace Liminal
             BuildShell(structural);
             BuildLuminousStrata(structural);
             BuildPassages(structural);
-            BuildRockFormations(structural);
+            BuildSeabedEcology(structural);
             BuildRoomArchitecture(structural);
             BuildSuspendedMatter(structural);
             particleCount = structural.Count;
@@ -218,76 +218,144 @@ namespace Liminal
             obj.AddComponent<MeshRenderer>().sharedMaterial = surfaceMaterial;
         }
 
-        void BuildRockFormations(PointCloud particles)
+        static Vector3 FloorPosition(CaveLayout.Chamber room, float x, float z, float lift = 2f)
         {
-            var vertices = new List<Vector3>();
-            var colors = new List<Color>();
-            var triangles = new List<int>();
-            for (int roomIndex = 0; roomIndex < CaveLayout.Rooms.Length; roomIndex++) {
-                var room = CaveLayout.Rooms[roomIndex];
-                Vector3 route = roomIndex < 2
-                    ? CaveLayout.Passages[roomIndex][0] - room.Center
-                    : room.Center - CaveLayout.Passages[1][^1];
-                route.y = 0f;
-                route.Normalize();
-                for (int formation = 0; formation < 4; formation++) {
-                    float angle = formation * Mathf.PI * 0.5f + roomIndex * 0.37f;
-                    Vector3 horizontal = new(Mathf.Cos(angle), 0, Mathf.Sin(angle));
-                    if (Vector3.Dot(horizontal, route) > 0.70f) continue;
-                    bool stalactite = formation == 2;
-                    Vector3 root = room.Center + new Vector3(horizontal.x * room.Radius.x * 0.61f,
-                        room.Radius.y * (stalactite ? 0.79f : -0.76f), horizontal.z * room.Radius.z * 0.61f);
-                    float length = room.Radius.y * R(stalactite ? 0.20f : 0.27f, stalactite ? 0.34f : 0.43f);
-                    float radius = Mathf.Min(room.Radius.x, room.Radius.z) * R(0.028f, 0.044f);
-                    AddSpire(vertices, colors, triangles, particles, room, root, horizontal, length, radius, stalactite, formation);
-                }
-            }
-            if (vertices.Count == 0) return;
-            var mesh = new Mesh { name = "Dark tapered cavern spires", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
-            mesh.SetVertices(vertices); mesh.SetColors(colors); mesh.SetTriangles(triangles, 0); mesh.RecalculateNormals();
-            mesh.bounds = CaveLayout.WorldBounds;
-            meshes.Add(mesh);
-            var obj = new GameObject("Pillars and hanging stone");
-            obj.transform.SetParent(transform, false);
-            obj.AddComponent<MeshFilter>().sharedMesh = mesh;
-            obj.AddComponent<MeshRenderer>().sharedMaterial = surfaceMaterial;
+            float radiusSquared = Mathf.Clamp(x * x + z * z, 0f, 0.96f);
+            float y = -Mathf.Sqrt(1f - radiusSquared) * room.Radius.y + lift;
+            return room.Center + new Vector3(x * room.Radius.x, y, z * room.Radius.z);
         }
 
-        void AddSpire(List<Vector3> vertices, List<Color> colors, List<int> triangles, PointCloud particles,
-            CaveLayout.Chamber room, Vector3 root, Vector3 lean, float length, float radius, bool hangs, int seed)
+        static Vector3 PassageDirection(CaveLayout.Chamber room, int roomIndex)
         {
-            const int rings = 9, sides = 14;
-            int first = vertices.Count;
-            float sign = hangs ? -1f : 1f;
-            for (int ring = 0; ring <= rings; ring++) {
-                float t = ring / (float)rings;
-                float taper = Mathf.Pow(1f - t, 0.78f) * (0.92f + 0.09f * Mathf.Sin(t * 17f + seed));
-                Vector3 center = root + Vector3.up * (sign * length * t) + lean * (Mathf.Sin(t * 4.1f + seed) * t * 5f);
-                for (int side = 0; side < sides; side++) {
-                    float angle = side * Mathf.PI * 2f / sides;
-                    float lobe = 1f + 0.16f * Mathf.Sin(angle * 3f + t * 8f + seed) + 0.08f * Mathf.Sin(angle * 5f - t * 11f);
-                    Vector3 offset = new(Mathf.Cos(angle) * radius * taper * lobe, 0, Mathf.Sin(angle) * radius * taper * lobe);
-                    vertices.Add(center + offset);
-                    colors.Add(Color.Lerp(room.Color, room.Accent, 0.12f + t * 0.10f) * 0.045f);
+            Vector3 direction = CaveLayout.ForwardWaypoint(room.Center, roomIndex) - room.Center;
+            direction.y = 0f;
+            return direction.sqrMagnitude > 0.001f ? direction.normalized : Vector3.zero;
+        }
+
+        void BuildSeabedEcology(PointCloud particles)
+        {
+            for (int roomIndex = 0; roomIndex < CaveLayout.Rooms.Length; roomIndex++) {
+                var room = CaveLayout.Rooms[roomIndex];
+                Vector3 passage = PassageDirection(room, roomIndex);
+                float scale = Mathf.Clamp(room.Radius.y / 90f, 0.72f, 1.55f);
+                for (int colony = 0; colony < 18; colony++) {
+                    float angle = colony * 2.399963f + roomIndex * 0.71f;
+                    float radial = R(0.54f, 0.82f);
+                    Vector3 horizontal = new(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+                    if (Vector3.Dot(horizontal, passage) > 0.56f) continue;
+                    Vector3 root = FloorPosition(room, horizontal.x * radial, horizontal.z * radial);
+                    if (CaveLayout.InPassage(root, -10f)) continue;
+                    int species = (colony + roomIndex) % 3;
+                    if (species == 0) BuildPlateCoral(particles, root, room, scale, colony);
+                    else if (species == 1) BuildTubeSponges(particles, root, room, scale, colony);
+                    else BuildAnemone(particles, root, room, scale, colony);
                 }
             }
-            for (int ring = 0; ring < rings; ring++) for (int side = 0; side < sides; side++) {
-                int a = first + ring * sides + side;
-                int b = first + ring * sides + (side + 1) % sides;
-                int c = b + sides, d = a + sides;
-                triangles.Add(a); triangles.Add(b); triangles.Add(c);
-                triangles.Add(a); triangles.Add(c); triangles.Add(d);
+        }
+
+        void BuildPlateCoral(PointCloud p, Vector3 root, CaveLayout.Chamber room, float scale, int seed)
+        {
+            float stemHeight = R(5f, 8f) * scale;
+            float stemAngle = R(0f, Mathf.PI * 2f);
+            Vector3 lean = new(Mathf.Cos(stemAngle), 0f, Mathf.Sin(stemAngle));
+            int stemDots = Mathf.CeilToInt(stemHeight * 8f);
+            Color stemColor = Color.Lerp(room.Color, room.Accent, 0.16f) * 0.24f;
+            for (int i = 0; i < stemDots; i++) {
+                float t = i / (float)Mathf.Max(1, stemDots - 1);
+                Vector3 at = root + Vector3.up * (stemHeight * t) + lean * (t * t * 0.65f);
+                at += new Vector3(Mathf.Cos(i * 2.399f), 0f, Mathf.Sin(i * 2.399f)) * 0.18f;
+                p.Add(at, 0.052f, stemColor, R(), 0.025f);
             }
-            for (int facet = 0; facet < 3; facet++) for (int ring = 1; ring <= rings; ring++) {
-                float t = ring / (float)rings;
-                if (R() > 0.72f) continue;
-                float angle = facet * Mathf.PI * 2f / 3f + 0.16f;
-                float taper = Mathf.Pow(1f - t, 0.78f);
-                Vector3 center = root + Vector3.up * (sign * length * t) + lean * (Mathf.Sin(t * 4.1f + seed) * t * 5f);
-                Vector3 edge = center + new Vector3(Mathf.Cos(angle) * radius * taper * 1.08f, 0,
-                    Mathf.Sin(angle) * radius * taper * 1.08f);
-                Color glow = Color.Lerp(room.Color, room.Accent, R(0.22f, 0.72f));
-                particles.Add(edge, R(0.045f, 0.072f), glow * R(0.22f, 0.48f), R(), 0.035f);
+
+            int plates = 2 + (seed % 2);
+            for (int plate = 0; plate < plates; plate++) {
+                float height = stemHeight * (0.48f + plate * 0.24f);
+                float radius = R(2.5f, 4.2f) * scale * (1f - plate * 0.12f);
+                float phase = R(0f, Mathf.PI * 2f);
+                Color color = Color.Lerp(room.Color, room.Accent, 0.22f + plate * 0.10f) * 0.26f;
+                const int rim = 44, ribs = 9, ribDots = 13;
+                for (int i = 0; i < rim; i++) {
+                    float angle = i * Mathf.PI * 2f / rim;
+                    float lobe = 1f + 0.08f * Mathf.Sin(angle * 5f + phase);
+                    Vector3 at = root + Vector3.up * height + lean * (height / stemHeight * 0.65f);
+                    at += new Vector3(Mathf.Cos(angle) * radius * lobe, 0f, Mathf.Sin(angle) * radius * lobe);
+                    p.Add(at, 0.075f, color * R(0.78f, 1.08f), R(), 0.025f);
+                }
+                for (int ray = 0; ray < ribs; ray++) {
+                    float angle = phase + ray * Mathf.PI * 2f / ribs;
+                    for (int j = 1; j < ribDots; j++) {
+                        float t = j / (float)ribDots;
+                        float r = radius * t;
+                        Vector3 at = root + Vector3.up * (height + Mathf.Sin(t * Mathf.PI) * 0.18f);
+                        at += lean * (height / stemHeight * 0.65f);
+                        at += new Vector3(Mathf.Cos(angle) * r, 0f, Mathf.Sin(angle) * r);
+                        p.Add(at, 0.052f, color * 0.82f, R(), 0.02f);
+                    }
+                }
+            }
+        }
+
+        void BuildTubeSponges(PointCloud p, Vector3 root, CaveLayout.Chamber room, float scale, int seed)
+        {
+            int tubes = 3 + seed % 3;
+            float groupAngle = R(0f, Mathf.PI * 2f);
+            for (int tube = 0; tube < tubes; tube++) {
+                float around = groupAngle + tube * Mathf.PI * 2f / tubes;
+                float groupRadius = (0.45f + (tube % 2) * 1.15f) * scale;
+                Vector3 baseAt = root + new Vector3(Mathf.Cos(around) * groupRadius, 0f, Mathf.Sin(around) * groupRadius);
+                float height = R(6f, 11f) * scale;
+                float radius = R(0.62f, 0.95f) * scale;
+                int rows = Mathf.CeilToInt(height / 0.72f);
+                const int sides = 18;
+                Color color = Color.Lerp(room.Color, room.Accent, 0.30f + R(0f, 0.14f)) * 0.25f;
+                for (int row = 0; row <= rows; row++) {
+                    float t = row / (float)rows;
+                    float y = height * t;
+                    for (int side = 0; side < sides; side++) {
+                        // Alternating openings leave a visibly hollow, perforated tube wall.
+                        if (row > 1 && row < rows - 1 && side % 6 >= 2 && side % 6 <= 3 && row % 4 >= 1 && row % 4 <= 2)
+                            continue;
+                        float angle = side * Mathf.PI * 2f / sides;
+                        float waviness = 1f + 0.06f * Mathf.Sin(angle * 3f + t * 5f + seed);
+                        Vector3 at = baseAt + Vector3.up * y + new Vector3(Mathf.Cos(angle) * radius * waviness, 0f,
+                            Mathf.Sin(angle) * radius * waviness);
+                        p.Add(at, 0.062f, Color.Lerp(color, room.Accent * 0.22f, t * 0.34f), R(), 0.025f);
+                        if (row == rows) {
+                            Vector3 innerLip = baseAt + Vector3.up * (height - 0.16f) +
+                                new Vector3(Mathf.Cos(angle) * radius * 0.68f, 0f, Mathf.Sin(angle) * radius * 0.68f);
+                            p.Add(innerLip, 0.05f, color * 0.82f, R(), 0.02f);
+                        }
+                    }
+                }
+            }
+        }
+
+        void BuildAnemone(PointCloud p, Vector3 root, CaveLayout.Chamber room, float scale, int seed)
+        {
+            float phase = R(0f, Mathf.PI * 2f);
+            Color baseColor = Color.Lerp(room.Color, room.Accent, 0.18f) * 0.20f;
+            for (int i = 0; i < 52; i++) {
+                float angle = i * 2.399f + phase;
+                float radius = Mathf.Sqrt((i + 0.5f) / 52f) * 1.35f * scale;
+                Vector3 at = root + new Vector3(Mathf.Cos(angle) * radius, 0.12f + radius * 0.22f,
+                    Mathf.Sin(angle) * radius);
+                p.Add(at, 0.055f, baseColor, R(), 0.035f);
+            }
+            int tentacles = 15 + seed % 6;
+            for (int tentacle = 0; tentacle < tentacles; tentacle++) {
+                float angle = phase + tentacle * 2.399f;
+                float length = R(6f, 11f) * scale;
+                float sway = R(0.8f, 2f) * scale;
+                int dots = Mathf.CeilToInt(length * 3.4f);
+                Color tip = Color.Lerp(room.Color, room.Accent, 0.32f) * 0.34f;
+                for (int j = 0; j < dots; j++) {
+                    float t = j / (float)dots;
+                    float curl = Mathf.Sin(t * 3.1f + angle) * sway * t;
+                    Vector3 at = root + Vector3.up * (length * t) +
+                        new Vector3(Mathf.Cos(angle) * (0.22f + curl), 0f, Mathf.Sin(angle) * (0.22f + curl));
+                    Color color = Color.Lerp(baseColor, tip, t * 0.82f);
+                    p.Add(at, Mathf.Lerp(0.047f, 0.065f, t), color, R(), 0.055f);
+                }
             }
         }
 
@@ -348,109 +416,73 @@ namespace Liminal
         {
             for (int roomIndex = 0; roomIndex < CaveLayout.Rooms.Length; roomIndex++) {
                 var room = CaveLayout.Rooms[roomIndex];
-                Color reef = Color.Lerp(room.Color, room.Accent, 0.65f);
-                // Floor-rooted branching coral and upright stone ribs stay around the room perimeter.
-                for (int i = 0; i < 22; i++) {
-                    float angle = i * 2.399f + roomIndex * 0.8f;
-                    float radial = R(0.38f, 0.76f);
-                    Vector3 root = room.Center + new Vector3(Mathf.Cos(angle) * room.Radius.x * radial,
-                        -room.Radius.y * Mathf.Sqrt(1-radial*radial) + 4, Mathf.Sin(angle) * room.Radius.z * radial);
-                    if (CaveLayout.InPassage(root, -12)) continue;
-                    Branch(p, root, (Vector3.up + new Vector3(Mathf.Cos(angle) * 0.18f, 0, Mathf.Sin(angle) * 0.18f)).normalized,
-                        room.Radius.y * R(0.17f, 0.30f), 4, reef * 0.95f);
-                    if (i % 5 == 0) Rib(p, room, angle, i);
-                }
-                BuildFan(p, room, reef);
-                BuildKelp(p, room, reef);
-                BuildFloorGuide(p, room, reef);
+                Color reef = Color.Lerp(room.Color, room.Accent, 0.25f);
+                BuildFan(p, room, reef, roomIndex);
+                BuildKelp(p, room, reef, roomIndex);
             }
         }
 
-        void Branch(PointCloud p, Vector3 start, Vector3 direction, float length, int depth, Color color)
+        void BuildFan(PointCloud p, CaveLayout.Chamber room, Color color, int roomIndex)
         {
-            Vector3 bend = new(R(-0.26f, 0.26f), 0, R(-0.26f, 0.26f));
-            int count = Mathf.CeilToInt(length * 18f);
-            for (int i = 0; i < count; i++) {
-                float f = i / (float)count;
-                Vector3 at = start + direction * length * f + bend * length * f * f;
-                at += new Vector3(Mathf.Cos(i * 2.399f), 0, Mathf.Sin(i * 2.399f)) * depth * 0.055f;
-                p.Add(at, R(0.065f, 0.115f), color * R(0.5f, 1f), R(), 0.12f);
-            }
-            if (depth == 0) return;
-            Vector3 tip = start + (direction + bend) * length;
-            for (int i = 0; i < 3; i++) Branch(p, tip,
-                (direction + new Vector3(R(-0.85f, 0.85f), R(0f, 0.35f), R(-0.85f, 0.85f))).normalized,
-                length * R(0.43f, 0.61f), depth - 1, color * 0.83f);
-        }
-
-        void Rib(PointCloud p, CaveLayout.Chamber room, float angle, int seed)
-        {
-            Vector3 origin = room.Center + new Vector3(Mathf.Cos(angle) * room.Radius.x * 0.70f, -room.Radius.y * 0.68f,
-                Mathf.Sin(angle) * room.Radius.z * 0.70f);
-            float height = room.Radius.y * R(0.48f, 0.76f);
-            for (int i = 0; i < 110; i++) {
-                float f = i / 109f;
-                Vector3 point = origin + Vector3.up * height * f;
-                point += new Vector3(Mathf.Sin(f * 6f + seed) * 3.4f, 0, Mathf.Cos(f * 4f + seed) * 3.2f);
-                int strands = Mathf.RoundToInt(Mathf.Lerp(3f, 1f, f));
-                for (int strand = 0; strand < strands; strand++) {
-                    Vector3 at = point + new Vector3(Mathf.Cos(strand * 2.1f) * (1.6f - f), 0, Mathf.Sin(strand * 2.1f) * (1.6f - f));
-                    p.Add(at, 0.055f, Color.Lerp(room.Color, room.Accent, f * 0.58f) * (0.24f + f * 0.18f), R(), 0.025f);
-                }
-            }
-        }
-
-        void BuildFan(PointCloud p, CaveLayout.Chamber room, Color color)
-        {
-            for (int fan = 0; fan < 3; fan++) {
-                float angle = fan * Mathf.PI * 0.73f + room.Center.z * 0.003f;
-                Vector3 root = room.Center + new Vector3(Mathf.Cos(angle) * room.Radius.x * 0.72f, -room.Radius.y * 0.52f,
-                    Mathf.Sin(angle) * room.Radius.z * 0.72f);
-                for (int ray = -5; ray <= 5; ray++) {
-                    Vector3 dir = (Vector3.up * 0.63f + new Vector3(Mathf.Cos(angle + ray * 0.12f), 0.12f,
-                        Mathf.Sin(angle + ray * 0.12f)) * 0.78f).normalized;
-                    int dots = 44 - Mathf.Abs(ray) * 3;
+            Vector3 passage = PassageDirection(room, roomIndex);
+            float scale = Mathf.Clamp(room.Radius.y / 90f, 0.72f, 1.55f);
+            int built = 0;
+            for (int candidate = 0; candidate < 12 && built < 2; candidate++) {
+                float angle = candidate * 2.399963f + roomIndex * 1.31f;
+                Vector3 horizontal = new(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+                if (Vector3.Dot(horizontal, passage) > 0.50f) continue;
+                float radial = 0.64f + (candidate % 3) * 0.045f;
+                Vector3 root = FloorPosition(room, horizontal.x * radial, horizontal.z * radial, 3f);
+                if (CaveLayout.InPassage(root, -12f)) continue;
+                float fanAngle = angle + Mathf.PI * 0.5f;
+                for (int ray = -7; ray <= 7; ray++) {
+                    Vector3 direction = new(Mathf.Cos(fanAngle + ray * 0.085f), 0f, Mathf.Sin(fanAngle + ray * 0.085f));
+                    float length = (16f + (7 - Mathf.Abs(ray)) * 0.75f) * scale;
+                    int dots = Mathf.CeilToInt(length * 3f);
                     for (int j = 0; j < dots; j++) {
                         float f = j / (float)dots;
-                        Vector3 at = root + dir * (19f * f) + Vector3.up * Mathf.Sin(f * Mathf.PI) * 4f;
-                        p.Add(at, 0.05f + (1f - f) * 0.025f,
-                            Color.Lerp(color, room.Accent, f * 0.42f) * R(0.34f, 0.66f), R(), 0.035f);
+                        Vector3 at = root + Vector3.up * (length * f) + direction * (f * (3f + (7 - Mathf.Abs(ray)) * 0.7f) * scale);
+                        at += Vector3.up * Mathf.Sin(f * Mathf.PI) * 1.4f * scale;
+                        Color tint = Color.Lerp(color, room.Accent, 0.22f + f * 0.28f) * 0.25f;
+                        p.Add(at, 0.047f + (1f - f) * 0.018f, tint * R(0.82f, 1.08f), R(), 0.04f);
                     }
                 }
+                built++;
             }
         }
 
-        void BuildKelp(PointCloud p, CaveLayout.Chamber room, Color color)
+        void BuildKelp(PointCloud p, CaveLayout.Chamber room, Color color, int roomIndex)
         {
-            Vector3 route = CaveLayout.ForwardWaypoint(room.Center, Array.IndexOf(CaveLayout.Rooms, room));
-            Vector3 toward = (route - room.Center).normalized;
-            for (int strand = 0; strand < 16; strand++) {
-                float angle = strand * 2.399f;
-                Vector3 root = room.Center + new Vector3(Mathf.Cos(angle) * room.Radius.x * 0.57f, -room.Radius.y * 0.66f,
-                    Mathf.Sin(angle) * room.Radius.z * 0.57f);
-                if (Vector3.Dot((root - room.Center).normalized, toward) > 0.65f) continue;
-                float length = room.Radius.y * R(0.34f, 0.68f);
-                for (int j = 0; j < 115; j++) {
-                    float f = j / 114f;
-                    Vector3 at = root + Vector3.up * length * f + new Vector3(Mathf.Sin(f * 5f + angle) * (2f + f * 5f), 0,
-                        Mathf.Cos(f * 4f + angle) * (2f + f * 4f));
-                    Color blade = Color.Lerp(color, room.Accent, f * 0.34f) * R(0.20f, 0.40f);
-                    p.Add(at, R(0.035f, 0.058f), blade, R(), 0.16f);
+            Vector3 passage = PassageDirection(room, roomIndex);
+            float scale = Mathf.Clamp(room.Radius.y / 90f, 0.72f, 1.55f);
+            int clumps = 10;
+            for (int clump = 0; clump < clumps; clump++) {
+                float angle = clump * 2.399963f + roomIndex * 0.93f;
+                Vector3 horizontal = new(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+                if (Vector3.Dot(horizontal, passage) > 0.54f) continue;
+                float radial = R(0.55f, 0.78f);
+                Vector3 root = FloorPosition(room, horizontal.x * radial, horizontal.z * radial, 2.5f);
+                if (CaveLayout.InPassage(root, -12f)) continue;
+                float rootAngle = R(0f, Mathf.PI * 2f);
+                int blades = 3 + clump % 2;
+                for (int bladeIndex = 0; bladeIndex < blades; bladeIndex++) {
+                    float angleAtRoot = rootAngle + bladeIndex * Mathf.PI * 2f / blades;
+                    float length = R(20f, 32f) * scale;
+                    int rows = 56;
+                    for (int row = 0; row < rows; row++) {
+                        float f = row / (float)(rows - 1);
+                        float sway = Mathf.Sin(f * 3.8f + angleAtRoot) * (1.4f + f * 5.4f) * scale;
+                        Vector3 center = root + Vector3.up * (length * f) +
+                            new Vector3(Mathf.Cos(angleAtRoot) * sway, 0f, Mathf.Sin(angleAtRoot) * sway);
+                        float width = (0.12f + Mathf.Sin(f * Mathf.PI) * 0.78f) * scale;
+                        for (int edge = -1; edge <= 1; edge++) {
+                            Vector3 across = new(-Mathf.Sin(angleAtRoot), 0f, Mathf.Cos(angleAtRoot));
+                            Vector3 at = center + across * (edge * width * 0.5f);
+                            Color bladeColor = Color.Lerp(color * 0.72f, room.Accent, 0.10f + f * 0.18f) * 0.22f;
+                            p.Add(at, edge == 0 ? 0.054f : 0.043f, bladeColor * R(0.82f, 1.08f), R(), 0.12f);
+                        }
+                    }
                 }
-            }
-        }
-
-        void BuildFloorGuide(PointCloud p, CaveLayout.Chamber room, Color color)
-        {
-            Vector3 start = room.Center + Vector3.down * room.Radius.y * 0.70f;
-            Vector3 end = CaveLayout.ForwardWaypoint(room.Center, Array.IndexOf(CaveLayout.Rooms, room));
-            end.y = Mathf.Lerp(start.y, end.y, 0.32f);
-            for (int i = 0; i < 170; i++) {
-                float f = i / 169f;
-                Vector3 at = Vector3.Lerp(start, end, f) + Vector3.up * (Mathf.Sin(f * 8f) * 2f);
-                at += Vector3.right * Mathf.Sin(f * 13f) * (2f + f * 3f);
-                float fade = Mathf.Lerp(0.50f, 0.12f, f);
-                p.Add(at, 0.052f, Color.Lerp(room.Accent, room.Color, f * 0.55f) * fade, R(), 0.025f);
             }
         }
 
