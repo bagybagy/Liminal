@@ -279,19 +279,19 @@ namespace Liminal
         public void Release()
         {
             if(Ended) return;
-            double start=Score.NextEighth(music.Time,0.38);
+            double arrival=AuthoredScore.Next(music.Time,0.16,true);
             int index=0;
             foreach(var t in Locks) {
                 if(!t.Available || lines.Count==0) continue;
+                Vector3 screen=flight.View.WorldToViewportPoint(t.position);
+                if(!music.ScheduleNote(index,arrival,(screen.x-0.5f)*1.4f)) continue;
                 t.reserved++;
-                double arrival=start+index*Score.BeatSeconds*0.5;
                 var line=lines.Pop();line.enabled=true;line.widthMultiplier=0.10f;
                 Color color=Color.Lerp(Cyan,Amber,index/7f)*2.6f;
                 line.startColor=new Color(color.r,color.g,color.b,0);line.endColor=color;
                 shots.Add(new Shot {target=t,from=flight.Emitter,born=music.Time,arrival=arrival,index=index,line=line});
-                Vector3 screen=flight.View.WorldToViewportPoint(t.position);
-                music.ScheduleNote(index,arrival,(screen.x-0.5f)*1.4f);
                 index++;Fired++;
+                arrival=AuthoredScore.Next(arrival,1.0/AuthoredScore.Data.sampleRate,false);
             }
             Locks.Clear();
         }

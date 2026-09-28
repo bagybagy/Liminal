@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
@@ -52,9 +53,14 @@ namespace Liminal.Editor
             EditorUtility.SetDirty(flowing);EditorUtility.SetDirty(membrane);
 
             string audioPath="Assets/Liminal/Audio/TidalMemory.wav";
+            using(var sha=SHA256.Create()) {
+                string hash=BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(audioPath))).Replace("-","").ToLowerInvariant();
+                if(hash!=AuthoredScore.Data.sourceSha256) throw new Exception("Soundtrack changed without re-exporting its timeline");
+            }
             var audioImporter=(AudioImporter)AssetImporter.GetAtPath(audioPath);
             var settings=audioImporter.defaultSampleSettings;
-            settings.loadType=AudioClipLoadType.Streaming;settings.compressionFormat=AudioCompressionFormat.Vorbis;settings.quality=0.86f;
+            settings.loadType=AudioClipLoadType.DecompressOnLoad;settings.compressionFormat=AudioCompressionFormat.PCM;
+            settings.preloadAudioData=true;
             audioImporter.defaultSampleSettings=settings;audioImporter.SaveAndReimport();
 
             var scene=EditorSceneManager.NewScene(NewSceneSetup.EmptyScene,NewSceneMode.Single);
@@ -92,7 +98,7 @@ namespace Liminal.Editor
             if(!game.soundtrack||!particles.shader.isSupported||!renderer.postProcessData||!game.particleSimulation||!flowing.shader.isSupported||!membrane.shader.isSupported||!game.matterSimulation||!matter.shader.isSupported) throw new Exception("Production asset validation failed");
             if(!horizon.shader.isSupported||!spray.shader.isSupported) throw new Exception("Horizon shader validation failed");
             if(Math.Abs(game.soundtrack.length-Score.Duration)>0.02) throw new Exception("Soundtrack and authored score duration differ");
-            if(Math.Abs(Score.NextEighth(3.14159)/(Score.BeatSeconds*0.5)-Math.Round(Score.NextEighth(3.14159)/(Score.BeatSeconds*0.5)))>0.000001)
+            if(AuthoredScore.GridError(Score.NextEighth(3.14159))>1.0/AuthoredScore.Data.sampleRate)
                 throw new Exception("Score quantization failed");
             Debug.Log("LIMINAL_SCENE_READY "+scenePath);
         }

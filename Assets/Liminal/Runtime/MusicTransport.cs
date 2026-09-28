@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Liminal
@@ -8,9 +9,9 @@ namespace Liminal
         public AudioClip soundtrack;
         public bool LoopSoundtrack;
         AudioSource music;
-        readonly AudioSource[] voices = new AudioSource[32];
-        readonly double[] voiceEnds = new double[32];
-        readonly AudioClip[] notes = new AudioClip[8];
+        readonly AudioSource[] voices = new AudioSource[64];
+        readonly double[] voiceEnds = new double[64];
+        readonly Dictionary<int, AudioClip> notes = new();
         AudioClip impact, lockTone,whaleTone;
         double origin;
         public bool Paused { get; private set; }
@@ -19,6 +20,8 @@ namespace Liminal
         public float Volume { get; private set; } = 0.8f;
         public int ScheduledNotes { get; private set; }
         public double MaxGridError { get; private set; }
+        public double MaxPlaybackPhaseError { get; private set; }
+        public int DroppedNotes { get; private set; }
 
         public void Initialize()
         {
@@ -31,7 +34,13 @@ namespace Liminal
                 voices[i] = gameObject.AddComponent<AudioSource>();
                 voices[i].playOnAwake = false;
             }
-            for (int i = 0; i < notes.Length; i++) notes[i] = Synthesize(Score.Scale[i], 1.8f, false);
+            if (soundtrack.frequency != AuthoredScore.Data.sampleRate || soundtrack.samples != AuthoredScore.Data.sampleCount)
+                throw new InvalidOperationException("Audio samples do not match the authored timeline.");
+            foreach (var chord in AuthoredScore.Data.harmony)
+                for (int i = 0; i < 8; i++) {
+                    int midi = chord.notes[i % chord.notes.Length] + 12 + 12 * (i / chord.notes.Length);
+                    if (!notes.ContainsKey(midi)) notes.Add(midi, Synthesize(midi, 1.8f, false));
+                }
             impact = Synthesize(38, 0.4f, true);
             lockTone = Synthesize(98, 0.1f, false);
             whaleTone = MakeWhaleCall();
@@ -47,37 +56,51 @@ namespace Liminal
             origin = AudioSettings.dspTime + 0.3;
             ScheduledNotes = 0;
             MaxGridError = 0;
+            MaxPlaybackPhaseError = 0;
+            DroppedNotes = 0;
             music.PlayScheduled(origin);
         }
 
-        public void ScheduleNote(int index, double songTime, float pan, float strength = 1)
+        public bool ScheduleNote(int index, double songTime, float pan, float strength = 1)
         {
-            Play(notes[index % notes.Length], origin + songTime, pan, 0.62f * strength);
-            double eighth = songTime / (Score.BeatSeconds * 0.5);
-            MaxGridError = Math.Max(MaxGridError, Math.Abs(eighth - Math.Round(eighth)) * Score.BeatSeconds * 0.5);
+            if (!Play(notes[AuthoredScore.Note(index % 8, songTime)], origin + songTime, pan, 0.62f * strength)) {
+                DroppedNotes++; return false;
+            }
+            MaxGridError = Math.Max(MaxGridError, AuthoredScore.GridError(songTime));
             ScheduledNotes++;
+            return true;
+        }
+
+        void Update()
+        {
+            if (!music || !music.isPlaying || Paused || AudioSettings.dspTime <= origin + .1) return;
+            double expected = LoopSoundtrack ? Time % AuthoredScore.Duration : Time;
+            double error = Math.Abs(music.timeSamples / (double)soundtrack.frequency - expected);
+            if (LoopSoundtrack) error = Math.Min(error, AuthoredScore.Duration - error);
+            MaxPlaybackPhaseError = Math.Max(MaxPlaybackPhaseError, Math.Abs(error));
         }
 
         public void LockSound() => Play(lockTone, AudioSettings.dspTime + 0.01, 0, 0.06f);
         public void DamageSound() => Play(impact, AudioSettings.dspTime + 0.01, 0, 0.6f);
         public void WhaleCall() => Play(whaleTone,origin+Score.NextEighth(Time,.15),0,.7f);
 
-        void Play(AudioClip clip, double dspTime, float pan, float volume)
+        bool Play(AudioClip clip, double dspTime, float pan, float volume)
         {
             int voice = -1;
             for (int i = 0; i < voices.Length; i++) if (voiceEnds[i] < AudioSettings.dspTime) { voice = i; break; }
-            if (voice < 0) return;
+            if (voice < 0 || dspTime < AudioSettings.dspTime) return false;
             var source = voices[voice];
             source.clip = clip;
             source.panStereo = Mathf.Clamp(pan, -0.75f, 0.75f);
             source.volume = volume;
             source.PlayScheduled(dspTime);
             voiceEnds[voice] = dspTime + clip.length;
+            return true;
         }
 
         public void SetPaused(bool value) { Paused = value; AudioListener.pause = value; }
         public void SetVolume(float value) { Volume = Mathf.Clamp01(value); AudioListener.volume = Volume; }
-        void OnDestroy() { AudioListener.pause = false; foreach (var clip in notes) if (clip) Destroy(clip); if (impact) Destroy(impact); if (lockTone) Destroy(lockTone); if(whaleTone) Destroy(whaleTone); }
+        void OnDestroy() { AudioListener.pause = false; foreach (var clip in notes.Values) if (clip) Destroy(clip); if (impact) Destroy(impact); if (lockTone) Destroy(lockTone); if(whaleTone) Destroy(whaleTone); }
 
         static AudioClip MakeWhaleCall()
         {

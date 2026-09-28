@@ -1,17 +1,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 // Original deterministic score: every arrangement boundary is shared with Score.cs.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const rate = 44100, beat = 60 / 124, bars = 104, duration = bars * 4 * beat;
 const n = Math.ceil(duration * rate), left = new Float32Array(n), right = new Float32Array(n);
 const tau = Math.PI * 2;
+const events = [];
 let seed = 41319;
 const rand = () => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 4294967296; };
 const hz = midi => 440 * 2 ** ((midi - 69) / 12);
 function note(start, length, midi, gain, type, pan = 0) {
   const begin = Math.round(start * rate), count = Math.round(length * rate), f = hz(midi);
+  events.push({sample:begin, type, midi});
   const gl = Math.sqrt((1 - pan) / 2) * gain, gr = Math.sqrt((1 + pan) / 2) * gain;
   let filtered = 0;
   for (let i = 0; i < count && begin + i < n; i++) {
@@ -102,4 +105,15 @@ for (let i = 0; i < n; i++) {
 const dest = path.join(root, 'Assets/Liminal/Audio');
 fs.mkdirSync(dest, { recursive: true });
 fs.writeFileSync(path.join(dest, 'TidalMemory.wav'), output);
+const resources = path.join(root, 'Assets/Liminal/Resources');
+fs.mkdirSync(resources, { recursive: true });
+const timeline = {
+  sampleRate:rate, sampleCount:n, sourceSha256:createHash('sha256').update(output).digest('hex'),
+  beats:Array.from({length:bars * 4}, (_, i) => Math.round(i * beat * rate)),
+  eighths:Array.from({length:bars * 8}, (_, i) => Math.round(i * beat * rate / 2)),
+  sections:[0,16,96,224,320,384].map(i => Math.round(i * beat * rate)),
+  harmony:Array.from({length:bars}, (_, bar) => ({sample:Math.round(bar * 4 * beat * rate), notes:chords[Math.floor(bar / 2) % chords.length]})),
+  events:events.sort((a,b) => a.sample - b.sample)
+};
+fs.writeFileSync(path.join(resources, 'TidalMemoryTimeline.json'), JSON.stringify(timeline));
 console.log(JSON.stringify({title:'Tidal Memory', bpm:124, bars, duration, sampleRate:rate, peak, rms:Math.sqrt(energy/n), bytes:output.length}));
