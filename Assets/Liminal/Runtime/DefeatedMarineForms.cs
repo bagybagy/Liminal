@@ -37,7 +37,7 @@ namespace Liminal
 
         readonly List<Colony> colonies = new();
         readonly HashSet<GameObject> reservations = new();
-        readonly MaterialPropertyBlock properties = new();
+        MaterialPropertyBlock properties;
         Mesh sourceMesh;
         Material fallbackSourceMaterial, colonyMaterial;
         bool initialized;
@@ -51,6 +51,7 @@ namespace Liminal
 
         public void Initialize(Mesh rayMesh, Material rayMaterial, int capacity = DefaultCapacity)
         {
+            properties = new MaterialPropertyBlock();
             if (initialized) throw new InvalidOperationException("DefeatedMarineForms is already initialized.");
             if (!rayMesh) throw new ArgumentNullException(nameof(rayMesh));
 

@@ -1,0 +1,95 @@
+{
+    "scene": "Assets/Liminal/Production/AbyssalChoir.unity",
+    "unityVersion": "6000.3.13f1",
+    "rawFile": "LIMINAL_raw.mp4",
+    "width": 1920,
+    "height": 1080,
+    "frameRate": 30,
+    "frameCount": 2351,
+    "sampleRate": 44100,
+    "retainedBeatBoundaries": [
+        0,
+        16,
+        48,
+        64,
+        96,
+        104,
+        128,
+        152
+    ],
+    "proofActive": true,
+    "cavernMode": true,
+    "recordStartDsp": 11.605333333333335,
+    "musicDspOrigin": 11.948,
+    "audioOffsetSeconds": 0.34266666666666625,
+    "captureStartMusicSeconds": 0.0,
+    "captureEndMusicSeconds": 78.07866666666667,
+    "recordingDurationSeconds": 78.42133333333334,
+    "fired": 40,
+    "hits": 40,
+    "bossDamage": 2,
+    "life": 6,
+    "spawnedDolphins": 4,
+    "dolphinPressureShots": 54,
+    "dolphinPressureInterceptions": 10,
+    "dolphinFullLocks": 8,
+    "arrivalFormation": 1.0,
+    "markers": [
+        {
+            "shot": "grotto",
+            "beatIndex": 0,
+            "frameCount": 1,
+            "authoredMusicSeconds": 0.0,
+            "observedMusicSeconds": 0.0
+        },
+        {
+            "shot": "fish-school",
+            "beatIndex": 32,
+            "frameCount": 475,
+            "authoredMusicSeconds": 15.483877551020408,
+            "observedMusicSeconds": 15.508
+        },
+        {
+            "shot": "serpent",
+            "beatIndex": 48,
+            "frameCount": 707,
+            "authoredMusicSeconds": 23.22580498866213,
+            "observedMusicSeconds": 23.230666666666666
+        },
+        {
+            "shot": "whale-arrival",
+            "beatIndex": 64,
+            "frameCount": 939,
+            "authoredMusicSeconds": 30.967732426303856,
+            "observedMusicSeconds": 30.974666666666665
+        },
+        {
+            "shot": "whale-chase",
+            "beatIndex": 96,
+            "frameCount": 1404,
+            "authoredMusicSeconds": 46.45160997732426,
+            "observedMusicSeconds": 46.462666666666667
+        },
+        {
+            "shot": "dolphin-combat",
+            "beatIndex": 128,
+            "frameCount": 1869,
+            "authoredMusicSeconds": 61.93548752834467,
+            "observedMusicSeconds": 61.972
+        },
+        {
+            "shot": "dolphin-full-lock",
+            "beatIndex": 128,
+            "frameCount": 1880,
+            "authoredMusicSeconds": 61.93548752834467,
+            "observedMusicSeconds": 62.33466666666667
+        },
+        {
+            "shot": "end",
+            "beatIndex": 160,
+            "frameCount": 2351,
+            "authoredMusicSeconds": 77.41936507936508,
+            "observedMusicSeconds": 78.036
+        }
+    ]
+}

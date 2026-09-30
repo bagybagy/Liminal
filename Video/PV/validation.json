@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "date": "2026-10-01",
+  "source": "Unity 6000.3.13f1 Game View, Unity Recorder 5.1.3",
+  "native_game_speed": true,
+  "audio": "Original mixed BGM and gameplay SE; no replacement soundtrack",
+  "authored_sample_rate": 44100,
+  "audio_offset_seconds": 0.34266666666666625,
+  "source_metadata": "LIMINAL_raw.json",
+  "source_dolphin_full_locks": 8,
+  "source_fired": 40,
+  "source_hits": 40,
+  "source_dolphin_projectiles": 54,
+  "source_dolphin_interceptions": 10,
+  "high_audio_mean_db": -21.0,
+  "high_audio_peak_db": -5.0,
+  "outputs": [
+    { "file": "Liminal_PV_High.mp4", "width": 1920, "height": 1080, "fps": 30, "seconds": 46.5667, "bytes": 64096174 },
+    { "file": "Liminal_PV_Git.mp4", "width": 1280, "height": 720, "fps": 30, "seconds": 46.5667, "bytes": 21898505 }
+  ],
+  "encoding": { "video": "h264", "pixel_format": "yuv420p", "audio": "aac", "audio_sample_rate": 48000, "audio_channels": 2 },
+  "visual_verification": [ "contact-sheet.jpg", "dolphin-full-lock.png" ],
+  "full_lock_poster_source_seconds": 63.08,
+  "combat_verification": "../../Verification/MusicalDolphins/report.json",
+  "combat_verification_commit": "bac3059"
+}

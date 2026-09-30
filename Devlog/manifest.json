@@ -204,6 +204,12 @@
         }
       ],
       "evidence_paths": ["Liminal/Verification/WhaleRevision/report.json"]
+    },
+    {
+      "id": "09",
+      "milestone_date": "2026-10-01",
+      "commits": [{ "id": "bac3059", "date": "2026-10-01T08:38:56+09:00", "subject": "イルカを8部位ロックと低速散開弾で音を奏でる戦闘に調整" }],
+      "evidence_paths": ["Liminal/Verification/MusicalDolphins/report.json"]
     }
   ],
   "copied_images": [
@@ -297,12 +303,21 @@
       "bytes": 1042617,
       "sha256": "14cc845e922067e6e70df31cde323787612961964a3dfa306069967c48a62220",
       "alt_text": "青い粒子で再構成されたクジラの全身。体表に桃色の器官が点在する。"
+    },
+    {
+      "post_id": "09",
+      "destination": "Liminal/Devlog/images/09-eight-point-dolphin.png",
+      "source": "Liminal/Verification/MusicalDolphins/revision-03-near-dolphin.png",
+      "source_git_tracked": false,
+      "bytes": 752285,
+      "sha256": "519285ccc13634b7e6f35d921bfefcaaa11089c3cad56690e1ac265f1846a19a",
+      "alt_text": "青く光るクジラの近くを泳ぐイルカ。その体に複数の青いロックポイントが並ぶ。"
     }
   ],
   "copied_images_total": {
-    "count": 9,
-    "bytes": 8388079,
-    "mib": 7.9995,
+    "count": 10,
+    "bytes": 9140364,
+    "mib": 8.717,
     "limit_bytes": 20971520,
     "under_limit": true
   },
@@ -351,7 +366,7 @@
     "raw_source_modified": false,
     "source_inspection_scope": "The exact user-named file only; no directory enumeration."
   },
-  "latest_verified_snapshot": {
+  "previous_verified_snapshot": {
     "verification_folder": "Liminal/Verification/WhaleRevision",
     "implementation_commit": "9813dd4634302d9d69ada9ff96753837ee0c04a7",
     "updated_build_commit": "7c3d195ed52ebb046bb35cf0796701a681fc1855",
@@ -363,5 +378,29 @@
     "regen_at_four_remaining": true,
     "video_present": false
   },
-  "pending_parent_addition": "A newer eight-point balance update is planned for the parent task after verification. It is not represented as complete here. Keep the parent's latest PV focused on the new game alone; this historical clip stays separate."
+  "latest_pv": {
+    "high": "Liminal/Video/PV/Liminal_PV_High.mp4",
+    "compact": "Liminal/Video/PV/Liminal_PV_Git.mp4",
+    "duration_seconds": 46.5667,
+    "source": "Current Unity Game View recording, not the historical clip",
+    "metadata": "Liminal/Video/PV/LIMINAL_raw.json",
+    "validation": "Liminal/Video/PV/validation.json",
+    "full_lock_screenshot": "Liminal/Video/PV/dolphin-full-lock.png",
+    "published_to_x": false
+  },
+  "latest_musical_balance": {
+    "implementation_commit": "bac3059",
+    "report": "Liminal/Verification/MusicalDolphins/report.json",
+    "passed": true,
+    "dolphin_body_points": 8,
+    "full_locks": 8,
+    "volley_hits": 8,
+    "volley_notes": 8,
+    "pressure_speed_mps": 28,
+    "pressure_shots_in_22_seconds": 36,
+    "pressure_interceptions": 25,
+    "pressure_max_concurrent": 6,
+    "whale_hits": 96,
+    "errors": []
+  }
 }

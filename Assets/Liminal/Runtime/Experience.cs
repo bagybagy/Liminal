@@ -36,7 +36,12 @@ namespace Liminal
             string[] args=Environment.GetCommandLineArgs();
             bool legacyProof=Array.Exists(args,s=>s=="--verify"||s=="--preview");
             bool cavernProof=Array.IndexOf(args,"--verify-caverns")>=0;
-            ProofActive=legacyProof||cavernProof;
+            bool capturePV=false;
+#if UNITY_EDITOR
+            legacyProof|=UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false);
+            capturePV=UnityEditor.EditorPrefs.GetBool("Liminal.CavernPV",false);
+#endif
+            ProofActive=legacyProof||cavernProof||capturePV;
             CavernMode=!legacyProof && Array.IndexOf(args,"--legacy-arena")<0;
             Cursor.visible=ProofActive;
             World=gameObject.AddComponent<ParticleWorld>();
@@ -58,6 +63,11 @@ namespace Liminal
             Ready=true;
             if(legacyProof) gameObject.AddComponent<RuntimeProof>().Initialize(this);
             if(cavernProof) gameObject.AddComponent<CavernProof>().Initialize(this);
+            if(capturePV) gameObject.AddComponent<PvDirector>().Initialize(this);
+#if UNITY_EDITOR
+            if(UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false))
+                gameObject.AddComponent<EditorTrailerRecorder>();
+#endif
             Debug.Log("LIMINAL_READY particles="+World.ParticleCount+" soundtrack="+soundtrack.length);
         }
         void Update()

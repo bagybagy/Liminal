@@ -57,7 +57,7 @@ namespace Liminal
         }
 
         static readonly int TintId = Shader.PropertyToID("_Tint");
-        static readonly MaterialPropertyBlock MarkerProperties = new();
+        static MaterialPropertyBlock MarkerProperties;
         static readonly Color MarkerTint = new(0.2f, 0.72f, 1f);
         static readonly Color BlueShot = new(0.04f, 0.43f, 1f);
         static readonly Color OrangeShot = new(1f, 0.38f, 0.08f);
@@ -72,6 +72,7 @@ namespace Liminal
 
         public void Initialize(Encounter combat, ParticleWorld world, Flight flight)
         {
+            MarkerProperties ??= new MaterialPropertyBlock();
             if (initialized)
             {
                 if (this.combat != combat || this.world != world || this.flight != flight)

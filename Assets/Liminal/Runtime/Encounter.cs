@@ -74,13 +74,13 @@ namespace Liminal
         public int SerpentRound { get; private set; }
         float organWaveResetAt = -1;
         public bool OrganWaveResetPending => organWaveResetAt >= 0;
-        static readonly MaterialPropertyBlock OrganProperties = new();
+        static MaterialPropertyBlock OrganProperties;
         static readonly Color Cyan = new(0.3f,1,0.91f), Amber = new(1,0.65f,0.22f);
         static readonly Color ElectricBlue = new(0.06f,0.42f,1f);
         static readonly int TintId = Shader.PropertyToID("_Tint");
         const int MaxLivePressureShots = 24;
         const float PressureShotSpeed = 48f;
-        static readonly MaterialPropertyBlock MarkerProperties = new();
+        static MaterialPropertyBlock MarkerProperties;
         sealed class Shot
         {
             public LockTarget target;
@@ -91,6 +91,8 @@ namespace Liminal
         }
         public void Initialize(MusicTransport transport,ParticleWorld particles,Flight pilot)
         {
+            OrganProperties ??= new MaterialPropertyBlock();
+            MarkerProperties ??= new MaterialPropertyBlock();
             music=transport; world=particles; flight=pilot;
             if(ExplorationMode) {
                 Colonies=gameObject.AddComponent<DefeatedMarineForms>();
