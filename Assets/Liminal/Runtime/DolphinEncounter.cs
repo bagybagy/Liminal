@@ -5,11 +5,25 @@ namespace Liminal
     public sealed class DolphinEncounter : MonoBehaviour
     {
         public const int Capacity = 6;
-        const int HitsToRetire = 3;
-        const int MaxConcurrentShots = 3;
+        public const int PointsPerDolphin = 8;
+        const int MaxConcurrentShots = 16;
+        const int ShotsPerBurst = 3;
         const float MaximumSpeed = 80f;
         const float MaximumAcceleration = 90f;
-        const float PressureSpeed = 48f;
+        const float PressureSpeed = 28f;
+        const float DolphinScale = 1.5f;
+        static readonly Vector3[] LockPointLocalPositions = {
+            new(0f, -0.3f, 9.2f),
+            new(-1.55f, 0.15f, 5.8f), new(1.55f, 0.15f, 5.8f),
+            new(-1.3f, -0.7f, 1.4f), new(1.3f, -0.7f, 1.4f),
+            new(-0.82f, -0.1f, -5.8f), new(0.82f, -0.1f, -5.8f),
+            new(0f, -0.05f, -9.1f)
+        };
+        static readonly string[] LockPointNames = {
+            "front", "front flank port", "front flank starboard",
+            "fin base port", "fin base starboard", "rear flank port",
+            "rear flank starboard", "back"
+        };
 
         public struct DolphinPose
         {
@@ -26,14 +40,20 @@ namespace Liminal
         sealed class Slot
         {
             public DolphinPose pose;
-            public GameObject marker;
-            public LockTarget target;
+            public readonly GameObject[] markers = new GameObject[PointsPerDolphin];
+            public readonly LockTarget[] targets = new LockTarget[PointsPerDolphin];
+            public readonly System.Collections.ObjectModel.ReadOnlyCollection<LockTarget> targetView;
             public Vector3 velocity;
             public bool sprinting;
             public bool aimable;
             public float nextFireAge, phase;
             public int hits;
             public bool spawned;
+
+            public Slot()
+            {
+                targetView = System.Array.AsReadOnly(targets);
+            }
         }
 
         static readonly int TintId = Shader.PropertyToID("_Tint");
@@ -47,6 +67,8 @@ namespace Liminal
         Flight flight;
         bool initialized, released;
         int shotSequence;
+        int nextBurstSlot;
+        float schoolAge, nextSchoolBurstAge;
 
         public void Initialize(Encounter combat, ParticleWorld world, Flight flight)
         {
@@ -67,14 +89,21 @@ namespace Liminal
             {
                 if (slots[i] == null) slots[i] = new Slot();
                 Slot slot = slots[i];
-                if (!slot.marker)
+                for (int point = 0; point < PointsPerDolphin; point++)
                 {
-                    slot.marker = PointCloud.Place("Dolphin lock marker " + i, world.NodeMesh, world.NodeMaterial, transform);
-                    slot.marker.transform.localScale = Vector3.one * 0.72f;
-                    SetMarkerTint(slot.marker, MarkerTint);
+                    if (!slot.markers[point])
+                    {
+                        string markerName = "Dolphin lock marker " + i;
+                        if (point > 0) markerName += " " + LockPointNames[point];
+                        slot.markers[point] = PointCloud.Place(markerName, world.NodeMesh, world.NodeMaterial, transform);
+                        slot.markers[point].transform.localScale = Vector3.one * 0.72f;
+                        SetMarkerTint(slot.markers[point], MarkerTint);
+                    }
+                    if (slot.targets[point] != null) continue;
+                    int index = i, pointIndex = point;
+                    slot.targets[point] = combat.RegisterDolphinTarget(slot.markers[point],
+                        (target, song) => OnDolphinHit(index, pointIndex, target, song));
                 }
-                int index = i;
-                slot.target = combat.RegisterDolphinTarget(slot.marker, (target, song) => OnDolphinHit(index, target, song));
             }
             initialized = true;
             released = false;
@@ -86,6 +115,9 @@ namespace Liminal
             if (combat) combat.ClearPressureShots(this);
             released = false;
             shotSequence = 0;
+            schoolAge = 0f;
+            nextSchoolBurstAge = 2f;
+            nextBurstSlot = 0;
             for (int i = 0; i < slots.Length; i++)
             {
                 Slot slot = slots[i];
@@ -97,14 +129,18 @@ namespace Liminal
                 slot.nextFireAge = slot.phase = 0f;
                 slot.hits = 0;
                 slot.spawned = false;
-                if (slot.target != null)
+                for (int point = 0; point < PointsPerDolphin; point++)
                 {
-                    if (combat) combat.ResetDolphinTarget(slot.target);
-                    slot.target.hp = 0;
-                    slot.target.reserved = 0;
-                    slot.target.position = Vector3.zero;
+                    LockTarget target = slot.targets[point];
+                    if (target != null)
+                    {
+                        if (combat) combat.ResetDolphinTarget(target);
+                        target.hp = 0;
+                        target.reserved = 0;
+                        target.position = Vector3.zero;
+                    }
+                    if (slot.markers[point]) slot.markers[point].SetActive(false);
                 }
-                if (slot.marker) slot.marker.SetActive(false);
             }
         }
 
@@ -113,14 +149,16 @@ namespace Liminal
             if (!initialized || released || !combat || combat.Ended || slotIndex < 0 || slotIndex >= Capacity)
                 return false;
             Slot slot = slots[slotIndex];
-            if (slot.spawned || slot.target == null || !slot.marker) return false;
+            if (slot.spawned) return false;
+            for (int point = 0; point < PointsPerDolphin; point++)
+                if (slot.targets[point] == null || !slot.markers[point]) return false;
 
             float norm = rotation.x * rotation.x + rotation.y * rotation.y + rotation.z * rotation.z + rotation.w * rotation.w;
             rotation = norm > 0.000001f ? rotation.normalized : Quaternion.identity;
             slot.spawned = true;
             slot.hits = 0;
             slot.phase = slotIndex * (Mathf.PI * 2f / Capacity);
-            slot.nextFireAge = 2f + slotIndex * 0.27f;
+            slot.nextFireAge = 2f;
             slot.velocity = rotation * Vector3.forward * 18f;
             slot.sprinting = false;
             slot.aimable = false;
@@ -135,11 +173,15 @@ namespace Liminal
                 Speed = slot.velocity.magnitude,
                 Velocity = slot.velocity
             };
-            slot.target.hp = HitsToRetire;
-            slot.target.reserved = 0;
-            slot.target.position = origin;
-            slot.marker.transform.SetPositionAndRotation(origin, rotation);
-            slot.marker.SetActive(true);
+            for (int point = 0; point < PointsPerDolphin; point++)
+            {
+                LockTarget target = slot.targets[point];
+                target.hp = 1;
+                target.reserved = 0;
+                target.position = origin + rotation * (LockPointLocalPositions[point] * DolphinScale);
+                slot.markers[point].transform.SetPositionAndRotation(target.position, rotation);
+                slot.markers[point].SetActive(true);
+            }
             return true;
         }
 
@@ -157,20 +199,28 @@ namespace Liminal
             }
 
             dt = Mathf.Clamp(dt, 0f, 0.1f);
+            schoolAge += dt;
             for (int i = 0; i < Capacity; i++)
             {
                 Slot slot = slots[i];
                 if (!slot.spawned || slot.pose.Retired) continue;
                 float age = slot.pose.Age + dt;
                 slot.pose.Age = age;
-                Swim(i, slot, age, dt);
-                FireIfReady(i, slot, age, song);
+                Swim(i, slot, age, dt, song);
             }
+            FireBurstIfReady(song);
         }
 
         public DolphinPose PoseAt(int slot)
         {
             return slot >= 0 && slot < Capacity && slots[slot] != null ? slots[slot].pose : default;
+        }
+
+        public System.Collections.Generic.IReadOnlyList<LockTarget> TargetsAt(int slot)
+        {
+            return slot >= 0 && slot < Capacity && slots[slot] != null
+                ? slots[slot].targetView
+                : System.Array.Empty<LockTarget>();
         }
 
         public void BeginRecall()
@@ -180,7 +230,7 @@ namespace Liminal
             RetireAttackers();
         }
 
-        void Swim(int index, Slot slot, float age, float dt)
+        void Swim(int index, Slot slot, float age, float dt, float song)
         {
             Quaternion frame = flight.transform.rotation;
             Vector3 planeUp = Vector3.up;
@@ -265,30 +315,84 @@ namespace Liminal
             slot.pose.Speed = slot.velocity.magnitude;
             slot.pose.Velocity = slot.velocity;
             slot.aimable = !slot.sprinting && (slot.velocity - flight.Velocity).magnitude <= 36f;
-            slot.target.position = next;
-            slot.marker.transform.SetPositionAndRotation(next, orientation);
-            slot.marker.SetActive(slot.target.hp > 0 && !combat.Ended);
+            for (int point = 0; point < PointsPerDolphin; point++)
+            {
+                LockTarget target = slot.targets[point];
+                Vector3 local = DeformLockPoint(LockPointLocalPositions[point], song);
+                target.position = next + orientation * (local * DolphinScale);
+                slot.markers[point].transform.SetPositionAndRotation(target.position, orientation);
+                slot.markers[point].SetActive(target.hp > 0 && !slot.pose.Retired && !combat.Ended);
+            }
         }
 
-        void FireIfReady(int index, Slot slot, float age, float song)
+        static Vector3 DeformLockPoint(Vector3 point, float song)
         {
-            if (!slot.aimable || age < slot.nextFireAge || (flight.Position - slot.pose.Position).sqrMagnitude > 105f * 105f ||
-                combat.LivePressureShots(this) >= MaxConcurrentShots) return;
+            float tail = Mathf.Clamp01((-point.z - 2f) / 7.5f);
+            point.y += Mathf.Sin(song * 2.2f + point.z * 0.22f) * tail * 0.65f;
+            point.x += Mathf.Sin(song * 1.1f + point.z * 0.18f) * tail * 0.18f;
+            return point;
+        }
 
-            Vector3 direction = AimDirection(slot.pose.Position);
-            Color color = (shotSequence++ & 1) == 0 ? BlueShot : OrangeShot;
-            if (combat.RegisterPressureShot(slot.pose.Position, direction, song, color, this) == null)
+        void FireBurstIfReady(float song)
+        {
+            if (schoolAge < nextSchoolBurstAge) return;
+            if (combat.LivePressureShots(this) + ShotsPerBurst > MaxConcurrentShots ||
+                !combat.CanRegisterPressureShots(ShotsPerBurst))
             {
-                slot.nextFireAge = age + 0.5f;
+                nextSchoolBurstAge = schoolAge + 0.15f;
                 return;
             }
-            float stagger = 3.15f + 0.55f * (0.5f + 0.5f * Mathf.Sin(age * 0.17f + index * 1.9f));
-            slot.nextFireAge = age + stagger;
+
+            int selected = -1;
+            Slot slot = null;
+            for (int offset = 0; offset < Capacity; offset++)
+            {
+                int index = (nextBurstSlot + offset) % Capacity;
+                Slot candidate = slots[index];
+                if (!candidate.spawned || candidate.pose.Retired || !candidate.aimable ||
+                    candidate.pose.Age < candidate.nextFireAge ||
+                    (flight.Position - candidate.pose.Position).sqrMagnitude > 105f * 105f) continue;
+                selected = index;
+                slot = candidate;
+                break;
+            }
+            if (slot == null) return;
+
+            Vector3 directionToPlayer = AimDirection(slot.pose.Position, shotSequence);
+            Vector3 spreadAxis = Vector3.ProjectOnPlane(Vector3.up, directionToPlayer);
+            if (spreadAxis.sqrMagnitude < 0.001f)
+                spreadAxis = Vector3.ProjectOnPlane(Vector3.right, directionToPlayer);
+            spreadAxis.Normalize();
+            int fired = 0;
+            for (int burstIndex = 0; burstIndex < ShotsPerBurst; burstIndex++)
+            {
+                int sequence = shotSequence;
+                Vector3 direction = AimDirection(slot.pose.Position, sequence);
+                float spread = (burstIndex - 1) * 12f + Mathf.Sin((sequence + 1) * 1.31f) * 2f;
+                direction = Quaternion.AngleAxis(spread, spreadAxis) * direction;
+                Color color = (sequence & 1) == 0 ? BlueShot : OrangeShot;
+                if (combat.RegisterPressureShot(slot.pose.Position, direction, song, color, this, PressureSpeed) == null)
+                    break;
+                shotSequence++;
+                fired++;
+            }
+
+            if (fired == 0)
+            {
+                nextSchoolBurstAge = schoolAge + 0.15f;
+                return;
+            }
+            nextBurstSlot = (selected + 1) % Capacity;
+            float actorCooldown = 2.2f + 1.2f * (0.5f + 0.5f * Mathf.Sin((shotSequence + selected) * 1.71f));
+            slot.nextFireAge = slot.pose.Age + actorCooldown;
+            float stagger = 1f + 0.5f * (0.5f + 0.5f * Mathf.Sin((shotSequence + selected) * 1.37f));
+            nextSchoolBurstAge = schoolAge + stagger;
         }
 
-        Vector3 AimDirection(Vector3 origin)
+        Vector3 AimDirection(Vector3 origin, int sequence)
         {
             Vector3 relative = flight.Position - origin;
+            Vector3 direct = relative.sqrMagnitude > 0.001f ? relative.normalized : flight.transform.forward;
             Vector3 velocity = flight.Velocity;
             float a = Vector3.Dot(velocity, velocity) - PressureSpeed * PressureSpeed;
             float b = 2f * Vector3.Dot(relative, velocity);
@@ -308,16 +412,19 @@ namespace Liminal
                 if (second > 0f && (time <= 0f || second < time)) time = second;
             }
             Vector3 intercept = flight.Position + velocity * Mathf.Clamp(time, 0f, 4f);
-            Vector3 direction = intercept - origin;
-            return direction.sqrMagnitude > 0.001f ? direction.normalized : flight.transform.forward;
+            Vector3 predicted = intercept - origin;
+            if (predicted.sqrMagnitude < 0.001f) return direct;
+            float lead = 0.20f + 0.10f * (0.5f + 0.5f * Mathf.Sin((sequence + 1) * 2.399963f));
+            return Vector3.Slerp(direct, predicted.normalized, lead).normalized;
         }
 
-        void OnDolphinHit(int index, LockTarget target, float song)
+        void OnDolphinHit(int index, int pointIndex, LockTarget target, float song)
         {
             Slot slot = slots[index];
             if (!slot.spawned || slot.pose.Retired) return;
             slot.hits++;
-            if (slot.hits >= HitsToRetire || target.hp <= 0) Retire(slot);
+            if (target.hp <= 0 && slot.markers[pointIndex]) slot.markers[pointIndex].SetActive(false);
+            if (slot.hits >= PointsPerDolphin) Retire(slot);
         }
 
         void RetireAttackers()
@@ -332,11 +439,16 @@ namespace Liminal
 
         void Retire(Slot slot)
         {
+            if (slot.pose.Retired) return;
             slot.pose.Active = false;
             slot.pose.Retired = true;
-            slot.target.hp = 0;
-            slot.marker.SetActive(false);
-            combat.Locks.Remove(slot.target);
+            for (int point = 0; point < PointsPerDolphin; point++)
+            {
+                LockTarget target = slot.targets[point];
+                target.hp = Mathf.Max(0, target.reserved);
+                if (slot.markers[point]) slot.markers[point].SetActive(target.reserved > 0);
+                combat.Locks.Remove(target);
+            }
         }
 
         static void SetMarkerTint(GameObject marker, Color color)
@@ -355,7 +467,9 @@ namespace Liminal
                 combat.ClearPressureShots(this);
                 combat.UnregisterDolphinSchool(this);
                 foreach (Slot slot in slots)
-                    if (slot != null) combat.UnregisterDolphinTarget(slot.target);
+                    if (slot != null)
+                        foreach (LockTarget target in slot.targets)
+                            combat.UnregisterDolphinTarget(target);
             }
         }
     }

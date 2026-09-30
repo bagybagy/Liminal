@@ -342,6 +342,8 @@ namespace Liminal
             yield return HitTargets(new[] { marine.WhaleResonatorTargets[8], marine.WhaleResonatorTargets[10] }, 2);
             LockTarget firstDolphin = FindDolphinTarget(0);
             Require(firstDolphin != null && marine.SpawnedDolphins == 2, "Two body patches must form real dolphins");
+            report.dolphinBodyPoints = marine.Dolphins.TargetsAt(0).Count;
+            Require(report.dolphinBodyPoints == 8, "One dolphin must expose eight independently reservable body points");
             var pose = marine.Dolphins.PoseAt(0);
             Frame(pose.Position, new Vector3(0, 16, -58));
             float sampleStart = Time.realtimeSinceStartup;
@@ -349,7 +351,12 @@ namespace Liminal
             report.dolphinMinSpeed = float.MaxValue;
             report.dolphinMinRelativeSpeed = float.MaxValue;
             while (Time.realtimeSinceStartup - sampleStart < 22f && !combat.Ended) {
-                PilotDolphinPressure(0);
+                PilotDolphinPressure(0, Time.realtimeSinceStartup - sampleStart > 6f);
+                report.pressureMaxConcurrent = Mathf.Max(report.pressureMaxConcurrent, combat.LivePressureShots(marine.Dolphins));
+                foreach (var target in combat.Targets) {
+                    if (!target.isPressureShot || target.pressureOwner != marine.Dolphins) continue;
+                    report.pressureSpeed = Mathf.Max(report.pressureSpeed, target.pressureSpeed);
+                }
                 for (int slot = 0; slot < 2; slot++) {
                     pose = marine.Dolphins.PoseAt(slot);
                     if (!pose.Active || pose.Age < 3f) continue;
@@ -365,16 +372,36 @@ namespace Liminal
             }
             report.dolphinInRangeFraction = inRange / (float)Mathf.Max(1, samples);
             report.interceptedShots = combat.DolphinPressureInterceptions;
+            report.pressureShotsLaunched = combat.DolphinPressureShots;
             Require(!combat.Ended && samples > 0 && report.dolphinInRangeFraction > .95f && report.dolphinMaxDistance < 120f,
                 "Dolphins must remain aimable through full fast/slow cycles while the player moves");
             Require(report.dolphinMaxSpeed > 52f && report.dolphinMinRelativeSpeed < 26f,
                 "A curved sprint must still exceed player boost, with genuinely slower aiming windows");
             Require(report.interceptedShots > 0, "Near-range dolphin fire must remain normally interceptable");
+            Require(report.pressureMaxConcurrent > 3 && report.pressureSpeed > 0 && report.pressureSpeed <= 28.1f,
+                "Dolphins must offer more simultaneous interceptable notes with slower projectiles");
             Frame(marine.Dolphins.PoseAt(0).Position, new Vector3(0, 14, -58));
             yield return null;
             Capture("revision-03-near-dolphin.png");
             if (firstDolphin != null) {
-                for (int hit = 0; hit < 3; hit++) yield return HitTargets(new[] { firstDolphin }, 1);
+                deadline = Time.realtimeSinceStartup + 3f;
+                while (combat.HasPending && Time.realtimeSinceStartup < deadline) yield return null;
+                Frame(marine.Dolphins.PoseAt(0).Position, new Vector3(0, 14, -58));
+                int hitsBefore = combat.Hits, notesBefore = experience.Music.ScheduledNotes;
+                var dolphinPoints = new List<LockTarget>(marine.Dolphins.TargetsAt(0));
+                foreach (var point in dolphinPoints)
+                    combat.AcquireAt(flight.View.WorldToScreenPoint(point.position));
+                report.dolphinFullLocks = combat.Locks.Count;
+                Require(report.dolphinFullLocks == 8 && combat.Locks.TrueForAll(target => dolphinPoints.Contains(target)),
+                    "Eight body points must be fully lockable from one near-range view without moving the camera between points");
+                yield return new WaitForSecondsRealtime(1.2f);
+                combat.Release();
+                deadline = Time.realtimeSinceStartup + 5f;
+                while (combat.HasPending && Time.realtimeSinceStartup < deadline) yield return null;
+                report.dolphinVolleyHits = combat.Hits - hitsBefore;
+                report.dolphinVolleyNotes = experience.Music.ScheduledNotes - notesBefore;
+                Require(report.dolphinVolleyHits == 8 && report.dolphinVolleyNotes == 8 && marine.Dolphins.PoseAt(0).Retired,
+                    "An eight-point full volley must resolve eight hits and eight authored notes before retiring the dolphin");
                 deadline = Time.realtimeSinceStartup + 10.2f;
                 while (Time.realtimeSinceStartup < deadline) {
                     PilotDolphinPressure(1);
@@ -434,6 +461,7 @@ namespace Liminal
             Require(report.identityStable, "Gathering, recalls, and repeat births must not replace the persistent particle pool");
             Require(combat.MissedScheduledHits == 0 && experience.Music.MaxGridError < .000001,
                 "Phase changes must preserve all accepted beat-scheduled hits");
+            Require(experience.Music.DroppedNotes == 0, "Richer combat must not overrun the audio voice pool");
             experience.Restart();
             report.restartClean = ArrivalIsDormant() && marine.WhaleRegenerations == 0 && !marine.WhaleRegenerating;
             Require(report.restartClean, "Restart must clear the regeneration and all recalled/spawned states");
@@ -460,14 +488,14 @@ namespace Liminal
             return (float)(total / Math.Max(1, count));
         }
 
-        void PilotDolphinPressure(int slot)
+        void PilotDolphinPressure(int slot, bool intercept = true)
         {
             var flight = experience.Flight;
             var combat = experience.Combat;
             LockTarget pressure = FindLiveDolphinPressure(experience.Marine.Dolphins);
             Vector3 aim = pressure != null ? pressure.position : experience.Marine.Dolphins.PoseAt(slot).Position;
             StepFlightLookAt(flight, aim, Mathf.Min(Time.unscaledDeltaTime, .05f), Vector3.right * .6f);
-            if (pressure == null || combat.HasPending) return;
+            if (!intercept || pressure == null || combat.HasPending) return;
             combat.AcquireAt(flight.View.WorldToScreenPoint(pressure.position));
             if (combat.Locks.Contains(pressure)) combat.Release();
             else combat.AbandonLocks();
@@ -478,8 +506,10 @@ namespace Liminal
             public bool passed, initialHidden, arrivalComplete, retiredAndAlive, regenAtFive, regenAtFour;
             public bool dolphinRespawned, identityStable, restartClean;
             public int particles, interceptedShots, recalledParticles, restoredTargets, reclaimedDolphins, whaleHits, regenerations;
+            public int dolphinBodyPoints, dolphinFullLocks, dolphinVolleyHits, dolphinVolleyNotes, pressureMaxConcurrent, pressureShotsLaunched;
             public float gatherFormation, gatherShapeError, formedShapeError, recalledFormError;
             public float dolphinMaxDistance, dolphinInRangeFraction, dolphinMinSpeed, dolphinMaxSpeed, dolphinMinRelativeSpeed;
+            public float pressureSpeed;
             public string gpu;
             public string[] errors;
         }
@@ -798,7 +828,7 @@ namespace Liminal
             Require(dolphinPressureIntercepted,
                 "At least one automatically fired dolphin pressure shot must be intercepted through normal target acquisition");
             Require(dolphinRetired,
-                "Three normal hits must retire the actual dolphin target and close its encounter callback");
+                "Eight normal body-point hits must retire the actual dolphin and close its encounter callbacks");
             Require(dolphinPressureCleared,
                 "Retiring the last spawned dolphin must leave no live pressure shots before the whale chase");
             Require(dolphinMaxSpeed>40f,
@@ -852,6 +882,8 @@ namespace Liminal
                     lastPoseSample=pose.Age;
                 }
                 LockTarget pressure=FindLiveDolphinPressure(marine.Dolphins);
+                foreach (var target in marine.Dolphins.TargetsAt(0))
+                    if (target.Available) { dolphinTarget = target; break; }
                 bool sampleDone=lastPoseSample>=sampleThrough;
                 bool canRetire=sampleDone && !pose.Retired && dolphinTarget.Available;
                 Vector3 aim=pressure!=null?pressure.position:dolphinTarget.position;
@@ -893,19 +925,14 @@ namespace Liminal
             dolphinNormalHits=hitsFired;
             Require(sampledSeconds>=5.7f,
                 "Dolphin speed must be measured across approximately six seconds of its mature swim");
-            Require(hitsFired==3,
-                "The dolphin must receive all three scheduled hits through normal AcquireAt and Release calls");
+            Require(hitsFired==DolphinEncounter.PointsPerDolphin,
+                "The dolphin must receive eight distinct scheduled body-point hits through normal acquisition");
         }
 
         LockTarget FindDolphinTarget(int slot)
         {
-            int found=0;
-            foreach(var target in experience.Combat.Targets)
-                if(target.kind==TargetKind.Dolphin)
-                {
-                    if(found++==slot) return target;
-                }
-            return null;
+            var points = experience.Marine.Dolphins.TargetsAt(slot);
+            return points.Count > 0 ? points[0] : null;
         }
 
         LockTarget FindLiveDolphinPressure(DolphinEncounter owner)

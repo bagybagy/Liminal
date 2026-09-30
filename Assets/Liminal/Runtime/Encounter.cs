@@ -447,6 +447,7 @@ namespace Liminal
             CancelScheduledShots(target);
             Locks.Remove(target);
             target.hp=0;
+            target.reserved=0;
             target.onHit=null;
             if(target.visual) {
                 target.visual.SetActive(false);
@@ -460,6 +461,8 @@ namespace Liminal
             if(target==null) return;
             CancelScheduledShots(target);
             Locks.Remove(target);
+            target.hp=0;
+            target.reserved=0;
         }
 
         void CancelScheduledShots(LockTarget target)
@@ -484,8 +487,17 @@ namespace Liminal
             return target;
         }
 
+        internal bool CanRegisterPressureShots(int count)
+        {
+            if(Ended || !world || !flight || count<=0) return false;
+            int live=0;
+            foreach(var target in Targets)
+                if(target.isPressureShot && target.hp>0) live++;
+            return live+count<=MaxLivePressureShots;
+        }
+
         public LockTarget RegisterPressureShot(Vector3 origin,Vector3 direction,float song,Color color,
-            UnityEngine.Object owner=null)
+            UnityEngine.Object owner=null,float speed=PressureShotSpeed)
         {
             if(Ended || !world || !flight || direction.sqrMagnitude<0.0001f) return null;
             int live=0;
@@ -494,13 +506,14 @@ namespace Liminal
             if(live>=MaxLivePressureShots) return null;
 
             direction.Normalize();
-            float lifetime=Mathf.Clamp(Vector3.Distance(origin,flight.Position)/PressureShotSpeed+1.1f,1.35f,6f);
+            speed=Mathf.Max(1f,speed);
+            float lifetime=Mathf.Clamp(Vector3.Distance(origin,flight.Position)/speed+1.1f,1.35f,6f);
             var shot=new LockTarget {
                 id=nextId++,kind=TargetKind.Threat,hp=1,born=song,deadline=song+lifetime,
                 origin=origin,direction=direction,position=origin,
-                destination=origin+direction*(PressureShotSpeed*lifetime),
+                destination=origin+direction*(speed*lifetime),
                 isPressureShot=true,pressureOwner=owner,pressureColor=color,
-                pressureSpeed=PressureShotSpeed,pressureLifetime=lifetime,
+                pressureSpeed=speed,pressureLifetime=lifetime,
                 previousPlayerPosition=flight.Position
             };
             shot.visual=PointCloud.Place("Dolphin pressure shot",world.NodeMesh,world.NodeMaterial,transform);
