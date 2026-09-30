@@ -8,7 +8,7 @@ namespace Liminal
         const int HitsToRetire = 3;
         const int MaxConcurrentShots = 3;
         const float MaximumSpeed = 80f;
-        const float MaximumAcceleration = 30f;
+        const float MaximumAcceleration = 90f;
         const float PressureSpeed = 48f;
 
         public struct DolphinPose
@@ -20,6 +20,7 @@ namespace Liminal
             public Vector3 BirthPosition;
             public Quaternion BirthRotation;
             public float Speed;
+            public Vector3 Velocity;
         }
 
         sealed class Slot
@@ -28,8 +29,8 @@ namespace Liminal
             public GameObject marker;
             public LockTarget target;
             public Vector3 velocity;
-            public Vector3 sprintHeading;
             public bool sprinting;
+            public bool aimable;
             public float nextFireAge, phase;
             public int hits;
             public bool spawned;
@@ -92,6 +93,7 @@ namespace Liminal
                 slot.pose = default;
                 slot.velocity = Vector3.zero;
                 slot.sprinting = false;
+                slot.aimable = false;
                 slot.nextFireAge = slot.phase = 0f;
                 slot.hits = 0;
                 slot.spawned = false;
@@ -120,6 +122,8 @@ namespace Liminal
             slot.phase = slotIndex * (Mathf.PI * 2f / Capacity);
             slot.nextFireAge = 2f + slotIndex * 0.27f;
             slot.velocity = rotation * Vector3.forward * 18f;
+            slot.sprinting = false;
+            slot.aimable = false;
             slot.pose = new DolphinPose {
                 Active = true,
                 Retired = false,
@@ -128,7 +132,8 @@ namespace Liminal
                 Age = 0f,
                 BirthPosition = origin,
                 BirthRotation = rotation,
-                Speed = slot.velocity.magnitude
+                Speed = slot.velocity.magnitude,
+                Velocity = slot.velocity
             };
             slot.target.hp = HitsToRetire;
             slot.target.reserved = 0;
@@ -143,8 +148,7 @@ namespace Liminal
             if (!initialized || !combat || !world || !flight) return;
             if (whaleReleased && !released)
             {
-                released = true;
-                RetireAttackers();
+                BeginRecall();
                 return;
             }
             if (released)
@@ -169,31 +173,62 @@ namespace Liminal
             return slot >= 0 && slot < Capacity && slots[slot] != null ? slots[slot].pose : default;
         }
 
+        public void BeginRecall()
+        {
+            if (!initialized || released) return;
+            released = true;
+            RetireAttackers();
+        }
+
         void Swim(int index, Slot slot, float age, float dt)
         {
             Quaternion frame = flight.transform.rotation;
-            float phase = slot.phase + age * (0.19f + 0.07f * Mathf.Sin(age * 0.21f + slot.phase));
-            float radius = 52f + index * 5.2f + Mathf.Sin(age * 0.16f + slot.phase) * 5f;
-            Vector3 around = Vector3.right * Mathf.Cos(phase) + Vector3.forward * Mathf.Sin(phase);
-            float dive = Mathf.Sin(age * 0.72f + slot.phase * 1.7f) * 9f;
-            float drift = Mathf.Sin(age * 0.31f + slot.phase) * 6f;
-            Vector3 desired = flight.Position + around * radius + Vector3.forward * drift + Vector3.up * dive;
-            if (world.Caverns)
-            {
-                Vector3 noVelocity = Vector3.zero;
-                desired = CaveLayout.Constrain(desired, ref noVelocity, 8f);
-            }
+            Vector3 planeUp = Vector3.up;
+            Vector3 planeRight = Vector3.right;
+            Vector3 planeForward = Vector3.forward;
+            Vector3 relativePosition = slot.pose.Position - flight.Position;
+            Vector3 planarOffset = Vector3.ProjectOnPlane(relativePosition, planeUp);
+            float planarDistance = planarOffset.magnitude;
+            float desiredRadius = 48f + index * 3.5f + Mathf.Sin(age * 0.16f + slot.phase) * 4.5f;
+            Vector3 radial = planarDistance > 0.1f
+                ? planarOffset / planarDistance
+                : planeRight * Mathf.Cos(slot.phase) + planeForward * Mathf.Sin(slot.phase);
+            Vector3 tangent = Vector3.Cross(planeUp, radial).normalized;
+            Vector3 relativeVelocity = slot.velocity - flight.Velocity;
+            float radialVelocity = Vector3.Dot(relativeVelocity, radial);
+            float radialSpeed = Mathf.Clamp((desiredRadius - planarDistance) * 1.8f - radialVelocity * 0.9f, -28f, 24f);
 
-            Vector3 tangent = -Vector3.right * Mathf.Sin(phase) + Vector3.forward * Mathf.Cos(phase);
             float cycle = Mathf.Repeat(age - 2f + index * 1.2f, 14f);
-            bool sprinting = age >= 2f && cycle >= 2f && cycle < 6f;
-            if (sprinting && !slot.sprinting)
-                slot.sprintHeading = (tangent + around * 0.16f + Vector3.up * Mathf.Sin(slot.phase + age) * 0.12f).normalized;
-            slot.sprinting = sprinting;
-            float orbitSpeed = Mathf.Lerp(12f, 26f, 0.5f + 0.5f * Mathf.Sin(age * 0.27f + slot.phase));
-            Vector3 toGoal = desired - slot.pose.Position;
-            Vector3 desiredVelocity = sprinting ? slot.sprintHeading * MaximumSpeed :
-                Vector3.ClampMagnitude(toGoal * 1.4f + tangent * orbitSpeed, 26f);
+            float sprintIn = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(2.1f, 2.65f, cycle));
+            float sprintOut = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(4.95f, 5.5f, cycle));
+            float sprintBlend = age >= 2f ? sprintIn * sprintOut : 0f;
+            sprintBlend *= 1f - Mathf.SmoothStep(0f, 1f,
+                Mathf.InverseLerp(8f, 25f, Mathf.Abs(planarDistance - desiredRadius)));
+
+            float slowSpeed = Mathf.Lerp(12f, 26f, 0.5f + 0.5f * Mathf.Sin(age * 0.27f + slot.phase));
+            float curvedSprintLimit = Mathf.Sqrt(MaximumAcceleration * Mathf.Max(planarDistance, desiredRadius * 0.7f) * 0.82f);
+            float fastSpeed = Mathf.Min(72f, curvedSprintLimit);
+            float tangentSpeed = Mathf.Lerp(slowSpeed, fastSpeed, sprintBlend);
+
+            float targetHeight = Mathf.Sin(age * 0.72f + slot.phase * 1.7f) * 7f +
+                Mathf.Sin(age * 0.31f + slot.phase) * 3f;
+            float height = Vector3.Dot(relativePosition, planeUp);
+            float verticalSpeed = Mathf.Clamp((targetHeight - height) * 1.4f - Vector3.Dot(relativeVelocity, planeUp) * 0.8f, -12f, 12f);
+            Vector3 baseVelocity = flight.Velocity + radial * radialSpeed + planeUp * verticalSpeed;
+            if (baseVelocity.sqrMagnitude >= MaximumSpeed * MaximumSpeed)
+            {
+                baseVelocity = Vector3.ClampMagnitude(baseVelocity, MaximumSpeed);
+                tangentSpeed = 0f;
+            }
+            else
+            {
+                float tangentDot = Vector3.Dot(baseVelocity, tangent);
+                float remaining = MaximumSpeed * MaximumSpeed - baseVelocity.sqrMagnitude;
+                float tangentLimit = -tangentDot + Mathf.Sqrt(tangentDot * tangentDot + remaining);
+                tangentSpeed = Mathf.Min(tangentSpeed, Mathf.Max(0f, tangentLimit));
+            }
+            Vector3 desiredVelocity = baseVelocity + tangent * tangentSpeed;
+            slot.sprinting = sprintBlend > 0.02f;
 
             Vector3 neighborCenter = Vector3.zero;
             Vector3 separation = Vector3.zero;
@@ -209,7 +244,10 @@ namespace Liminal
                     separation += offset / distanceSquared;
             }
 
-            Vector3 acceleration = (desiredVelocity - slot.velocity) * 0.85f + separation * 95f;
+            Vector3 acceleration = (desiredVelocity - slot.velocity) * 1.8f + separation * 95f;
+            // Turning feed-forward preserves the sprint instead of drifting outwards and braking it away.
+            float actualTangentSpeed = Vector3.Dot(relativeVelocity, tangent);
+            acceleration -= radial * (actualTangentSpeed * actualTangentSpeed / Mathf.Max(16f, planarDistance));
             if (neighbors > 0) acceleration += (neighborCenter / neighbors - slot.pose.Position) * 0.008f;
             acceleration = Vector3.ClampMagnitude(acceleration, MaximumAcceleration);
             slot.velocity = Vector3.ClampMagnitude(slot.velocity + acceleration * dt, MaximumSpeed);
@@ -225,6 +263,8 @@ namespace Liminal
             slot.pose.Position = next;
             slot.pose.Rotation = orientation;
             slot.pose.Speed = slot.velocity.magnitude;
+            slot.pose.Velocity = slot.velocity;
+            slot.aimable = !slot.sprinting && (slot.velocity - flight.Velocity).magnitude <= 36f;
             slot.target.position = next;
             slot.marker.transform.SetPositionAndRotation(next, orientation);
             slot.marker.SetActive(slot.target.hp > 0 && !combat.Ended);
@@ -232,7 +272,7 @@ namespace Liminal
 
         void FireIfReady(int index, Slot slot, float age, float song)
         {
-            if (age < slot.nextFireAge || Vector3.Distance(flight.Position, slot.pose.Position) >= 250f ||
+            if (!slot.aimable || age < slot.nextFireAge || (flight.Position - slot.pose.Position).sqrMagnitude > 105f * 105f ||
                 combat.LivePressureShots(this) >= MaxConcurrentShots) return;
 
             Vector3 direction = AimDirection(slot.pose.Position);
