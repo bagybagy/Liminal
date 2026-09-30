@@ -130,11 +130,22 @@ namespace Liminal
         void BuildBursts()
         {
             var p = new PointCloud();
+            const int coreCount = 88;
+            const int groupCount = 18;
+            var groupColors = new Color[groupCount];
+            for (int group = 0; group < groupCount; group++)
+                groupColors[group] = Color.Lerp(Ice, Gold, R(0.08f, 0.72f)) * R(0.82f, 1.08f);
             for (int i = 0; i < 850; i++) {
-                Vector3 v = new(R(-1,1),R(-1,1),R(-1,1));
-                p.Add(v.normalized*R(0.2f,1),R(0.032f,0.086f),Color.Lerp(Ice,Gold,R()),R());
+                if (i < coreCount) {
+                    Vector3 core = new(R(-1,1),R(-1,1),R(-1,1));
+                    p.Add(core.normalized * R(0.015f, 0.12f), R(0.038f, 0.075f), Pearl, R(), -1);
+                } else {
+                    int group = (i - coreCount) % groupCount;
+                    Vector3 grain = new(R(-0.18f,0.18f),R(-0.14f,0.14f),R(-0.18f,0.18f));
+                    p.Add(grain, R(0.026f,0.066f), groupColors[group], R(), group);
+                }
             }
-            var mesh = Mesh(p,"Radiant dispersion");
+            var mesh = Mesh(p,"Impact filaments");
             for (int i=0;i<bursts.Length;i++) {
                 var m = Material(2,2);
                 var obj = PointCloud.Place("Dispersion "+i,mesh,m,transform);

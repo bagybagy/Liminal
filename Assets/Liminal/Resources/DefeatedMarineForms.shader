@@ -49,6 +49,7 @@ Shader "Liminal/Defeated Marine Forms"
                 float2 uv : TEXCOORD0;
                 float4 color : COLOR;
                 float visible : TEXCOORD1;
+                float4 field : TEXCOORD2;
             };
 
             float Hash(float value, float salt)
@@ -139,34 +140,53 @@ Shader "Liminal/Defeated Marine Forms"
                 float visible, accent;
                 float3 target = ColonyPoint(input.data.x, visible, accent);
                 float elapsed = max(0, _Elapsed);
-                float scatter = smoothstep(0, 1.35, elapsed);
-                float settle = smoothstep(1.25, 7.4, elapsed);
-                float3 scatterDirection = normalize(float3(
-                    Hash(input.data.x, 7.0) * 2.0 - 1.0,
-                    Hash(input.data.x, 8.0) * 1.4 - 0.45,
-                    Hash(input.data.x, 9.0) * 2.0 - 1.0));
+                float span = saturate(abs(local.x) / 2.7);
+                float depth = saturate(abs(local.z) / 1.4);
+                float edge = saturate(smoothstep(0.22, 0.86, span) * 0.72 + smoothstep(0.2, 0.94, depth) * 0.28);
+                float bandX = floor(span * 4.0);
+                float bandZ = floor((local.z + 1.4) * 1.42);
+                float subgroup = bandX + bandZ * 4.0 + (local.x < 0.0 ? 24.0 : 0.0);
+                float sideSign = local.x < 0.0 ? -1.0 : 1.0;
+                float3 peelAxis = normalize(float3(sideSign * (0.42 + Hash(subgroup, 21.0) * 0.48),
+                    -0.12 + Hash(subgroup, 22.0) * 0.72, (Hash(subgroup, 23.0) - 0.5) * 0.9));
+                float3 curlSide = normalize(cross(float3(0, 1, 0), peelAxis));
+                float3 curlNormal = normalize(cross(peelAxis, curlSide));
+                float phase = Hash(subgroup, 24.0) * 6.2831853;
+                float turn = max(0.0, elapsed - 0.38) * (2.5 + Hash(subgroup, 25.0) * 1.1);
+                float3 curl = curlSide * (sin(turn + phase) - sin(phase)) * (0.18 + edge * 0.46) +
+                    curlNormal * (cos(phase) - cos(turn + phase)) * (0.14 + edge * 0.34);
+                float releaseStart = 0.40 + (1.0 - edge) * 0.18;
+                float scatter = smoothstep(releaseStart, releaseStart + 1.0, elapsed);
+                float settle = smoothstep(1.6, 7.4, elapsed);
                 float current = elapsed * (1.0 - saturate(elapsed / 2.0));
-                float3 dispersed = source + scatterDirection * (scatter * (2.0 + Hash(input.data.x, 10.0) * 6.0)) +
-                    (_ColonyRight.xyz * 0.42 + _ColonyForward.xyz * 0.28) * current;
+                float spread = 0.8 + edge * 2.0 + Hash(input.data.x, 10.0) * 1.15;
+                float3 dispersed = source + peelAxis * (scatter * spread) + curl * scatter +
+                    (_ColonyRight.xyz * 0.42 + _ColonyForward.xyz * 0.28) * current * scatter;
                 float3 world = lerp(dispersed, target, settle);
                 float kelp = step(0.92, Hash(input.data.x, 1.0));
                 world += _ColonyRight.xyz * sin(_Song * 0.47 + input.data.x * 19.0) * kelp * settle * 0.10;
 
                 float distanceToCamera = length(_WorldSpaceCameraPos - world);
-                float size = input.uv.z * max(1.0, distanceToCamera * 0.006) * (1.0 + settle);
+                float fieldWeight = smoothstep(0.52, 1.17, elapsed) * (1.0 - settle);
+                float size = input.uv.z * max(1.0, distanceToCamera * 0.006) * (1.0 + settle) * (1.0 + fieldWeight * 3.0);
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;
                 float3 cameraUp = UNITY_MATRIX_V[1].xyz;
                 world += (cameraRight * input.uv.x + cameraUp * input.uv.y) * size;
 
                 float3 startColor = input.color.rgb * _SourceTint.rgb * _SourceGain;
+                float charge = smoothstep(0.0, 0.48, elapsed);
+                float flare = charge * exp(-max(0.0, elapsed - 0.46) * 1.15);
+                float3 sourceWhite = float3(0.82, 0.95, 1.0) * max(_SourceGain, 0.25);
+                startColor = lerp(startColor, sourceWhite, saturate(flare * 0.78)) * (1.0 + flare * 0.75);
                 float3 formTint = lerp(_RoomColor.rgb, _RoomAccent.rgb, accent);
                 float3 formColor = formTint * (0.92 + Hash(input.data.x, 11.0) * 0.28);
                 float pulse = lerp(0.92 + 0.08 * _Pulse * (1.0 - _Reduced), 1.0 + _Pulse * 0.055 * (1.0 - _Reduced), settle);
+                float distanceFade = exp(-distanceToCamera * 0.0018);
 
                 output.positionCS = TransformWorldToHClip(world);
                 output.uv = input.uv.xy;
-                output.color = float4(lerp(startColor, formColor, settle) * _Tint.rgb * _Gain * pulse *
-                    exp(-distanceToCamera * 0.0018), 1);
+                output.color = float4(lerp(startColor, formColor, settle) * _Tint.rgb * _Gain * pulse * distanceFade, 1);
+                output.field = float4(formColor * _Tint.rgb * _Gain * pulse * distanceFade, fieldWeight * 0.58);
                 output.visible = lerp(1.0, visible, settle);
                 return output;
             }
@@ -177,7 +197,8 @@ Shader "Liminal/Defeated Marine Forms"
                 float radius = dot(input.uv, input.uv);
                 clip(1.0 - radius);
                 float glow = exp(-radius * 5.0) * 0.35 + exp(-radius * 24.0) * 1.65;
-                return half4(input.color.rgb * glow, 1);
+                float fieldGlow = exp(-radius * 3.6) * 0.42 + exp(-radius * 10.0) * 0.3;
+                return half4(input.color.rgb * glow + input.field.rgb * input.field.a * fieldGlow, 1);
             }
             ENDHLSL
         }

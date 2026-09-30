@@ -41,7 +41,11 @@ Shader "Liminal/Luminous"
                     (1+exp(-pow((u-0.047)/0.032,2))*0.7)*(0.12+0.88*smoothstep(0,0.03,u));
             }
             struct Input { float4 positionOS : POSITION; float4 color : COLOR; float4 uv : TEXCOORD0; float2 data : TEXCOORD1; };
-            struct Vary { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float4 color : COLOR; };
+            struct Vary { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float4 color : COLOR; float core : TEXCOORD1; };
+            float Hash(float value, float salt)
+            {
+                return frac(sin(value * 127.1 + salt * 311.7) * 43758.5453);
+            }
             Vary Vert(Input input)
             {
                 Vary o;
@@ -49,6 +53,7 @@ Shader "Liminal/Luminous"
                 float size = input.uv.z;
                 float twinkle = 0.85 + 0.15*sin(_Song*1.1+input.data.x*31);
                 float resonance = 0;
+                float impactCore = 0;
                 if (_Mode > 0.5 && _Mode < 1.5)
                 {
                     float u = p.x, angle = p.y;
@@ -70,9 +75,30 @@ Shader "Liminal/Luminous"
                 else if (_Mode > 1.5)
                 {
                     float age = max(0,_Song-_Burst.w);
-                    p = _Burst.xyz + p * age * 9;
-                    twinkle *= exp(-age*2.3);
-                    size *= 1+age*1.5;
+                    impactCore = 1.0 - step(0.0, input.data.y);
+                    if (impactCore > 0.5) {
+                        p = _Burst.xyz + p;
+                    } else {
+                        float group = floor(input.data.y + 0.5);
+                        float angle = group * 2.39996323 + (Hash(group + 1.0, 1.0) - 0.5) * 0.24;
+                        float elevation = lerp(-0.22, 0.78, frac(group * 0.38196601 + 0.17));
+                        elevation += (Hash(group + 1.0, 2.0) - 0.5) * 0.12;
+                        float horizontal = sqrt(max(0.05, 1.0 - elevation * elevation));
+                        float3 axis = normalize(float3(cos(angle) * horizontal, elevation, sin(angle) * horizontal));
+                        float3 side = normalize(cross(float3(0, 1, 0), axis));
+                        float3 normal = normalize(cross(axis, side));
+                        float phase = Hash(group + 1.0, 3.0) * 6.2831853;
+                        float turn = age * (2.35 + Hash(group + 1.0, 4.0) * 0.8);
+                        float travel = (1.0 - exp(-age * 1.9)) * (0.9 + Hash(group + 1.0, 5.0) * 1.25);
+                        float3 curl = side * (sin(turn + phase) - sin(phase)) * 0.32 +
+                            normal * (cos(phase) - cos(turn + phase)) * 0.25;
+                        p = _Burst.xyz + p + axis * travel + curl;
+                        p += side * sin(age * 4.2 + input.data.x * 6.2831853) * 0.045 * saturate(age * 2.0);
+                    }
+                    float grainFade = exp(-age * 0.78) * (1.0 - smoothstep(1.45, 2.25, age));
+                    float coreFade = 0.18 * exp(-age * 1.25) + 3.0 * exp(-age * 12.0);
+                    twinkle = lerp(grainFade, coreFade, impactCore);
+                    size *= 1.0 + min(age * 0.16, 0.24);
                 }
                 else
                 {
@@ -95,6 +121,8 @@ Shader "Liminal/Luminous"
                 float3 right = UNITY_MATRIX_V[0].xyz;
                 float3 upCam = UNITY_MATRIX_V[1].xyz;
                 size *= max(1, distance * 0.006);
+                if (_Mode > 1.5 && impactCore > 0.5)
+                    size = max(size, distance * 2.5 / (max(_ScreenParams.y, 1.0) * max(abs(UNITY_MATRIX_P[1][1]), 0.01)));
                 p += (right*input.uv.x + upCam*input.uv.y)*size;
                 o.positionCS = TransformWorldToHClip(p);
                 o.uv = input.uv.xy;
@@ -103,13 +131,26 @@ Shader "Liminal/Luminous"
                 twinkle *= 1+resonance;
                 if (_Mode > 0.5 && _Mode < 1.5)
                     col = lerp(col, col.gbr*float3(1.8,0.7,0.3)+float3(0.24,0.04,0), _Evolution*0.72);
-                o.color = float4(col*_Tint.rgb*_Gain*twinkle*exp(-distance*0.0018),1);
+                if (_Mode > 1.5) {
+                    float whiteLevel = max(max(_Tint.r, _Tint.g), max(_Tint.b, 0.18));
+                    float3 grainColor = col * _Tint.rgb;
+                    float3 coreColor = float3(whiteLevel, whiteLevel, whiteLevel);
+                    o.color = float4(lerp(grainColor, coreColor, impactCore) * _Gain * twinkle * exp(-distance * 0.0018), 1);
+                } else {
+                    o.color = float4(col*_Tint.rgb*_Gain*twinkle*exp(-distance*0.0018),1);
+                }
+                o.core = impactCore;
                 return o;
             }
             half4 Frag(Vary i) : SV_Target
             {
                 float r = dot(i.uv,i.uv);
                 clip(1-r);
+                if (_Mode > 1.5) {
+                    float grainGlow = exp(-r * 4.2) * 0.58 + exp(-r * 22.0) * 0.8;
+                    float coreGlow = exp(-r * 3.6) * 0.78 + exp(-r * 20.0) * 1.32;
+                    return half4(i.color.rgb * lerp(grainGlow, coreGlow, i.core), 1);
+                }
                 float glow = exp(-r*5)*0.35 + exp(-r*24)*1.65;
                 return half4(i.color.rgb*glow,1);
             }
