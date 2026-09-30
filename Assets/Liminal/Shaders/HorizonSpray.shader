@@ -20,6 +20,7 @@ Shader "Liminal/Horizon Spray"
             CBUFFER_START(UnityPerMaterial)
                 float4 _Pearl;
                 float _Song;
+                float _WhaleVisibility;
                 int _WaterEventCount;
                 int _SprayBeadsPerEvent;
             CBUFFER_END
@@ -65,6 +66,8 @@ Shader "Liminal/Horizon Spray"
                 float seedB = Hash((float)(eventIndex * 97u + bead * 31u + 47u) + eventSeed * 1.31);
                 float age = _Song - origin.w;
                 float valid = step(0, age) * step(age, 14) * step(0.0001, motion.w);
+                float major = step(3, motion.w);
+                float whaleVisibility = _WhaleVisibility;
                 float impact = smoothstep(0.85, 1.3, motion.w);
                 float eventEnergy = saturate(motion.w / 1.65);
                 float2 direction = motion.xy;
@@ -85,22 +88,27 @@ Shader "Liminal/Horizon Spray"
                     float sectorU = frac(lane * 4.0);
                     float angle = sector * 1.5707963 + 0.18 + sectorU * 0.92;
                     float2 radial = float2(cos(angle), sin(angle));
-                    float radius = 3.5 + seedB * 4.2;
+                    float radius = lerp(3.5 + seedB * 4.2, 6.0 + seedB * 12.0, major);
                     float launch = seed * 0.12;
                     float t = max(age - launch, 0);
-                    float horizontalSpeed = 5.5 + seedB * 5.0 + motion.z * 0.08;
-                    float verticalSpeed = 7.0 + seed * 5.0;
+                    float horizontalSpeed = lerp(5.5 + seedB * 5.0 + motion.z * 0.08,
+                        8.0 + seedB * 10.0 + motion.z * 0.03, major);
+                    float verticalSpeed = lerp(7.0 + seed * 5.0, 17.0 + seed * 11.0, major);
                     float3 velocity = float3(radial.x, 0, radial.y) * horizontalSpeed
                         + float3(direction.x, 0, direction.y) * (motion.z * 0.12)
                         + float3(0, verticalSpeed, 0);
-                    float crownLife = 0.62 + seedB * 0.22;
+                    float crownLife = lerp(0.62 + seedB * 0.22, 1.35 + seedB * 0.85, major);
                     float3 start = origin.xyz + float3(radial.x * radius, 0.24, radial.y * radius);
                     center = start + velocity * t + float3(0, -4.905 * t * t, 0);
                     longAxis = normalize(velocity + float3(0, -9.81 * t, 0));
-                    extent = float2(0.18 + seedB * 0.18, 0.9 + seed * 1.05);
-                    float fade = smoothstep(0, 0.07, t) * (1 - smoothstep(crownLife * 0.62, crownLife, t));
-                    intensity = impact * eventEnergy * (0.90 + seedB * 0.65) * fade * valid;
-                    color = lerp(float3(0.10, 0.40, 0.42), _Pearl.rgb, 0.38 + seed * 0.28);
+                    extent = float2(lerp(0.18 + seedB * 0.18, 0.24 + seedB * 0.28, major),
+                        lerp(0.9 + seed * 1.05, 1.15 + seed * 1.35, major));
+                    float fade = smoothstep(0, lerp(0.07, 0.11, major), t)
+                        * (1 - smoothstep(crownLife * 0.62, crownLife, t));
+                    intensity = impact * eventEnergy * (0.90 + seedB * 0.65) * fade * valid * whaleVisibility;
+                    float3 baseColor = lerp(float3(0.10, 0.40, 0.42), float3(0.025, 0.42, 0.64), major);
+                    float pearlMix = lerp(0.38 + seed * 0.28, 0.08 + seed * 0.12, major);
+                    color = lerp(baseColor, _Pearl.rgb, pearlMix);
                 }
                 else if (bead < 240u)
                 {
@@ -108,7 +116,7 @@ Shader "Liminal/Horizon Spray"
                     float2 radial = float2(cos(angle), sin(angle));
                     float2 launchDirection = normalize(radial * 0.84 + direction * 0.16);
                     float horizontalSpeed = 3.0 + seedB * 7.0 + impact * 2.0;
-                    float verticalSpeed = 7.0 + seedB * 7.0 + impact * 2.0;
+                    float verticalSpeed = 7.0 + seedB * 7.0 + impact * 2.0 + major * (9.0 + seedB * 5.0);
                     float startHeight = 0.25 + seed * 0.35;
                     float launch = seed * 0.3;
                     float t = age - launch;
@@ -118,12 +126,14 @@ Shader "Liminal/Horizon Spray"
                     float3 start = origin.xyz + float3(radial.x * (1.2 + seedB * 2.0), startHeight, radial.y * (1.2 + seedB * 2.0));
                     center = start + float3(horizontalVelocity.x * max(t, 0), verticalSpeed * max(t, 0) - 0.5 * gravity * max(t, 0) * max(t, 0), horizontalVelocity.y * max(t, 0));
                     float fade = smoothstep(0, 0.06, t) * (1 - smoothstep(returnTime - 0.1, returnTime, t));
-                    float selected = lerp(1 - step(0.14, seed), 1, impact);
+                    float selected = lerp(lerp(1 - step(0.14, seed), 1, impact), step(0.36, seed), major);
                     float eventWeight = lerp(0.16, 1.0, impact) * eventEnergy;
                     intensity = selected * eventWeight * (1.0 + seedB * 1.25) * fade
-                        * step(0, t) * step(t, returnTime) * valid;
+                        * step(0, t) * step(t, returnTime) * valid * whaleVisibility;
                     extent = (0.16 + seedB * 0.2) * float2(1, 1);
-                    color = lerp(float3(0.12, 0.50, 0.50), _Pearl.rgb, 0.48 + seedB * 0.32);
+                    float3 baseColor = lerp(float3(0.12, 0.50, 0.50), float3(0.025, 0.42, 0.66), major);
+                    float pearlMix = lerp(0.48 + seedB * 0.32, 0.08 + seedB * 0.16, major);
+                    color = lerp(baseColor, _Pearl.rgb, pearlMix);
                 }
                 else if (bead < 304u)
                 {
@@ -137,7 +147,7 @@ Shader "Liminal/Horizon Spray"
                     center = origin.xyz + float3(startOffset.x + drift.x * t, 0.75 + seedB * 1.2 + rise, startOffset.y + drift.y * t);
                     float fade = smoothstep(0, 0.16, t) * exp(-t * 0.58) * (1 - smoothstep(life * 0.55, life, t));
                     float selected = lerp(1 - step(0.28, seed), 1, impact);
-                    intensity = selected * eventEnergy * (0.08 + seedB * 0.045) * fade * valid;
+                    intensity = selected * eventEnergy * (0.08 + seedB * 0.045) * fade * valid * whaleVisibility;
                     float size = 1.05 + seedB * 1.15;
                     extent = float2(size * 1.25, size);
                     color = float3(0.10, 0.28, 0.27);
@@ -159,7 +169,7 @@ Shader "Liminal/Horizon Spray"
                     float window = 0.12 + seedB * 0.05;
                     float sparkle = saturate(1 - abs(t - returnTime) / window) * step(0, t) * step(t, returnTime);
                     float rare = step(0.91, seed) * impact;
-                    intensity = rare * sparkle * eventEnergy * valid * 1.15;
+                    intensity = rare * sparkle * eventEnergy * valid * whaleVisibility * 1.15;
                     float size = 0.12 + seedB * 0.1;
                     extent = float2(size, size);
                     color = lerp(_Pearl.rgb, float3(1, 1, 0.94), 0.62);

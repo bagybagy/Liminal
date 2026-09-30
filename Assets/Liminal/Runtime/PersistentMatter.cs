@@ -12,7 +12,9 @@ namespace Liminal
         public const int WhaleTargetsPerRing = 4;
         public const int WhalePatchCount = WhaleRingCount * WhaleTargetsPerRing;
         MatterGroup[] groupData;
-        GraphicsBuffer seeds, groups, particles, whalePatchBuffer;
+        GraphicsBuffer seeds, groups, particles, whalePatchBuffer, alternateForms, birthMatrices, groupVelocities, surfaceFrames;
+        Matrix4x4[] birthData;
+        Vector4[] groupVelocityData;
         ComputeShader simulation;
         Material drawMaterial;
         int initializeKernel, simulateKernel;
@@ -24,6 +26,8 @@ namespace Liminal
         float whaleSurfaceActivity, whaleTurn;
         int whaleGroup = -1;
         float currentRadius = 1f, currentEnergy;
+        float whaleVisibility;
+        bool whaleArriving;
 
         public int ParticleCount { get; private set; }
         public int InitializationCount { get; private set; }
@@ -32,7 +36,8 @@ namespace Liminal
 
         public PersistentMatter() { }
 
-        public void Initialize(ComputeShader compute, Material material, IReadOnlyList<MatterSeed> matterSeeds, int groupCount)
+        public void Initialize(ComputeShader compute, Material material, IReadOnlyList<MatterSeed> matterSeeds, int groupCount,
+            IReadOnlyList<Vector4> dolphinForms = null)
         {
             if (Ready || disposed) throw new InvalidOperationException("Persistent matter can only be initialized once per instance.");
             if (!SystemInfo.supportsComputeShaders)
@@ -42,6 +47,8 @@ namespace Liminal
 
             ParticleCount = matterSeeds.Count;
             groupData = new MatterGroup[groupCount];
+            birthData = new Matrix4x4[groupCount];
+            groupVelocityData = new Vector4[groupCount];
             for (int i = 0; i < groupData.Length; i++) groupData[i].localToWorld = Matrix4x4.identity;
             var seedData = new MatterSeed[ParticleCount];
             for (int i = 0; i < ParticleCount; i++)
@@ -59,6 +66,28 @@ namespace Liminal
             groups = new GraphicsBuffer(GraphicsBuffer.Target.Structured, groupCount, 96);
             particles = new GraphicsBuffer(GraphicsBuffer.Target.Structured, ParticleCount, 64);
             whalePatchBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, WhalePatchCount, 16);
+            alternateForms = new GraphicsBuffer(GraphicsBuffer.Target.Structured, ParticleCount, 16);
+            surfaceFrames = new GraphicsBuffer(GraphicsBuffer.Target.Structured, ParticleCount * 2, 16);
+            birthMatrices = new GraphicsBuffer(GraphicsBuffer.Target.Structured, groupCount, 64);
+            groupVelocities = new GraphicsBuffer(GraphicsBuffer.Target.Structured, groupCount, 16);
+            var alternateData = new Vector4[ParticleCount];
+            if (dolphinForms != null)
+            {
+                if (dolphinForms.Count != ParticleCount) throw new ArgumentException("Alternate forms must match the particle count.");
+                for (int i = 0; i < ParticleCount; i++) alternateData[i] = dolphinForms[i];
+            }
+            alternateForms.SetData(alternateData);
+            var frames = new Vector4[ParticleCount * 2];
+            for (int i = 0; i < ParticleCount; i++)
+            {
+                if (seedData[i].traits.y < 2.5f) continue;
+                Vector3 point = seedData[i].form;
+                frames[i * 2] = WhaleAnatomy.Normal(point);
+                frames[i * 2 + 1] = WhaleAnatomy.Tangent(point);
+            }
+            surfaceFrames.SetData(frames);
+            birthMatrices.SetData(birthData);
+            groupVelocities.SetData(groupVelocityData);
             seeds.SetData(seedData);
             whalePatchBuffer.SetData(whalePatches);
 
@@ -68,14 +97,23 @@ namespace Liminal
             simulation.SetBuffer(initializeKernel, "_Groups", groups);
             simulation.SetBuffer(initializeKernel, "_Particles", particles);
             simulation.SetBuffer(initializeKernel, "_WhalePatches", whalePatchBuffer);
+            simulation.SetBuffer(initializeKernel, "_AlternateForms", alternateForms);
+            simulation.SetBuffer(initializeKernel, "_BirthMatrices", birthMatrices);
+            simulation.SetBuffer(initializeKernel, "_GroupVelocities", groupVelocities);
             simulation.SetBuffer(simulateKernel, "_Seeds", seeds);
             simulation.SetBuffer(simulateKernel, "_Groups", groups);
             simulation.SetBuffer(simulateKernel, "_Particles", particles);
             simulation.SetBuffer(simulateKernel, "_WhalePatches", whalePatchBuffer);
+            simulation.SetBuffer(simulateKernel, "_AlternateForms", alternateForms);
+            simulation.SetBuffer(simulateKernel, "_BirthMatrices", birthMatrices);
+            simulation.SetBuffer(simulateKernel, "_GroupVelocities", groupVelocities);
             simulation.SetInt("_Count", ParticleCount);
             drawMaterial.SetBuffer("_Particles", particles);
             drawMaterial.SetBuffer("_Seeds", seeds);
             drawMaterial.SetBuffer("_Groups", groups);
+            drawMaterial.SetBuffer("_GroupVelocities", groupVelocities);
+            drawMaterial.SetBuffer("_AlternateForms", alternateForms);
+            drawMaterial.SetBuffer("_SurfaceFrames", surfaceFrames);
             RenderPipelineManager.beginCameraRendering += Render;
         }
 
@@ -102,11 +140,24 @@ namespace Liminal
             playerVelocity = velocity;
         }
 
-        public void SetWhaleMotion(Vector3 velocity, float surfaceActivity, float turn)
+        public void SetWhaleMotion(Vector3 velocity, float surfaceActivity, float turn, bool arriving = false)
         {
             whaleVelocity = velocity;
             whaleSurfaceActivity = Mathf.Clamp01(surfaceActivity);
             whaleTurn = Mathf.Clamp01(turn);
+            whaleArriving = arriving;
+        }
+
+        public void SetWhaleVisibility(float visibility)
+        {
+            whaleVisibility = Mathf.Clamp01(visibility);
+            if (drawMaterial) drawMaterial.SetFloat("_WhaleVisibility", whaleVisibility);
+        }
+
+        public void SetDolphinState(int group, Matrix4x4 birth, Vector3 velocity, bool born)
+        {
+            birthData[group] = birth;
+            groupVelocityData[group] = new Vector4(velocity.x, velocity.y, velocity.z, born ? 1f : 0f);
         }
 
         public void SetWhaleGroup(int groupIndex)
@@ -133,6 +184,8 @@ namespace Liminal
                 initialized = false;
 
             groups.SetData(groupData);
+            birthMatrices.SetData(birthData);
+            groupVelocities.SetData(groupVelocityData);
             simulation.SetFloat("_Song", song);
             simulation.SetVector("_Current", new Vector4(currentCenter.x, currentCenter.y, currentCenter.z, currentRadius));
             simulation.SetVector("_CurrentVelocity", currentVelocity);
@@ -142,6 +195,7 @@ namespace Liminal
             simulation.SetVector("_WhaleVelocity", whaleVelocity);
             simulation.SetFloat("_WhaleSurfaceActivity", whaleSurfaceActivity);
             simulation.SetFloat("_WhaleTurn", whaleTurn);
+            simulation.SetFloat("_WhaleArrival", whaleArriving ? 1f : 0f);
 
             if (!initialized)
             {
@@ -197,6 +251,8 @@ namespace Liminal
             disposed = true;
             RenderPipelineManager.beginCameraRendering -= Render;
             seeds?.Dispose(); groups?.Dispose(); particles?.Dispose(); whalePatchBuffer?.Dispose();
+            alternateForms?.Dispose(); birthMatrices?.Dispose(); groupVelocities?.Dispose();
+            surfaceFrames?.Dispose();
             seeds = null; groups = null; particles = null; whalePatchBuffer = null;
             if (simulation) UnityEngine.Object.Destroy(simulation);
             if (drawMaterial) UnityEngine.Object.Destroy(drawMaterial);

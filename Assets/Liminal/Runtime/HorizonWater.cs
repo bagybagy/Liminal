@@ -18,17 +18,23 @@ namespace Liminal
         GraphicsBuffer eventBuffer;
         Material surfaceMaterial, sprayMaterial;
         Mesh surfaceMesh;
+        MarineLife marineLife;
         Vector3 center;
+        Vector3 previousWhalePosition;
         Vector2 radii;
         int writeIndex, activeEvents;
-        float previousSong = -1f, lastBirthSong = -100f;
+        float previousSong = -1f, lastBirthSong = -100f, previousCenterSide;
+        float whaleVisibility;
         Vector3 lastBirthPosition;
         float previousBowSide, previousSternSide, previousLeftFinSide, previousRightFinSide;
-        bool haveBirthPosition, havePreviousPose;
+        bool haveBirthPosition, havePreviousPose, whaleWasVisible;
 
         public float SurfaceHeight { get; private set; }
         public int WaveEventCount => activeEvents;
         public int SurfaceCrossings { get; private set; }
+        public int MajorWaveCount { get; private set; }
+        public Vector3 LastMajorOrigin { get; private set; }
+        public float LastMajorTime { get; private set; } = -1f;
         public bool Ready => surfaceMesh != null && eventBuffer != null && surfaceMaterial != null && sprayMaterial != null;
 
         public void Initialize(Material surfaceTemplate, Material sprayTemplate)
@@ -47,6 +53,8 @@ namespace Liminal
             sprayMaterial.SetInt("_SprayBeadsPerEvent", SprayBeadsPerEvent);
             surfaceMaterial.SetInt("_WaterEventCount", 0);
             sprayMaterial.SetInt("_WaterEventCount", 0);
+            surfaceMaterial.SetFloat("_WhaleVisibility", 0f);
+            sprayMaterial.SetFloat("_WhaleVisibility", 0f);
             surfaceMaterial.SetVector("_WaterCenter", new Vector4(center.x, SurfaceHeight, center.z, 0));
             surfaceMaterial.SetVector("_WaterRadii", new Vector4(radii.x, radii.y, 0, 0));
             surfaceMesh = CreateSurface();
@@ -59,6 +67,25 @@ namespace Liminal
             if (!Ready) return;
             if (previousSong >= 0f && song < previousSong - 0.001f) ResetWater();
             previousSong = song;
+
+            MarineLife life = GetMarineLife();
+            bool whaleVisible = life != null && life.WhaleVisible;
+            whaleVisibility = whaleVisible ? Mathf.Clamp01(life.WhaleVisibility) : 0f;
+            surfaceMaterial.SetFloat("_WhaleVisibility", whaleVisibility);
+            sprayMaterial.SetFloat("_WhaleVisibility", whaleVisibility);
+            if (!whaleVisible)
+            {
+                if (whaleWasVisible || activeEvents > 0) ClearWaveEvents();
+                whaleWasVisible = false;
+                havePreviousPose = false;
+                UploadEvents(song);
+                return;
+            }
+            if (!whaleWasVisible)
+            {
+                ClearWaveEvents();
+                whaleWasVisible = true;
+            }
 
             Vector3 forward = whaleRotation * Vector3.forward;
             Vector3 bow = whalePosition + forward * WhaleHalfLength;
@@ -77,11 +104,24 @@ namespace Liminal
                 DetectCrossing(previousSternSide, sternSide, stern, whaleVelocity, song);
                 DetectCrossing(previousLeftFinSide, leftFinSide, leftFin, whaleVelocity, song);
                 DetectCrossing(previousRightFinSide, rightFinSide, rightFin, whaleVelocity, song);
+                Vector2 horizontalVelocity = new Vector2(whaleVelocity.x, whaleVelocity.z);
+                if (life.WhaleEntranceComplete && Crossed(previousCenterSide, centerSide)
+                    && horizontalVelocity.magnitude >= 12f
+                    && (LastMajorTime < 0f || song - LastMajorTime >= 8f))
+                {
+                    float sideTravel = Mathf.Abs(previousCenterSide) + Mathf.Abs(centerSide);
+                    float crossingT = sideTravel > 0.0001f ? Mathf.Abs(previousCenterSide) / sideTravel : 0.5f;
+                    Vector3 crossing = Vector3.Lerp(previousWhalePosition, whalePosition, crossingT);
+                    crossing.y = SurfaceHeight;
+                    MajorImpact(crossing, whaleVelocity, song);
+                }
             }
             previousBowSide = bowSide;
             previousSternSide = sternSide;
             previousLeftFinSide = leftFinSide;
             previousRightFinSide = rightFinSide;
+            previousCenterSide = centerSide;
+            previousWhalePosition = whalePosition;
             havePreviousPose = true;
 
             Vector3 samplePosition = whalePosition;
@@ -113,6 +153,22 @@ namespace Liminal
             AddEvent(position, velocity, song, 1.65f);
         }
 
+        public void MajorImpact(Vector3 position, Vector3 velocity, float song, float strength = 4f)
+        {
+            if (!Ready) return;
+            MarineLife life = GetMarineLife();
+            if (life == null || !life.WhaleVisible) return;
+            if (float.IsNaN(strength) || float.IsInfinity(strength)) strength = 4f;
+            position.y = SurfaceHeight;
+            AddEvent(position, velocity, song, Mathf.Clamp(strength, 3f, 8f));
+        }
+
+        MarineLife GetMarineLife()
+        {
+            if (marineLife == null) marineLife = GetComponent<MarineLife>();
+            return marineLife;
+        }
+
         static void ConsiderSurfacePoint(Vector3 position, float side, ref Vector3 nearest, ref float distance)
         {
             float candidate = Mathf.Abs(side);
@@ -126,11 +182,21 @@ namespace Liminal
             int slot = writeIndex;
             Vector3 horizontal = new Vector3(velocity.x, 0f, velocity.z);
             Vector3 direction = horizontal.sqrMagnitude > 0.01f ? horizontal.normalized : Vector3.forward;
+            bool major = strength >= 3f;
+            float eventSpeed = major
+                ? Mathf.Clamp(58f + horizontal.magnitude * 0.24f + (strength - 3f) * 2f, 58f, 80f)
+                : Mathf.Clamp(horizontal.magnitude, 0f, 28f);
             int first = slot * 2;
             eventData[first] = new Vector4(position.x, SurfaceHeight, position.z, song);
-            eventData[first + 1] = new Vector4(direction.x, direction.z, Mathf.Clamp(horizontal.magnitude, 0f, 28f), strength);
+            eventData[first + 1] = new Vector4(direction.x, direction.z, eventSpeed, strength);
             writeIndex = (writeIndex + 1) % EventCapacity;
             activeEvents = Mathf.Min(activeEvents + 1, EventCapacity);
+            if (major)
+            {
+                MajorWaveCount = Mathf.Min(MajorWaveCount + 1, 999999);
+                LastMajorOrigin = position;
+                LastMajorTime = song;
+            }
             lastBirthPosition = position;
             lastBirthSong = song;
             haveBirthPosition = true;
@@ -151,11 +217,23 @@ namespace Liminal
 
         public void ResetWater()
         {
+            ClearWaveEvents();
+            SurfaceCrossings = MajorWaveCount = 0;
+            LastMajorOrigin = Vector3.zero;
+            LastMajorTime = -1f;
+            previousSong = -1f;
+            whaleVisibility = 0f;
+            whaleWasVisible = false;
+            if (surfaceMaterial) surfaceMaterial.SetFloat("_WhaleVisibility", 0f);
+            if (sprayMaterial) sprayMaterial.SetFloat("_WhaleVisibility", 0f);
+        }
+
+        void ClearWaveEvents()
+        {
             Array.Clear(eventData, 0, eventData.Length);
             if (eventBuffer != null) eventBuffer.SetData(eventData);
-            writeIndex = activeEvents = SurfaceCrossings = 0;
+            writeIndex = activeEvents = 0;
             lastBirthSong = -100f;
-            previousSong = -1f;
             haveBirthPosition = havePreviousPose = false;
             if (surfaceMaterial) surfaceMaterial.SetInt("_WaterEventCount", 0);
             if (sprayMaterial) sprayMaterial.SetInt("_WaterEventCount", 0);
@@ -172,7 +250,7 @@ namespace Liminal
                 Vector4 origin = eventData[i * 2];
                 Vector4 motion = eventData[i * 2 + 1];
                 float age = song - origin.w;
-                if (motion.w <= 0f || age < 0f || age > EventLifetime) continue;
+                if (motion.w <= 0f || motion.w >= 3f || age < 0f || age > EventLifetime) continue;
                 float drift = motion.z * age * 0.06f;
                 float dx = x - origin.x - motion.x * drift;
                 float dz = z - origin.z - motion.y * drift;
@@ -189,7 +267,49 @@ namespace Liminal
                 float impact = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.85f, 1.3f, motion.w));
                 events += (ripple * (0.12f + impact * 0.15f) + shoulder * 0.42f - channel * 0.14f) * motion.w;
             }
-            return SurfaceHeight + baseWave + Mathf.Clamp(events, -0.75f, 0.85f);
+            return SurfaceHeight + baseWave + Mathf.Clamp(events, -0.75f, 0.85f) * whaleVisibility
+                + MajorWaveHeight(x, z, song);
+        }
+
+        float MajorWaveHeight(float x, float z, float song)
+        {
+            // Keep this expression in lockstep with MajorWaveHeight in HorizonWater.shader.
+            float sum = 0f;
+            for (int i = 0; i < EventCapacity; i++)
+            {
+                Vector4 origin = eventData[i * 2];
+                Vector4 motion = eventData[i * 2 + 1];
+                float age = song - origin.w;
+                if (motion.w < 3f || age < 0f || age > EventLifetime) continue;
+                float dx = x - origin.x;
+                float dz = z - origin.z;
+                float radius = Mathf.Sqrt(dx * dx + dz * dz);
+                float ringRadius = 15f + motion.z * age;
+                float width = 6.5f + age * 0.8f;
+                float front = radius - ringRadius;
+                float leading = Mathf.Exp(-(front * front) / (width * width));
+                float trailingFront = radius - (ringRadius - 28f);
+                float trailingWidth = width * 1.2f;
+                float trailing = Mathf.Exp(-(trailingFront * trailingFront) / (trailingWidth * trailingWidth));
+                float breakup = MajorWaveBreakup(dx, dz, radius, motion);
+                float fade = (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(4.8f, 9f, age))) *
+                    Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.12f, age));
+                float amplitude = Mathf.Lerp(6f, 12f, Mathf.Clamp01((motion.w - 3f) / 5f));
+                sum += amplitude * (leading + trailing * breakup * 0.25f) * fade;
+            }
+            return sum * whaleVisibility;
+        }
+
+        static float MajorWaveBreakup(float dx, float dz, float radius, Vector4 motion)
+        {
+            float inverseRadius = 1f / Mathf.Max(radius, 0.001f);
+            float radialX = dx * inverseRadius;
+            float radialZ = dz * inverseRadius;
+            float along = radialX * motion.x + radialZ * motion.y;
+            float across = radialX * motion.y - radialZ * motion.x;
+            float cos2 = along * along - across * across;
+            float sin2 = 2f * along * across;
+            return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-0.35f, 0.55f, cos2 * cos2 - sin2 * sin2));
         }
 
         public float SurfaceEnergyAt(Vector3 position, float song)

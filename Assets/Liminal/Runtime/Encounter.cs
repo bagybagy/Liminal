@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Liminal
 {
-    public enum TargetKind { Organ, Ray, Threat, Environment }
+    public enum TargetKind { Organ, Ray, Threat, Environment, Dolphin }
     public sealed class LockTarget
     {
         public int id, hp, reserved, organIndex;
@@ -12,6 +12,11 @@ namespace Liminal
         public float u, born, deadline;
         public float acquireRange = Encounter.LockRange;
         public bool isWhale, transformed;
+        public bool isPressureShot;
+        public UnityEngine.Object pressureOwner;
+        public Color pressureColor;
+        public float pressureSpeed, pressureAge, pressureLifetime;
+        public Vector3 previousPlayerPosition;
         public Vector3 position, origin, destination, direction, lateral, vertical;
         public GameObject visual;
         public Action<LockTarget,float> onHit;
@@ -25,6 +30,7 @@ namespace Liminal
         readonly List<Shot> shots = new();
         readonly Stack<LineRenderer> lines = new();
         readonly List<LineRenderer> allLines = new();
+        readonly HashSet<DolphinEncounter> dolphinSchools = new();
         MusicTransport music;
         ParticleWorld world;
         Flight flight;
@@ -58,6 +64,10 @@ namespace Liminal
         public bool HasPending => shots.Count>0;
         public int Dodged { get; private set; }
         public int DamageTaken { get; private set; }
+        public int SpawnedPressureShots { get; private set; }
+        public int InterceptedPressureShots { get; private set; }
+        public int DolphinPressureShots { get; private set; }
+        public int DolphinPressureInterceptions { get; private set; }
         public event Action Hit;
         bool organsActivated;
         bool hostilesCleared;
@@ -66,6 +76,11 @@ namespace Liminal
         public bool OrganWaveResetPending => organWaveResetAt >= 0;
         static readonly MaterialPropertyBlock OrganProperties = new();
         static readonly Color Cyan = new(0.3f,1,0.91f), Amber = new(1,0.65f,0.22f);
+        static readonly Color ElectricBlue = new(0.06f,0.42f,1f);
+        static readonly int TintId = Shader.PropertyToID("_Tint");
+        const int MaxLivePressureShots = 24;
+        const float PressureShotSpeed = 48f;
+        static readonly MaterialPropertyBlock MarkerProperties = new();
         sealed class Shot
         {
             public LockTarget target;
@@ -100,15 +115,22 @@ namespace Liminal
         }
         public void Restart()
         {
+            foreach(var school in dolphinSchools) if(school) school.ResetSchool();
             foreach(var s in shots) { s.line.enabled=false; lines.Push(s.line); }
             shots.Clear(); Locks.Clear();
             for(int i=Targets.Count-1;i>=0;i--) {
                 if(Targets[i].kind==TargetKind.Environment) { Targets.RemoveAt(i); continue; }
+                if(Targets[i].kind==TargetKind.Dolphin) {
+                    Targets[i].hp=Targets[i].reserved=0;
+                    if(Targets[i].visual) Targets[i].visual.SetActive(false);
+                    continue;
+                }
                 if(i>=16) { if(!Targets[i].transformed) Destroy(Targets[i].visual); Targets.RemoveAt(i); }
             }
             if(Colonies) Colonies.Reset();
             foreach(var t in Targets) { t.hp=0;t.reserved=0;t.visual.SetActive(false); }
             Points=Combo=BestCombo=Hits=Fired=BossDamage=Dodged=DamageTaken=CancelledAfterFinish=MissedScheduledHits=0;
+            SpawnedPressureShots=InterceptedPressureShots=DolphinPressureShots=DolphinPressureInterceptions=0;
             Life=8;Charge=0;Won=Lost=false;EndTime=0;DamageFlash=0;
             lastSection=-1;lastBeat=-1;nextWave=16;MaxImpactDelay=0;MaxLocks=0;LastHitTime=-10;
             organsActivated=false;hostilesCleared=false;SerpentRound=0;organWaveResetAt=-1;
@@ -141,7 +163,7 @@ namespace Liminal
                     t.hp=t.reserved>0?t.reserved:0;
                 Locks.RemoveAll(t=>t.kind==TargetKind.Ray || t.kind==TargetKind.Threat);
             }
-            UpdateTargets(song);
+            UpdateTargets(song,dt);
             UpdateShots(song);
             if(Colonies) Colonies.Tick(song);
             AdvanceOrganWaves(song);
@@ -191,12 +213,16 @@ namespace Liminal
             OrganProperties.SetColor("_Tint",Color.Lerp(Color.white,new Color(1f,0.24f,0.055f),warmth));
             renderer.SetPropertyBlock(OrganProperties);
         }
-        void UpdateTargets(float song)
+        void UpdateTargets(float song,float dt)
         {
             for(int i=Targets.Count-1;i>=0;i--) {
                 var t=Targets[i];
                 if(t.transformed) { Locks.Remove(t);Targets.RemoveAt(i);continue; }
                 if(t.kind==TargetKind.Environment) continue;
+                if(t.kind==TargetKind.Dolphin) {
+                    t.visual.SetActive(t.hp>0 && !Ended);
+                    continue;
+                }
                 if(t.kind==TargetKind.Organ) t.position=Anatomy.Node(t.u,song);
                 else if(t.kind==TargetKind.Ray) {
                     float age=song-t.born;
@@ -207,6 +233,26 @@ namespace Liminal
                         Vector3 up=Mathf.Abs(Vector3.Dot(movement.normalized,Vector3.up))>0.98f?Vector3.forward:Vector3.up;
                         t.visual.transform.rotation=Quaternion.LookRotation(movement,up);
                     }
+                } else if(t.isPressureShot) {
+                    if(t.hp>0 && !Ended) {
+                        Vector3 previous=t.position;
+                        t.pressureAge+=Mathf.Max(0,dt);
+                        t.position=t.origin+t.direction*(t.pressureSpeed*t.pressureAge);
+                        Vector3 relativeStart=previous-t.previousPlayerPosition;
+                        Vector3 relativeEnd=t.position-flight.Position;
+                        Vector3 relativeStep=relativeEnd-relativeStart;
+                        float closest=Mathf.Clamp01(-Vector3.Dot(relativeStart,relativeStep)/
+                            Mathf.Max(0.0001f,relativeStep.sqrMagnitude));
+                        if(t.reserved==0 && (relativeStart+relativeStep*closest).sqrMagnitude<=3.6f*3.6f) {
+                            ReceiveDamage();
+                            t.hp=0;
+                        } else if(t.reserved==0 && t.pressureAge>=t.pressureLifetime) {
+                            Dodged++;
+                            t.hp=0;
+                        }
+                        t.previousPlayerPosition=flight.Position;
+                    } else if(Ended) t.hp=0;
+                    t.visual.transform.localScale=Vector3.one*1.4f;
                 } else {
                     float f=Mathf.InverseLerp(t.born,t.deadline,song);
                     t.position=Vector3.Lerp(t.origin,t.destination,f)+Vector3.up*Mathf.Sin(f*Mathf.PI)*3;
@@ -262,6 +308,7 @@ namespace Liminal
             float duration=Mathf.Clamp(Mathf.Ceil(Vector3.Distance(t.origin,t.destination)/12f/beat)*beat,beat*2,beat*16);
             t.deadline=Mathf.Ceil((song+duration)/beat)*beat;
             t.visual=PointCloud.Place("Pressure pulse",world.NodeMesh,world.NodeMaterial,transform);
+            SetMarkerTint(t.visual,ElectricBlue);
             Targets.Add(t);
         }
         public void AcquireAt(Vector2 mouse)
@@ -342,10 +389,17 @@ namespace Liminal
                     world.Serpent.SetOrganState(target.organIndex,target.u,1,song,true);
                 }
             }
-            if(target.kind==TargetKind.Environment) target.onHit?.Invoke(target,song);
+            if(target.kind==TargetKind.Environment || target.kind==TargetKind.Dolphin) target.onHit?.Invoke(target,song);
+            if(target.isPressureShot) {
+                InterceptedPressureShots++;
+                if(target.pressureOwner is DolphinEncounter) DolphinPressureInterceptions++;
+            }
             if(Colonies && target.kind==TargetKind.Ray && target.hp<=0)
                 target.transformed=Colonies.TryAdopt(target.visual,song,CaveLayout.NearestRoom(target.position));
-            world.BurstAt(target.position,song,target.kind==TargetKind.Organ?Cyan:Amber);
+            if(target.kind==TargetKind.Organ) world.BurstAt(target.position,song,Amber);
+            else if(target.kind==TargetKind.Ray || target.kind==TargetKind.Threat)
+                world.BurstAt(target.position,song,target.isPressureShot ? target.pressureColor : ElectricBlue);
+            else if(target.kind==TargetKind.Dolphin) world.BurstAt(target.position,song,ElectricBlue);
             LastHitTime=song;Hit?.Invoke();
         }
         internal void ReceiveDamage()
@@ -359,7 +413,7 @@ namespace Liminal
             Charge=0;
             foreach(var t in Targets) if(t.Available) Acquire(t);
             Release();
-            foreach(var t in Targets) if(t.kind==TargetKind.Threat && t.reserved==0) {world.BurstAt(t.position,(float)music.Time,Amber);t.hp=0;}
+            foreach(var t in Targets) if(t.kind==TargetKind.Threat && t.reserved==0) {world.BurstAt(t.position,(float)music.Time,ElectricBlue);t.hp=0;}
         }
         void Finish(bool won,float song)
         {
@@ -375,6 +429,120 @@ namespace Liminal
                 position=visual.transform.position,visual=visual,onHit=onHit };
             Targets.Add(target);
             return target;
+        }
+
+        internal void RegisterDolphinSchool(DolphinEncounter school)
+        {
+            if(school) dolphinSchools.Add(school);
+        }
+
+        internal void UnregisterDolphinSchool(DolphinEncounter school)
+        {
+            if(school) dolphinSchools.Remove(school);
+        }
+
+        internal void UnregisterDolphinTarget(LockTarget target)
+        {
+            if(target==null) return;
+            CancelScheduledShots(target);
+            Locks.Remove(target);
+            target.hp=0;
+            target.onHit=null;
+            if(target.visual) {
+                target.visual.SetActive(false);
+                Destroy(target.visual);
+            }
+            Targets.Remove(target);
+        }
+
+        internal void ResetDolphinTarget(LockTarget target)
+        {
+            if(target==null) return;
+            CancelScheduledShots(target);
+            Locks.Remove(target);
+        }
+
+        void CancelScheduledShots(LockTarget target)
+        {
+            for(int i=shots.Count-1;i>=0;i--) {
+                var shot=shots[i];
+                if(shot.target!=target) continue;
+                target.reserved=Mathf.Max(0,target.reserved-1);
+                shot.line.enabled=false;
+                lines.Push(shot.line);
+                shots.RemoveAt(i);
+            }
+        }
+
+        public LockTarget RegisterDolphinTarget(GameObject visual,Action<LockTarget,float> onHit)
+        {
+            if(!visual) return null;
+            var target=new LockTarget { id=nextId++,kind=TargetKind.Dolphin,hp=0,
+                position=visual.transform.position,visual=visual,onHit=onHit,acquireRange=LockRange };
+            visual.SetActive(false);
+            Targets.Add(target);
+            return target;
+        }
+
+        public LockTarget RegisterPressureShot(Vector3 origin,Vector3 direction,float song,Color color,
+            UnityEngine.Object owner=null)
+        {
+            if(Ended || !world || !flight || direction.sqrMagnitude<0.0001f) return null;
+            int live=0;
+            foreach(var target in Targets)
+                if(target.isPressureShot && target.hp>0) live++;
+            if(live>=MaxLivePressureShots) return null;
+
+            direction.Normalize();
+            float lifetime=Mathf.Clamp(Vector3.Distance(origin,flight.Position)/PressureShotSpeed+1.1f,1.35f,6f);
+            var shot=new LockTarget {
+                id=nextId++,kind=TargetKind.Threat,hp=1,born=song,deadline=song+lifetime,
+                origin=origin,direction=direction,position=origin,
+                destination=origin+direction*(PressureShotSpeed*lifetime),
+                isPressureShot=true,pressureOwner=owner,pressureColor=color,
+                pressureSpeed=PressureShotSpeed,pressureLifetime=lifetime,
+                previousPlayerPosition=flight.Position
+            };
+            shot.visual=PointCloud.Place("Dolphin pressure shot",world.NodeMesh,world.NodeMaterial,transform);
+            shot.visual.transform.localScale=Vector3.one*1.4f;
+            SetMarkerTint(shot.visual,color);
+            Targets.Add(shot);
+            SpawnedPressureShots++;
+            if(owner is DolphinEncounter) DolphinPressureShots++;
+            return shot;
+        }
+
+        public int LivePressureShots(UnityEngine.Object owner)
+        {
+            int count=0;
+            foreach(var target in Targets)
+                if(target.isPressureShot && target.hp>0 && target.pressureOwner==owner) count++;
+            return count;
+        }
+
+        public void ClearPressureShots(UnityEngine.Object owner)
+        {
+            for(int i=Targets.Count-1;i>=0;i--) {
+                var target=Targets[i];
+                if(!target.isPressureShot || target.pressureOwner!=owner) continue;
+                target.hp=target.reserved;
+                Locks.Remove(target);
+                if(target.visual && target.reserved==0) target.visual.SetActive(false);
+                if(target.reserved==0) {
+                    if(target.visual) Destroy(target.visual);
+                    Targets.RemoveAt(i);
+                }
+            }
+        }
+
+        static void SetMarkerTint(GameObject visual,Color color)
+        {
+            if(!visual) return;
+            var renderer=visual.GetComponent<Renderer>();
+            if(!renderer) return;
+            renderer.GetPropertyBlock(MarkerProperties);
+            MarkerProperties.SetColor(TintId,color);
+            renderer.SetPropertyBlock(MarkerProperties);
         }
     }
 }

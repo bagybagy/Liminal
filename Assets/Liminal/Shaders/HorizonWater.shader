@@ -22,6 +22,7 @@ Shader "Liminal/Horizon Water"
                 float4 _WaterCenter;
                 float4 _WaterRadii;
                 float _Song;
+                float _WhaleVisibility;
                 int _WaterEventCount;
             CBUFFER_END
             StructuredBuffer<float4> _WaterEvents;
@@ -38,6 +39,7 @@ Shader "Liminal/Horizon Water"
                     float age = _Song - origin.w;
                     if (age < 0 || age > 14) continue;
                     float4 motion = _WaterEvents[i * 2 + 1];
+                    if (motion.w >= 3) continue;
                     float2 delta = p - origin.xz - motion.xy * motion.z * age * 0.06;
                     float radius = length(delta);
                     float rippleRadius = 3 + age * (4 + motion.z * 0.1);
@@ -52,7 +54,7 @@ Shader "Liminal/Horizon Water"
                     float impact = smoothstep(0.85, 1.3, motion.w);
                     sum += (ripple * (0.12 + impact * 0.15) + shoulder * 0.42 - channel * 0.14) * motion.w;
                 }
-                return clamp(sum, -0.75, 0.85);
+                return clamp(sum, -0.75, 0.85) * _WhaleVisibility;
             }
 
             float EventCrest(float2 p)
@@ -64,6 +66,7 @@ Shader "Liminal/Horizon Water"
                     float age = _Song - origin.w;
                     if (age < 0 || age > 14) continue;
                     float4 motion = _WaterEvents[i * 2 + 1];
+                    if (motion.w >= 3) continue;
                     float2 delta = p - origin.xz - motion.xy * motion.z * age * 0.06;
                     float radius = length(delta);
                     float impact = smoothstep(0.85, 1.3, motion.w);
@@ -86,7 +89,70 @@ Shader "Liminal/Horizon Water"
                     float channel = exp(-pow(side / (wakeWidth * 0.42), 2)) * wakeGate;
                     sum += ring + arm * pulse * motion.w * 0.32 - channel * motion.w * 0.14;
                 }
-                return clamp(sum, -0.4, 0.7);
+                return clamp(sum, -0.4, 0.7) * _WhaleVisibility;
+            }
+
+            float MajorWaveBreakup(float2 delta, float radius, float2 direction)
+            {
+                float2 radial = delta / max(radius, 0.001);
+                float along = dot(radial, direction);
+                float across = radial.x * direction.y - radial.y * direction.x;
+                float cos2 = along * along - across * across;
+                float sin2 = 2 * along * across;
+                return smoothstep(-0.35, 0.55, cos2 * cos2 - sin2 * sin2);
+            }
+
+            float MajorWaveHeight(float2 p)
+            {
+                float sum = 0;
+                [loop] for (int i = 0; i < _WaterEventCount; i++)
+                {
+                    float4 origin = _WaterEvents[i * 2];
+                    float age = _Song - origin.w;
+                    if (age < 0 || age > 14) continue;
+                    float4 motion = _WaterEvents[i * 2 + 1];
+                    if (motion.w < 3) continue;
+                    float2 delta = p - origin.xz;
+                    float radius = length(delta);
+                    float ringRadius = 15 + motion.z * age;
+                    float width = 6.5 + age * 0.8;
+                    float front = radius - ringRadius;
+                    float leading = exp(-(front * front) / (width * width));
+                    float trailingFront = radius - (ringRadius - 28);
+                    float trailingWidth = width * 1.2;
+                    float trailing = exp(-(trailingFront * trailingFront) / (trailingWidth * trailingWidth));
+                    float breakup = MajorWaveBreakup(delta, radius, motion.xy);
+                    float fade = (1 - smoothstep(4.8, 9, age)) * smoothstep(0, 0.12, age);
+                    float amplitude = lerp(6, 12, saturate((motion.w - 3) / 5));
+                    sum += amplitude * (leading + trailing * breakup * 0.25) * fade;
+                }
+                return sum * _WhaleVisibility;
+            }
+
+            float MajorWaveSignal(float2 p)
+            {
+                float sum = 0;
+                [loop] for (int i = 0; i < _WaterEventCount; i++)
+                {
+                    float4 origin = _WaterEvents[i * 2];
+                    float age = _Song - origin.w;
+                    if (age < 0 || age > 14) continue;
+                    float4 motion = _WaterEvents[i * 2 + 1];
+                    if (motion.w < 3) continue;
+                    float2 delta = p - origin.xz;
+                    float radius = length(delta);
+                    float ringRadius = 15 + motion.z * age;
+                    float width = 6.5 + age * 0.8;
+                    float front = radius - ringRadius;
+                    float leading = exp(-(front * front) / (width * width));
+                    float trailingFront = radius - (ringRadius - 28);
+                    float trailingWidth = width * 1.2;
+                    float trailing = exp(-(trailingFront * trailingFront) / (trailingWidth * trailingWidth));
+                    float breakup = MajorWaveBreakup(delta, radius, motion.xy);
+                    float fade = (1 - smoothstep(4.8, 9, age)) * smoothstep(0, 0.12, age);
+                    sum += (leading * 0.92 + trailing * breakup * 0.4) * fade;
+                }
+                return saturate(sum) * _WhaleVisibility;
             }
 
             float Height(float2 p)
@@ -95,7 +161,7 @@ Shader "Liminal/Horizon Water"
                 float baseWave = sin(dot(p, float2(0.014, 0.007)) + t * 0.48) * 0.7
                     + sin(dot(p, float2(-0.008, 0.018)) - t * 0.34) * 0.44
                     + sin(dot(p, float2(0.036, -0.025)) + t * 0.82) * 0.12;
-                return baseWave + EventWave(p);
+                return baseWave + EventWave(p) + MajorWaveHeight(p);
             }
 
             Varyings Vert(Attributes input)
@@ -133,17 +199,18 @@ Shader "Liminal/Horizon Water"
                 float crest = pow(saturate(0.5 + 0.5 * (shimmerA * 0.66 + shimmerB * 0.34)), 20);
                 float eventSignal = EventCrest(p);
                 float eventCrest = saturate(eventSignal);
+                float majorCrest = MajorWaveSignal(p);
                 float wakeShadow = saturate(-eventSignal * 2.2);
                 float narrowSpecular = specular * crest;
                 float3 deep = float3(0.002, 0.012, 0.017);
-                float3 cyan = float3(0.025, 0.68, 0.82);
+                float3 cyan = float3(0.015, 0.62, 0.91);
                 float3 pearl = float3(0.85, 1.45, 1.30);
-                float luminous = saturate(crest * 0.55 + eventCrest * 0.62 + narrowSpecular * 0.35);
-                float3 color = lerp(deep, cyan, saturate(crest * 0.42 + eventCrest * 0.42));
-                color = lerp(color, pearl, saturate(crest * 0.18 + eventCrest * 0.28 + narrowSpecular * 0.45));
+                float luminous = saturate(crest * 0.55 + eventCrest * 0.62 + majorCrest * 0.78 + narrowSpecular * 0.35);
+                float3 color = lerp(deep, cyan, saturate(crest * 0.42 + eventCrest * 0.42 + majorCrest * 0.82));
+                color = lerp(color, pearl, saturate(crest * 0.18 + eventCrest * 0.28 + majorCrest * 0.055 + narrowSpecular * 0.45));
                 color = lerp(color, deep * 0.72, wakeShadow * 0.2);
-                float alpha = min(0.32, 0.018 + fresnel * 0.025 + crest * 0.055 + eventCrest * 0.38 + narrowSpecular * 0.03);
-                return half4(color * (1 + luminous * 0.45), alpha);
+                float alpha = min(0.34, 0.018 + fresnel * 0.025 + crest * 0.055 + eventCrest * 0.38 + majorCrest * 0.36 + narrowSpecular * 0.03);
+                return half4(color * (1 + luminous * 0.24), alpha);
             }
             ENDHLSL
         }

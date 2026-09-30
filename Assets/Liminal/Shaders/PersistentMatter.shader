@@ -18,6 +18,7 @@ Shader "Liminal/Persistent Matter"
             #pragma fragment Frag
             #pragma target 4.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "WhaleAnatomy.hlsl"
 
             struct MatterParticle
             {
@@ -31,8 +32,12 @@ Shader "Liminal/Persistent Matter"
             struct MatterGroup { float4x4 localToWorld; float4 state; float4 impulse; };
             StructuredBuffer<MatterSeed> _Seeds;
             StructuredBuffer<MatterGroup> _Groups;
+            StructuredBuffer<float4> _GroupVelocities;
+            StructuredBuffer<float4> _AlternateForms;
+            StructuredBuffer<float4> _SurfaceFrames;
             CBUFFER_START(UnityPerMaterial)
             float _Gain;
+            float _WhaleVisibility;
             int _WhaleGroup;
             CBUFFER_END
 
@@ -85,7 +90,8 @@ Shader "Liminal/Persistent Matter"
                     (abs(UNITY_MATRIX_P._m11) * _ScreenParams.y));
                 float size = max(particle.colorSize.w, pixelWorld * 1.3);
                 float stretch = 1.8 + saturate(speed / 18.0) * 5.0;
-                bool isWhale = (int)round(particle.identityState.y) == _WhaleGroup;
+                bool isDolphin = seed.traits.y > 3.5 && _GroupVelocities[(uint)particle.identityState.y].w > 0.5;
+                bool isWhale = seed.traits.y > 2.5 && !isDolphin;
                 bool isAmbient = seed.traits.y < 0.5;
                 if (isAmbient) {
                     size = max(particle.colorSize.w, pixelWorld * (2.0 + Hash01(particleIndex + 313u) * 1.8));
@@ -101,14 +107,13 @@ Shader "Liminal/Persistent Matter"
                     size = max(particle.colorSize.w, pixelWorld * (1.8 + sparkle * 2.6));
                     MatterGroup group = _Groups[(uint)particle.identityState.y];
                     if (particle.identityState.z < 2.5) {
-                        float3 normalOS = abs(seed.form.x) > 20.0 ? float3(0,1,0) :
-                            normalize(float3(seed.form.x / 18.5, seed.form.y / 14.2, 0.0001));
+                        float3 normalOS = _SurfaceFrames[particleIndex * 2].xyz;
                         float3 normalWS = normalize(mul((float3x3)group.localToWorld, normalOS));
                         float facing = dot(normalWS, normalize(_WorldSpaceCameraPos - position));
                         float rim = pow(1.0 - abs(facing), 3.0);
                         silhouette = (0.16 + smoothstep(-0.12, 0.24, facing) * 0.84) * (0.65 + rim * 1.15);
                         if (contour > 0.5 && particle.identityState.z < 0.5) {
-                            float3 tangent = normalize(mul((float3x3)group.localToWorld, float3(0,0,1)));
+                            float3 tangent = normalize(mul((float3x3)group.localToWorld, _SurfaceFrames[particleIndex * 2 + 1].xyz));
                             float2 screenTangent = float2(dot(tangent,cameraRight),dot(tangent,cameraUp));
                             screenTangent = normalize(screenTangent + float2(0.0001,0));
                             along = cameraRight * screenTangent.x + cameraUp * screenTangent.y;
@@ -123,11 +128,15 @@ Shader "Liminal/Persistent Matter"
                         silhouette *= lerp(0.24, 0.55, smoothstep(1.6, 4.0, group.state.y));
                     }
                 }
+                if (isDolphin) {
+                    size = max(particle.colorSize.w, pixelWorld * 1.35);
+                    stretch = 1.0;
+                    silhouette = 1.0;
+                }
                 float3 world = position + across * uv.x * size + along * uv.y * size * stretch;
                 float impact = saturate(particle.velocityEnergy.w);
                 float energy = 1.0 + impact * 2.3;
-                float3 warm = float3(1.0, 0.82, 0.55);
-                float3 pearl = lerp(particle.colorSize.rgb, warm, impact * (isWhale ? 0.25 : 0.82));
+                float3 pearl = lerp(particle.colorSize.rgb, float3(0.025,0.70,1.8), impact * (isWhale ? 0.15 : 0.28));
                 float patchHeat = isWhale && particle.identityState.z < 0.5
                     ? saturate(particle.identityState.w) : 0.0;
                 if (isWhale)
@@ -137,7 +146,7 @@ Shader "Liminal/Persistent Matter"
                     pearl = lerp(pearl, energizedAnchor, hitState * 0.82);
                     energy += hitState * 1.6;
                 }
-                if (particle.identityState.z > 2.5)
+                if (particle.identityState.z > 2.5 && particle.identityState.z < 3.5)
                     pearl = lerp(pearl, float3(0.38,0.95,0.78),0.28) * 1.6;
                 float afterglow = saturate(particle.identityState.w);
                 if (isWhale) afterglow = 0.0;
@@ -152,9 +161,9 @@ Shader "Liminal/Persistent Matter"
                 Varyings output;
                 output.positionCS = TransformWorldToHClip(world);
                 output.uv = uv;
-                output.color = pearl * energy * _Gain * silhouette * exp(-distanceToCamera * 0.00065);
+                output.color = pearl * energy * _Gain * silhouette * exp(-distanceToCamera * 0.00065) * (isWhale ? _WhaleVisibility : 1);
                 output.sparkle = sparkle;
-                output.isWhale = isWhale ? 1.0 : 0.0;
+                output.isWhale = isWhale || isDolphin ? 1.0 : 0.0;
                 output.contour = contour;
                 output.isAmbient = isAmbient ? 1.0 : 0.0;
                 return output;
