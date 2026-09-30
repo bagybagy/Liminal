@@ -96,10 +96,10 @@ Shader "Liminal/Horizon Spray"
                     float crownLife = 0.62 + seedB * 0.22;
                     float3 start = origin.xyz + float3(radial.x * radius, 0.24, radial.y * radius);
                     center = start + velocity * t + float3(0, -4.905 * t * t, 0);
-                    longAxis = normalize(float3(radial.x * 0.28, 0.94, radial.y * 0.28));
+                    longAxis = normalize(velocity + float3(0, -9.81 * t, 0));
                     extent = float2(0.18 + seedB * 0.18, 0.9 + seed * 1.05);
                     float fade = smoothstep(0, 0.07, t) * (1 - smoothstep(crownLife * 0.62, crownLife, t));
-                    intensity = impact * eventEnergy * (0.26 + seedB * 0.18) * fade * valid;
+                    intensity = impact * eventEnergy * (0.90 + seedB * 0.65) * fade * valid;
                     color = lerp(float3(0.10, 0.40, 0.42), _Pearl.rgb, 0.38 + seed * 0.28);
                 }
                 else if (bead < 240u)
@@ -120,7 +120,7 @@ Shader "Liminal/Horizon Spray"
                     float fade = smoothstep(0, 0.06, t) * (1 - smoothstep(returnTime - 0.1, returnTime, t));
                     float selected = lerp(1 - step(0.14, seed), 1, impact);
                     float eventWeight = lerp(0.16, 1.0, impact) * eventEnergy;
-                    intensity = selected * eventWeight * (0.34 + seedB * 0.24) * fade
+                    intensity = selected * eventWeight * (1.0 + seedB * 1.25) * fade
                         * step(0, t) * step(t, returnTime) * valid;
                     extent = (0.16 + seedB * 0.2) * float2(1, 1);
                     color = lerp(float3(0.12, 0.50, 0.50), _Pearl.rgb, 0.48 + seedB * 0.32);
@@ -166,6 +166,9 @@ Shader "Liminal/Horizon Spray"
                 }
 
                 float3 viewDirection = normalize(_WorldSpaceCameraPos - center);
+                float pixelWorld = max(0.0001, abs(TransformWorldToHClip(center).w) * 2.0 /
+                    (abs(UNITY_MATRIX_P._m11) * _ScreenParams.y));
+                if (kind > 0.5 && kind < 1.5) extent = max(extent, pixelWorld * (1.7 + seedB * 1.4));
                 float3 right = cross(viewDirection, normalize(longAxis));
                 if (dot(right, right) < 0.0001)
                 {
@@ -188,7 +191,8 @@ Shader "Liminal/Horizon Spray"
                 float weight;
                 if (i.kind < 0.5)
                 {
-                    float across = 1 - smoothstep(0.34, 1, abs(p.x));
+                    float taper = 0.28 + 0.72 * (1 - p.y * p.y);
+                    float across = exp(-p.x * p.x * 5.0 / max(0.1, taper));
                     float along = 1 - smoothstep(0.62, 1, abs(p.y));
                     weight = across * along;
                 }

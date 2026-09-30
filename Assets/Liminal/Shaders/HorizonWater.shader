@@ -136,14 +136,14 @@ Shader "Liminal/Horizon Water"
                 float wakeShadow = saturate(-eventSignal * 2.2);
                 float narrowSpecular = specular * crest;
                 float3 deep = float3(0.002, 0.012, 0.017);
-                float3 cyan = float3(0.028, 0.32, 0.35);
-                float3 pearl = float3(0.48, 0.78, 0.74);
+                float3 cyan = float3(0.025, 0.68, 0.82);
+                float3 pearl = float3(0.85, 1.45, 1.30);
                 float luminous = saturate(crest * 0.55 + eventCrest * 0.62 + narrowSpecular * 0.35);
                 float3 color = lerp(deep, cyan, saturate(crest * 0.42 + eventCrest * 0.42));
                 color = lerp(color, pearl, saturate(crest * 0.18 + eventCrest * 0.28 + narrowSpecular * 0.45));
                 color = lerp(color, deep * 0.72, wakeShadow * 0.2);
-                float alpha = min(0.1, 0.018 + fresnel * 0.025 + crest * 0.042 + eventCrest * 0.045 + narrowSpecular * 0.03);
-                return half4(color * (1 + luminous * 0.12), alpha);
+                float alpha = min(0.32, 0.018 + fresnel * 0.025 + crest * 0.055 + eventCrest * 0.38 + narrowSpecular * 0.03);
+                return half4(color * (1 + luminous * 0.45), alpha);
             }
             ENDHLSL
         }
