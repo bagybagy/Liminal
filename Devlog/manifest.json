@@ -1,0 +1,367 @@
+{
+  "schema_version": 1,
+  "project": "LIMINAL / ABYSSAL CHOIR",
+  "scope": {
+    "included": "Liminal project only",
+    "excluded": "Repository-root historical Unity prototype",
+    "media_policy": "Unity runtime screenshots and the explicitly authorized historical Unity Recorder clip; no concept art"
+  },
+  "date_policy": {
+    "milestone_dates": "Git log author dates (%ad), rendered with their +09:00 offset",
+    "filesystem_timestamps": "Observed LastWriteTime only; timestamps can change on copy or overwrite and are not treated as exact capture or creation times",
+    "timezone": "Asia/Tokyo"
+  },
+  "evidence_inventory": {
+    "scope_note": "Only direct files in the exact named Verification folders were inventoried. No recursive listing or reading of Video folders was performed.",
+    "direct_folder_counts": [
+      {
+        "path": "Liminal/Verification/Full",
+        "png_count": 5,
+        "json_count": 1,
+        "player_log_count": 1,
+        "video_count": 0,
+        "report_path": "Liminal/Verification/Full/report.json",
+        "report_result": "passed=true; 340 fired; 340 hits; 240 boss damage; errors=[]"
+      },
+      {
+        "path": "Liminal/Verification/Preview",
+        "png_count": 2,
+        "json_count": 1,
+        "player_log_count": 1,
+        "video_count": 0,
+        "report_path": "Liminal/Verification/Preview/preview.json",
+        "report_result": "spatialPassed=true; errors=[]"
+      },
+      {
+        "path": "Liminal/Verification/Caverns",
+        "png_count": 37,
+        "json_count": 1,
+        "player_log_count": 1,
+        "video_count": 0,
+        "report_path": "Liminal/Verification/Caverns/report.json",
+        "report_result": "passed=true; errors=[]; caverns, persistent matter, whale, dolphin and wave checks recorded"
+      },
+      {
+        "path": "Liminal/Verification/WhaleRevision",
+        "png_count": 6,
+        "json_count": 1,
+        "player_log_count": 1,
+        "video_count": 0,
+        "report_path": "Liminal/Verification/WhaleRevision/report.json",
+        "report_result": "passed=true; errors=[]; 7,259 particles recalled; no regeneration at five remaining organs and regeneration at four"
+      }
+    ],
+    "log_policy": "player.log files were counted by direct filename only and not read",
+    "older_video_note": "Older Liminal capture videos are known to exist, but their folders and contents were not scanned or treated as evidence of current gameplay. Only the exact safe source listed under historical_clip was probed."
+  },
+  "tracked_preview_audit": [
+    {
+      "path": "Liminal/Preview.png",
+      "git_tracked": true,
+      "git_blob_sha1": "ff93033bebdb35b90cba0b0f33ec080e5df105c9",
+      "last_change_commit": "b4ac0c0b4040b42fc15ddcf081a5a35b2719ab22",
+      "last_change_date": "2026-09-26T18:40:40+09:00",
+      "filesystem_last_write_local": "2026-09-26T18:38:47+09:00",
+      "bytes": 589995,
+      "sha256": "78a582ae175cc7b1dff61147c8e2134a5d2241faf7cf6d0c2edaac7fc4362b37",
+      "copied_to_devlog": false
+    },
+    {
+      "path": "Liminal/VisualPreview.png",
+      "git_tracked": true,
+      "git_blob_sha1": "727d07cbd9728a3d74ba9bd4331ae277d7dc4264",
+      "last_change_commit": "4288cbf0e7ff9ad2185eea64b640746e120d8917",
+      "last_change_date": "2026-10-01T02:56:26+09:00",
+      "filesystem_last_write_local": "2026-10-01T02:50:24+09:00",
+      "bytes": 1176701,
+      "sha256": "27ef44ec8c428ad45acb0b42c255dc77c87c346c64020eff68af306cfa3a8bce",
+      "copied_to_devlog": true
+    }
+  ],
+  "posts": [
+    {
+      "id": "01",
+      "milestone_date": "2026-09-26",
+      "commits": [
+        {
+          "id": "cb9b9c8c7b0c690c6bc8151c7f8208fa58aac932",
+          "date": "2026-09-26T10:55:41+09:00",
+          "subject": "feat: 音楽に同期する海蛇戦を開始から決着まで実装"
+        },
+        {
+          "id": "1bb07c4df886bcc6e684d21deae5e43c70deb484",
+          "date": "2026-09-26T18:40:04+09:00",
+          "subject": "自由飛行で回遊する海蛇を追跡する立体戦闘とGPU粒子表現を実装"
+        },
+        {
+          "id": "b4ac0c0b4040b42fc15ddcf081a5a35b2719ab22",
+          "date": "2026-09-26T18:40:40+09:00",
+          "subject": "自由飛行による追跡戦の実機検証と操作・設計記録を追加"
+        }
+      ],
+      "evidence_paths": ["Liminal/Verification/Full/report.json"]
+    },
+    {
+      "id": "02",
+      "milestone_date": "2026-09-27",
+      "commits": [
+        {
+          "id": "552ee1f1cdd130617725e554e31c8bec79f47394",
+          "date": "2026-09-27T19:39:40+09:00",
+          "subject": "三層の海底洞窟と音楽に反応する海洋生物を実装"
+        }
+      ],
+      "evidence_paths": ["Liminal/README.md", "Liminal/Verification/Caverns/report.json"]
+    },
+    {
+      "id": "03",
+      "milestone_date": "2026-09-28",
+      "commits": [
+        {
+          "id": "2b2614d160dec7186203793e0d8421d62e91172f",
+          "date": "2026-09-28T00:22:06+09:00",
+          "subject": "feat: 同じ粒子が生物から環境へ移る可変存続性を実装"
+        }
+      ],
+      "evidence_paths": ["Liminal/PARTICLE_DESIGN.md", "Liminal/Verification/Caverns/report.json"]
+    },
+    {
+      "id": "04",
+      "milestone_date": "2026-09-28",
+      "commits": [
+        {
+          "id": "8938a2c28c42cd67c363c7de57fe40e3c5603afa",
+          "date": "2026-09-28T07:49:32+09:00",
+          "subject": "feat: 巨体を追跡して奏でる回遊戦と第二の水平線を実装"
+        }
+      ],
+      "evidence_paths": ["Liminal/VALIDATION.md", "Liminal/Verification/Caverns/report.json"]
+    },
+    {
+      "id": "05",
+      "milestone_date": "2026-09-29",
+      "commits": [
+        {
+          "id": "9a45065c05df55d1b1b899b32410d1e947b174c1",
+          "date": "2026-09-29T03:09:40+09:00",
+          "subject": "音源のサンプル譜面を駆動源にし、表拍着弾と和音追従を実装"
+        },
+        {
+          "id": "a77a5a9726bc2cdf15daf3cf6e73a00751240838",
+          "date": "2026-09-29T03:10:10+09:00",
+          "subject": "クジラの発光階層と48器官の回遊戦、水面の多層飛沫を実装"
+        }
+      ],
+      "evidence_paths": ["Liminal/Verification/Caverns/report.json"]
+    },
+    {
+      "id": "06",
+      "milestone_date": "2026-10-01",
+      "commits": [
+        {
+          "id": "a5b7b021d5e74f779c39d6d363c9680a8fa5165b",
+          "date": "2026-10-01T01:15:12+09:00",
+          "subject": "光の面積と解剖的な曲線を再設計し、譜面駆動の洞窟とクジラを実装"
+        },
+        {
+          "id": "e68515f72ccdf038cee1ae771b353bf97869967c",
+          "date": "2026-10-01T01:16:34+09:00",
+          "subject": "実機描画と全ステージ攻略を検証し、Unity6の更新Windowsビルドを同梱"
+        }
+      ],
+      "evidence_paths": ["Liminal/VISUAL_REDESIGN.md", "Liminal/VisualPreview.png"]
+    },
+    {
+      "id": "07",
+      "milestone_date": "2026-10-01",
+      "commits": [
+        {
+          "id": "9bea85255c0b226815c6a1e125de27efaa2812e7",
+          "date": "2026-10-01T02:54:09+09:00",
+          "subject": "大渦から登場するクジラと、身体粒子を継承するイルカ戦を実装"
+        },
+        {
+          "id": "4288cbf0e7ff9ad2185eea64b640746e120d8917",
+          "date": "2026-10-01T02:56:26+09:00",
+          "subject": "クジラ登場とイルカ戦を実機検証し、更新Windowsビルドを同梱"
+        }
+      ],
+      "evidence_paths": ["Liminal/Verification/Caverns/report.json", "Liminal/Verification/WhaleRevision/report.json"]
+    },
+    {
+      "id": "08",
+      "milestone_date": "2026-10-01",
+      "commits": [
+        {
+          "id": "9813dd4634302d9d69ada9ff96753837ee0c04a7",
+          "date": "2026-10-01T04:03:50+09:00",
+          "subject": "大渦からのクジラ集結と残り4点での粒子回収再生を実装"
+        },
+        {
+          "id": "7c3d195ed52ebb046bb35cf0796701a681fc1855",
+          "date": "2026-10-01T04:04:17+09:00",
+          "subject": "クジラとイルカの循環修正版Windowsビルドを同梱"
+        }
+      ],
+      "evidence_paths": ["Liminal/Verification/WhaleRevision/report.json"]
+    }
+  ],
+  "copied_images": [
+    {
+      "post_id": "01",
+      "destination": "Liminal/Devlog/images/01-flight-serpent.png",
+      "source": "Liminal/Verification/Full/stage-1.png",
+      "source_git_tracked": false,
+      "source_file_last_write_local": "2026-09-26T18:32:23+09:00",
+      "bytes": 609924,
+      "sha256": "e84f8dd55105755cd7adef2824419bddc6a500056421391d00738b64720ecc74",
+      "alt_text": "発光する海蛇の全身と、その体表に並ぶ複数の白い標的点。"
+    },
+    {
+      "post_id": "02",
+      "destination": "Liminal/Devlog/images/02-cavern-life.png",
+      "source": "Liminal/Verification/Caverns/01-lantern-grotto.png",
+      "source_git_tracked": false,
+      "source_file_last_write_local": "2026-10-01T02:49:41+09:00",
+      "bytes": 737535,
+      "sha256": "86416ed89c51b03b7255990d6de9e5c00f17fb6afc48669bf6bf2caf216257fc",
+      "alt_text": "暗い洞窟内に長い触手を垂らす発光クラゲと、小さな魚群。"
+    },
+    {
+      "post_id": "03",
+      "destination": "Liminal/Devlog/images/03-matter-transfer.png",
+      "source": "Liminal/Verification/Caverns/03db-ray-peeling.png",
+      "source_git_tracked": false,
+      "source_file_last_write_local": "2026-10-01T02:51:05+09:00",
+      "bytes": 1116484,
+      "sha256": "dc030ce1ceed221d16dcb7b20d26ab06d4d9f6113ab6482d66e914c54cfd64df",
+      "alt_text": "大型生物の表面から粒子と小さな光る生物が離れていく場面。"
+    },
+    {
+      "post_id": "04",
+      "destination": "Liminal/Devlog/images/04-horizon-whale.png",
+      "source": "Liminal/Verification/Caverns/04-horizon-whale.png",
+      "source_git_tracked": false,
+      "source_file_last_write_local": "2026-10-01T02:51:53+09:00",
+      "bytes": 947462,
+      "sha256": "9b8f9e58cd59921f6169b49e743ab112288ca8a33a86902a9df06f1cd5e47142",
+      "alt_text": "青白いクジラが海中を泳ぎ、右に青い渦状の光が広がる。"
+    },
+    {
+      "post_id": "05",
+      "destination": "Liminal/Devlog/images/05-organ-combat.png",
+      "source": "Liminal/Verification/Caverns/04a-whale-hit-patches.png",
+      "source_git_tracked": false,
+      "source_file_last_write_local": "2026-10-01T02:52:15+09:00",
+      "bytes": 952330,
+      "sha256": "6e9b018510cc33709b03317348a01cfffc1a6baf4e3386a54d6979d0d0d21f7d",
+      "alt_text": "クジラの体表にピンクの被弾箇所が残り、プレイヤーの照準が向いている。"
+    },
+    {
+      "post_id": "06",
+      "destination": "Liminal/Devlog/images/06-visual-redesign.png",
+      "source": "Liminal/VisualPreview.png",
+      "source_git_tracked": true,
+      "source_git_blob_sha1": "727d07cbd9728a3d74ba9bd4331ae277d7dc4264",
+      "source_file_last_write_local": "2026-10-01T02:50:24+09:00",
+      "bytes": 1176701,
+      "sha256": "27ef44ec8c428ad45acb0b42c255dc77c87c346c64020eff68af306cfa3a8bce",
+      "alt_text": "青い粒子で描かれたクジラを手前に、奥に暗い水平面が広がる。"
+    },
+    {
+      "post_id": "07",
+      "destination": "Liminal/Devlog/images/07-dolphin-encounter.png",
+      "source": "Liminal/Verification/WhaleRevision/revision-03-near-dolphin.png",
+      "source_git_tracked": false,
+      "source_file_last_write_local": "2026-10-01T04:00:45+09:00",
+      "bytes": 862287,
+      "sha256": "a585c1baeaa71147e8dde706ee127d894ef910ced6ec353692ad9837ccab3019",
+      "alt_text": "青白いクジラの横で、白と桃色の粒子のイルカが泳ぐ。"
+    },
+    {
+      "post_id": "08",
+      "destination": "Liminal/Devlog/images/08a-vortex-gathering.png",
+      "source": "Liminal/Verification/WhaleRevision/revision-01-gathering.png",
+      "source_git_tracked": false,
+      "source_file_last_write_local": "2026-10-01T04:00:13+09:00",
+      "bytes": 942739,
+      "sha256": "f394b186f4c40d991eec9e8b41550b9de05ef37fdd9b6319b7f1f50a96ef9918",
+      "alt_text": "青い粒子が大渦の中心へ集まり、クジラの形を再構成している。"
+    },
+    {
+      "post_id": "08",
+      "destination": "Liminal/Devlog/images/08b-particle-recall.png",
+      "source": "Liminal/Verification/WhaleRevision/revision-04-particle-recall.png",
+      "source_git_tracked": false,
+      "source_file_last_write_local": "2026-10-01T04:01:10+09:00",
+      "bytes": 1042617,
+      "sha256": "14cc845e922067e6e70df31cde323787612961964a3dfa306069967c48a62220",
+      "alt_text": "青い粒子で再構成されたクジラの全身。体表に桃色の器官が点在する。"
+    }
+  ],
+  "copied_images_total": {
+    "count": 9,
+    "bytes": 8388079,
+    "mib": 7.9995,
+    "limit_bytes": 20971520,
+    "under_limit": true
+  },
+  "historical_clip": {
+    "destination": "Liminal/Devlog/clips/initial-flight.mp4",
+    "label": "2026-09-27 historical Unity GameView recording; old build, not the latest whale encounter",
+    "source": "Liminal/Video/UnityRecorderRetake/LIMINAL_X_AbyssalChoir.mp4",
+    "source_bytes": 59129221,
+    "source_last_write_local_before": "2026-09-27T15:47:13+09:00",
+    "source_last_write_local_after": "2026-09-27T15:47:13+09:00",
+    "source_timestamp_note": "Filesystem LastWriteTime was verified and is on 2026-09-27; it can reflect copying or overwrite and is not asserted to be the exact recording or creation time.",
+    "source_probe": {
+      "duration_seconds": 58.0333,
+      "video_codec": "h264",
+      "width": 1920,
+      "height": 1080,
+      "frame_rate": "30/1",
+      "audio_codec": "aac"
+    },
+    "segment": {
+      "start_seconds": 4,
+      "end_seconds": 10,
+      "duration_seconds": 6,
+      "speed_factor": 1,
+      "slow_motion": false,
+      "looped": false,
+      "frame_rate_mode": "passthrough"
+    },
+    "output": {
+      "video_codec": "h264",
+      "width": 1280,
+      "height": 720,
+      "pixel_format": "yuv420p",
+      "crf": 21,
+      "maxrate_bits_per_second": 5000000,
+      "audio_codec": "aac",
+      "audio_bitrate_bits_per_second": 160000,
+      "faststart": true,
+      "duration_seconds": 6,
+      "bytes": 2312743,
+      "mib": 2.2056,
+      "limit_bytes": 5242880,
+      "under_limit": true,
+      "sha256": "d07b4e1c98337471eb92adcbced965a092e44d1b0ffbcfef8cdcafde7a0a036d"
+    },
+    "raw_source_modified": false,
+    "source_inspection_scope": "The exact user-named file only; no directory enumeration."
+  },
+  "latest_verified_snapshot": {
+    "verification_folder": "Liminal/Verification/WhaleRevision",
+    "implementation_commit": "9813dd4634302d9d69ada9ff96753837ee0c04a7",
+    "updated_build_commit": "7c3d195ed52ebb046bb35cf0796701a681fc1855",
+    "report": "Liminal/Verification/WhaleRevision/report.json",
+    "passed": true,
+    "errors": [],
+    "recalled_particles": 7259,
+    "regen_at_five_remaining": false,
+    "regen_at_four_remaining": true,
+    "video_present": false
+  },
+  "pending_parent_addition": "A newer eight-point balance update is planned for the parent task after verification. It is not represented as complete here. Keep the parent's latest PV focused on the new game alone; this historical clip stays separate."
+}

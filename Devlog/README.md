@@ -1,0 +1,122 @@
+# LIMINAL 開発ログ（X投稿案）
+
+対象は `Liminal/` の LIMINAL / ABYSSAL CHOIR のみ。リポジトリ直下の旧Unityプロトタイプは含めない。引用ブロックの一文が投稿本文で、以降の画像・根拠は投稿用メタデータ。
+
+投稿日は `git log` の author date を日本時間で表記。画像の `LastWriteTime` は確認時のファイル日時であり、コピー・上書き等で変わり得るため、正確な撮影日時とは断定しない。特に10月1日撮影の画面は、9月の開発項目を説明する後日の実ゲーム画面。
+
+## 投稿案
+
+### 01 | 2026-09-26 — 音楽駆動の自由飛行戦
+**投稿文（48字）**
+> LIMINALの音楽戦闘を新規構築。自由飛行で海蛇を追い、譜面に同期する射撃で攻略する3D戦へ。
+
+**画像**
+- `images/01-flight-serpent.png` — alt: 発光する海蛇の全身と、その体表に並ぶ複数の白い標的点。
+
+**メタデータ（投稿本文に含めない）**
+- Git: `cb9b9c8`（2026-09-26 10:55 JST）、`1bb07c4`（18:40 JST）、`b4ac0c0`（18:40 JST）
+- 原本: `Liminal/Verification/Full/stage-1.png`（LastWriteTime: 2026-09-26 18:32 JST）
+- `Full/report.json`: 通し検証合格、340発射・340命中、実行時エラー0。
+
+### 02 | 2026-09-27 — 三層の海底洞窟
+**投稿文（40字）**
+> 三層の海底洞窟と音楽に反応する生物を実装。戦闘の合間も、音の中を泳ぐ探索空間に。
+
+**画像**
+- `images/02-cavern-life.png` — alt: 暗い洞窟内に長い触手を垂らす発光クラゲと、小さな魚群。
+
+**メタデータ（投稿本文に含めない）**
+- Git: `552ee1f`（2026-09-27 19:39 JST）
+- 原本: `Liminal/Verification/Caverns/01-lantern-grotto.png`（LastWriteTime: 2026-10-01 02:49 JST。後日の画面）
+- `Caverns/report.json` は三層の移動、生物応答、再起動等を含む後日の実機検証記録。
+
+### 03 | 2026-09-28 — 粒子が引き継ぐ形
+**投稿文（45字）**
+> 撃破後も粒子を消さず、生物から海底の群落へ同じ物質が移る仕組みに。戦果が世界に残る設計へ。
+
+**画像**
+- `images/03-matter-transfer.png` — alt: 大型生物の表面から粒子と小さな光る生物が離れていく場面。
+
+**メタデータ（投稿本文に含めない）**
+- Git: `2b2614d`（2026-09-28 00:22 JST）
+- 原本: `Liminal/Verification/Caverns/03db-ray-peeling.png`（LastWriteTime: 2026-10-01 02:51 JST。後日の画面）
+- `Caverns/report.json`: 粒子IDの維持、海底への定着、小型生物の物質継承を検証。
+
+### 04 | 2026-09-28 — ホエールと第二の水平面
+**投稿文（44字）**
+> 巨大ホエールの回遊戦と第二の水平面を追加。浮上・潜行の航跡と波で、追跡の距離感を伝える。
+
+**画像**
+- `images/04-horizon-whale.png` — alt: 青白いクジラが海中を泳ぎ、右に青い渦状の光が広がる。
+
+**メタデータ（投稿本文に含めない）**
+- Git: `8938a2c`（2026-09-28 07:49 JST）
+- 原本: `Liminal/Verification/Caverns/04-horizon-whale.png`（LastWriteTime: 2026-10-01 02:51 JST。後日の画面）
+- `Caverns/report.json`: 第二の水平面の接触12回、波イベント13件を記録。
+
+### 05 | 2026-09-29 — 拍に重なる着弾
+**投稿文（43字）**
+> 着弾を表拍に置き、和音も追従する射撃へ。48器官の回遊戦と合わせ、攻撃を楽曲の一部に。
+
+**画像**
+- `images/05-organ-combat.png` — alt: クジラの体表にピンクの被弾箇所が残り、プレイヤーの照準が向いている。
+
+**メタデータ（投稿本文に含めない）**
+- Git: `9a45065`（2026-09-29 03:09 JST）、`a77a5a9`（03:10 JST）
+- 原本: `Liminal/Verification/Caverns/04a-whale-hit-patches.png`（LastWriteTime: 2026-10-01 02:52 JST。後日の画面）
+- `Caverns/report.json`: クジラ96ヒット、譜面グリッド誤差0秒。
+
+### 06 | 2026-10-01 — 暗所で読める発光
+**投稿文（43字）**
+> 体表・輪郭・輝点の明暗を再設計し、洞窟の縞を光脈へ。暗所でも形が読める発光を目指した。
+
+**画像**
+- `images/06-visual-redesign.png` — alt: 青い粒子で描かれたクジラを手前に、奥に暗い水平面が広がる。
+
+**メタデータ（投稿本文に含めない）**
+- Git: `a5b7b02`（2026-10-01 01:15 JST）、`e68515f`（01:16 JST）
+- 原本: `Liminal/VisualPreview.png`（LastWriteTime: 2026-10-01 02:50 JST。実ゲームのWindowsビルドから取得）
+- 描画方針: `Liminal/VISUAL_REDESIGN.md`。画像はコンセプトアートではなくゲーム画面。
+
+### 07 | 2026-10-01 — 大渦から始まるイルカ戦
+**投稿文（45字）**
+> 大渦からのホエール登場と、体の粒子を継ぐイルカ戦を実装。撃破を同じ物質の変身として見せる。
+
+**画像**
+- `images/07-dolphin-encounter.png` — alt: 青白いクジラの横で、白と桃色の粒子のイルカが泳ぐ。
+
+**メタデータ（投稿本文に含めない）**
+- Git: `9bea852`（2026-10-01 02:54 JST）、`4288cbf`（02:56 JST、実機検証）
+- 原本: `Liminal/Verification/WhaleRevision/revision-03-near-dolphin.png`（LastWriteTime: 2026-10-01 04:00 JST。後日の画面）
+- `Caverns/report.json` と `WhaleRevision/report.json` に登場・粒子継承・イルカ戦の検証結果あり。
+
+### 08 | 2026-10-01 — 回収と再構成
+**投稿文（45字）**
+> 渦へ粒子が集まり直す演出と、残り4器官での再生を追加。回収から再戦まで続く循環を検証した。
+
+**画像**
+- `images/08a-vortex-gathering.png` — alt: 青い粒子が大渦の中心へ集まり、クジラの形を再構成している。
+- `images/08b-particle-recall.png` — alt: 青い粒子で再構成されたクジラの全身。体表に桃色の器官が点在する。
+
+**メタデータ（投稿本文に含めない）**
+- Git: `9813dd4`（2026-10-01 04:03 JST、実装）、`7c3d195`（04:04 JST、更新ビルド）
+- 原本: `WhaleRevision/revision-01-gathering.png`（04:00 JST）、`revision-04-particle-recall.png`（04:01 JST）
+- `WhaleRevision/report.json`: 合格、回収7,259粒子、残り5器官では再生せず4器官で再生。
+
+## 静止画・動画の所在
+
+指定された検証フォルダを直下のみ確認。`Full` はPNG 5枚とJSON 1件、`Preview` はPNG 2枚とJSON 1件、`Caverns` はPNG 37枚とJSON 1件、`WhaleRevision` はPNG 6枚とJSON 1件。各フォルダに `player.log` もあるが、内容は読んでいない。これら4フォルダの直下に動画ファイルはなく、従来の実機証跡は主にスクリーンショットとJSON。
+
+最新の `WhaleRevision` も静止画と `report.json` による検証で、動画は含まれない。以前のLIMINAL録画動画が別に存在することは把握しているが、下記の指定クリップ以外は調査・閲覧せず、最新ゲームの内容を示す根拠には使わない。
+
+## 歴史クリップ（最新PVとは別）
+
+- `clips/initial-flight.mp4` は **2026-09-27旧版のUnity GameView録画**。最新ホエール戦の映像ではない。指定原本の00:04–00:10を1倍速で切り出し、スロー化・ループ化なし。H.264 1280×720 / CRF 21 / maxrate 5 Mbps、AAC 160 kbps、faststart、2,312,743 bytes（5 MiB未満）。
+- 原本: `Liminal/Video/UnityRecorderRetake/LIMINAL_X_AbyssalChoir.mp4`。ffprobeで58.0333秒、H.264 1920×1080・30 fps、AACを確認。ファイルの `LastWriteTime` は2026-09-27 15:47:13 JST。これは確認できたファイル日時であり、正確な録画・作成時刻とは断定しない。原本は変更していない。
+- この旧版クリップはDevlogの歴史資料として分離し、親タスクの最新PVには混ぜない。最新PVは新ゲーム単独の構成とする。
+
+## 親タスクでの追記予定
+
+新しい8点バランス調整は親タスクで検証後に追記予定。このログは2026-10-01時点の履歴であり、その後の調整を実装済みとは扱わない。
+
+画像・動画・完全なローカル相対パス、SHA-256、Git根拠、実機証跡の詳細は `manifest.json` を参照。
