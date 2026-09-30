@@ -173,11 +173,16 @@ Shader "Liminal/Defeated Marine Forms"
                 float3 cameraUp = UNITY_MATRIX_V[1].xyz;
                 world += (cameraRight * input.uv.x + cameraUp * input.uv.y) * size;
 
-                float3 startColor = input.color.rgb * _SourceTint.rgb * _SourceGain;
+                float3 rawSourceColor = input.color.rgb * _SourceTint.rgb * _SourceGain;
+                float sourceLevel = max(max(rawSourceColor.r, rawSourceColor.g), rawSourceColor.b);
+                float3 sourceHue = rawSourceColor / max(sourceLevel, 0.0001);
+                float warm = saturate((max(sourceHue.r-sourceHue.b, (sourceHue.r-sourceHue.g)*0.55)-0.04)*1.7);
+                float cyan = saturate((sourceHue.g-sourceHue.r)*1.1);
+                float3 electricHue = lerp(float3(0.035,0.22,1.0),float3(0.015,0.76,1.0),cyan);
+                float3 startColor = lerp(electricHue * sourceLevel, rawSourceColor, warm);
                 float charge = smoothstep(0.0, 0.48, elapsed);
                 float flare = charge * exp(-max(0.0, elapsed - 0.46) * 1.15);
-                float3 sourceWhite = float3(0.82, 0.95, 1.0) * max(_SourceGain, 0.25);
-                startColor = lerp(startColor, sourceWhite, saturate(flare * 0.78)) * (1.0 + flare * 0.75);
+                startColor *= 1.0 + flare * 0.32;
                 float3 formTint = lerp(_RoomColor.rgb, _RoomAccent.rgb, accent);
                 float3 formColor = formTint * (0.92 + Hash(input.data.x, 11.0) * 0.28);
                 float pulse = lerp(0.92 + 0.08 * _Pulse * (1.0 - _Reduced), 1.0 + _Pulse * 0.055 * (1.0 - _Reduced), settle);

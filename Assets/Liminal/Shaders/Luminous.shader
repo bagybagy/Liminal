@@ -96,7 +96,7 @@ Shader "Liminal/Luminous"
                         p += side * sin(age * 4.2 + input.data.x * 6.2831853) * 0.045 * saturate(age * 2.0);
                     }
                     float grainFade = exp(-age * 0.78) * (1.0 - smoothstep(1.45, 2.25, age));
-                    float coreFade = 0.18 * exp(-age * 1.25) + 3.0 * exp(-age * 12.0);
+                    float coreFade = 0.16 * exp(-age * 1.25) + 0.88 * exp(-age * 12.0);
                     twinkle = lerp(grainFade, coreFade, impactCore);
                     size *= 1.0 + min(age * 0.16, 0.24);
                 }
@@ -132,9 +132,15 @@ Shader "Liminal/Luminous"
                 if (_Mode > 0.5 && _Mode < 1.5)
                     col = lerp(col, col.gbr*float3(1.8,0.7,0.3)+float3(0.24,0.04,0), _Evolution*0.72);
                 if (_Mode > 1.5) {
-                    float whiteLevel = max(max(_Tint.r, _Tint.g), max(_Tint.b, 0.18));
-                    float3 grainColor = col * _Tint.rgb;
-                    float3 coreColor = float3(whiteLevel, whiteLevel, whiteLevel);
+                    float tintLevel = max(max(_Tint.r, _Tint.g), _Tint.b);
+                    float3 tintHue = _Tint.rgb / max(tintLevel, 0.0001);
+                    float warm = saturate((max(tintHue.r-tintHue.b, (tintHue.r-tintHue.g)*0.55)-0.04)*1.7);
+                    float cyan = saturate((tintHue.g-tintHue.r)*1.1);
+                    float3 electricHue = lerp(float3(0.035,0.22,1.0),float3(0.015,0.76,1.0),cyan);
+                    float localLevel = max(max(col.r,col.g),col.b);
+                    float3 grainColor = lerp(electricHue*tintLevel*localLevel, col*_Tint.rgb, warm);
+                    float coreWhite = (1.0-smoothstep(0.0,0.08,max(0.0,_Song-_Burst.w)))*0.48;
+                    float3 coreColor = lerp(grainColor,float3(1,1,1),coreWhite);
                     o.color = float4(lerp(grainColor, coreColor, impactCore) * _Gain * twinkle * exp(-distance * 0.0018), 1);
                 } else {
                     o.color = float4(col*_Tint.rgb*_Gain*twinkle*exp(-distance*0.0018),1);

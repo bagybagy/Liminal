@@ -19,6 +19,7 @@ namespace Liminal
         int particleCount;
         public int ParticleCount => particleCount + (Caverns ? Caverns.ParticleCount : 0) + LeviathanVfx.SimulatedParticles;
         public CaveEnvironment Caverns { get; private set; }
+        HitHaloVfx hitHalo;
         readonly List<Mesh> meshes = new();
         readonly List<Material> materials = new();
         readonly Burst[] bursts = new Burst[28];
@@ -39,6 +40,10 @@ namespace Liminal
                 Caverns.Initialize(this);
             } else BuildEnvironment();
             BuildSerpent(); BuildSmallForms(); BuildBursts();
+            var haloObject = new GameObject("Hit confirmation halos");
+            haloObject.transform.SetParent(transform, false);
+            hitHalo = haloObject.AddComponent<HitHaloVfx>();
+            hitHalo.Initialize();
         }
         Material Material(int mode, float gain)
         {
@@ -130,15 +135,15 @@ namespace Liminal
         void BuildBursts()
         {
             var p = new PointCloud();
-            const int coreCount = 88;
+            const int coreCount = 16;
             const int groupCount = 18;
             var groupColors = new Color[groupCount];
             for (int group = 0; group < groupCount; group++)
-                groupColors[group] = Color.Lerp(Ice, Gold, R(0.08f, 0.72f)) * R(0.82f, 1.08f);
+                groupColors[group] = Color.white * R(0.72f, 1.08f);
             for (int i = 0; i < 850; i++) {
                 if (i < coreCount) {
                     Vector3 core = new(R(-1,1),R(-1,1),R(-1,1));
-                    p.Add(core.normalized * R(0.015f, 0.12f), R(0.038f, 0.075f), Pearl, R(), -1);
+                    p.Add(core.normalized * R(0.015f, 0.12f), R(0.038f, 0.075f), Color.white, R(), -1);
                 } else {
                     int group = (i - coreCount) % groupCount;
                     Vector3 grain = new(R(-0.18f,0.18f),R(-0.14f,0.14f),R(-0.18f,0.18f));
@@ -158,6 +163,7 @@ namespace Liminal
             var b = bursts[burstCursor++%bursts.Length];
             b.material.SetVector("_Burst",new Vector4(position.x,position.y,position.z,song));
             b.material.SetColor("_Tint",color*scale); b.obj.SetActive(true); b.until=song+2.5f;
+            if (hitHalo) hitHalo.Spawn(position, song, color, scale);
         }
         public void Tick(float song, float evolution, float dissolve, bool reduced)
         {
@@ -168,8 +174,9 @@ namespace Liminal
             Shader.SetGlobalFloat("_Dissolve",dissolve);
             Shader.SetGlobalFloat("_Reduced",reduced?1:0);
             foreach(var b in bursts) if (b.obj.activeSelf && song>b.until) b.obj.SetActive(false);
+            if (hitHalo) hitHalo.Tick(song, reduced);
         }
-        public void ResetEffects() { foreach(var b in bursts) b.obj.SetActive(false); if(Serpent) Serpent.ResetSimulation(); }
-        void OnDestroy() { foreach(var mesh in meshes) Destroy(mesh); foreach(var mat in materials) Destroy(mat); }
+        public void ResetEffects() { foreach(var b in bursts) b.obj.SetActive(false); if(Serpent) Serpent.ResetSimulation(); if(hitHalo) hitHalo.ResetEffects(); }
+        void OnDestroy() { if(hitHalo) hitHalo.Dispose(); foreach(var mesh in meshes) Destroy(mesh); foreach(var mat in materials) Destroy(mat); }
     }
 }
