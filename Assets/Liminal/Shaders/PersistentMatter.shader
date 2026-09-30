@@ -50,6 +50,7 @@ Shader "Liminal/Persistent Matter"
                 float isWhale : TEXCOORD2;
                 float contour : TEXCOORD3;
                 float isAmbient : TEXCOORD4;
+                float visibility : TEXCOORD5;
             };
 
             uint MarineHash(uint value)
@@ -127,6 +128,11 @@ Shader "Liminal/Persistent Matter"
                         silhouette = lerp(silhouette, 0.85, smoothstep(0.4, 1.4, group.state.y));
                         silhouette *= lerp(0.24, 0.55, smoothstep(1.6, 4.0, group.state.y));
                     }
+                    if (particle.identityState.z > 4.5) {
+                        stretch = 1.5 + saturate(speed / 60.0) * 5.0;
+                        size = max(particle.colorSize.w, pixelWorld * 1.15);
+                        silhouette = 1.0;
+                    }
                 }
                 if (isDolphin) {
                     size = max(particle.colorSize.w, pixelWorld * 1.35);
@@ -161,17 +167,19 @@ Shader "Liminal/Persistent Matter"
                 Varyings output;
                 output.positionCS = TransformWorldToHClip(world);
                 output.uv = uv;
-                output.color = pearl * energy * _Gain * silhouette * exp(-distanceToCamera * 0.00065) * (isWhale ? _WhaleVisibility : 1);
+                output.color = pearl * energy * _Gain * silhouette * exp(-distanceToCamera * 0.00065);
                 output.sparkle = sparkle;
                 output.isWhale = isWhale || isDolphin ? 1.0 : 0.0;
                 output.contour = contour;
                 output.isAmbient = isAmbient ? 1.0 : 0.0;
+                output.visibility = isWhale ? _WhaleVisibility : 1.0;
                 return output;
             }
 
             half4 Frag(Varyings input) : SV_Target
             {
                 float radius = dot(input.uv, input.uv);
+                clip(input.visibility - 0.0001);
                 clip(1.0 - radius);
                 if (input.isAmbient > 0.5) {
                     float ring = exp(-pow(sqrt(radius) - 0.5, 2.0) * 36.0) * 0.24;
@@ -185,7 +193,7 @@ Shader "Liminal/Persistent Matter"
                     float glintCore = exp(-radius * 9.0) * input.sparkle * 5.0;
                     float glintHalo = exp(-radius * 2.0) * input.sparkle * 0.20;
                     float3 glintColor = lerp(input.color, float3(0.78, 0.96, 1.2), 0.68);
-                    return half4(input.color * (core + halo) + glintColor * (glintCore + glintHalo), 1);
+                    return half4((input.color * (core + halo) + glintColor * (glintCore + glintHalo)) * input.visibility, 1);
                 }
                 float core = exp(-radius * 9.0) * 1.55;
                 float halo = exp(-radius * 3.5) * 0.25;

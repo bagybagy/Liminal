@@ -42,6 +42,8 @@ float4 _Current;
 float3 _CurrentVelocity, _Player, _PlayerVelocity;
 float3 _WhaleVelocity;
 float _WhaleSurfaceActivity, _WhaleTurn, _WhaleArrival;
+float3 _ArrivalOrigin;
+float _WhaleFormation;
 
 float Hash(float n)
 {
@@ -93,7 +95,19 @@ float3 FormTarget(MatterSeed seed, MatterGroup group, float song, uint id)
         return mul(group.localToWorld, float4(DolphinDeform(_AlternateForms[id].xyz, song), 1)).xyz;
     float animationPhase = seed.traits.y > 1.5 && seed.traits.y < 2.5 ? seed.traits.x : seed.traits.z;
     float3 local = Deform(seed.form.xyz, seed.form.xyz, animationPhase, seed.traits.y, seed.traits.w, song);
-    return mul(group.localToWorld, float4(local, 1.0)).xyz;
+    float3 target = mul(group.localToWorld, float4(local, 1.0)).xyz;
+    if (seed.traits.y > 2.5 && _WhaleFormation < 0.9999)
+    {
+        // The whale's own IDs spiral out of the gyre, rather than fading in an existing silhouette.
+        float lane = Hash(id + 19.0);
+        float angle = lane * 6.2831853 + song * 1.6 + seed.form.z * 0.028;
+        float radius = 30.0 + Hash(id + 37.0) * 60.0;
+        float height = -75.0 + Hash(id + 71.0) * 55.0;
+        float3 source = _ArrivalOrigin + float3(cos(angle) * radius, height, sin(angle) * radius);
+        float gather = smoothstep(lane * 0.18, 0.80 + lane * 0.20, _WhaleFormation);
+        target = lerp(source, target, gather);
+    }
+    return target;
 }
 
 float WhalePatchHeat(float3 position, float localZ)
@@ -150,7 +164,17 @@ void Simulate(uint3 id : SV_DispatchThreadID)
     float3 target = FormTarget(seed, group, _Song, id.x);
     float3 acceleration = 0;
 
-    if (phase > 3.5)
+    if (phase > 4.5)
+    {
+        float converge = smoothstep(0.0, 3.0, age);
+        float stiffness = lerp(3.0, 100.0, converge);
+        float3 offset = target - position;
+        float3 axis = normalize(offset + float3(0.001,0.002,0.003));
+        float3 swirl = cross(axis, Curl(position * 0.035, _Song * 0.6 + seed.traits.z));
+        acceleration = offset * stiffness - (velocity - _WhaleVelocity) * (2.0 * sqrt(stiffness));
+        acceleration += swirl * 16.0 * (1.0 - converge);
+    }
+    else if (phase > 3.5)
     {
         float morph = smoothstep(0.2, 1.65, age);
         float3 source = mul(_BirthMatrices[(uint)p.identityState.y], float4(WhaleDeform(seed.form.xyz, _Song), 1)).xyz;
@@ -260,7 +284,7 @@ void Simulate(uint3 id : SV_DispatchThreadID)
     float step = min(_Delta, 1.0 / 60.0);
     velocity += acceleration * step;
     velocity *= exp(-step * (phase > 1.5 ? 0.65 : 1.0));
-    float maxSpeed = phase > 3.5 ? 130 : phase > 1.5 && phase < 2.5 ? (kind > 2.5 ? 112.0 : 46.0) : kind > 2.5 && phase < 0.5 ? 200.0 : 24.0;
+    float maxSpeed = phase > 4.5 ? 360 : phase > 3.5 ? 130 : phase > 1.5 && phase < 2.5 ? (kind > 2.5 ? 112.0 : 46.0) : kind > 2.5 && phase < 0.5 ? 200.0 : 24.0;
     velocity = clamp(length(velocity), 0.0, maxSpeed) * normalize(velocity + 0.000001);
     position += velocity * step;
 
@@ -269,7 +293,13 @@ void Simulate(uint3 id : SV_DispatchThreadID)
         p.identityState.w = WhalePatchHeat(position, seed.form.z);
     p.positionAge = float4(position, p.positionAge.w + step);
     p.velocityEnergy = float4(velocity, impact);
-    if (phase > 3.5)
+    if (phase > 4.5)
+    {
+        float ribbon = pow(0.5 + 0.5 * sin(age * 5.0 - seed.form.z * 0.16 + seed.traits.z * 8.0), 6.0);
+        p.colorSize = float4(lerp(float3(0.025,0.36,1.6),float3(0.06,1.5,2.4),ribbon), seed.form.w * 1.3);
+        p.identityState.w = 0;
+    }
+    else if (phase > 3.5)
     {
         float glint = pow(0.5 + 0.5 * sin(_Song * 2.0 - _AlternateForms[id.x].z * 0.55), 10);
         float3 ocean = lerp(float3(0.035,0.30,1.5),float3(0.03,1.35,2.0),glint);

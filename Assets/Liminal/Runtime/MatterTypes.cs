@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Liminal
 {
-    public enum MatterPhase { Form, Scatter, Transfer, Settled, Dolphin }
+    public enum MatterPhase { Form = 0, Scatter = 1, Transfer = 2, Settled = 3, Dolphin = 4, Recall = 5 }
 
     [StructLayout(LayoutKind.Sequential)]
     public struct MatterSeed

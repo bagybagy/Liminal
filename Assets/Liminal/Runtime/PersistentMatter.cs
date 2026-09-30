@@ -28,6 +28,8 @@ namespace Liminal
         float currentRadius = 1f, currentEnergy;
         float whaleVisibility;
         bool whaleArriving;
+        Vector3 arrivalOrigin;
+        float whaleFormation;
 
         public int ParticleCount { get; private set; }
         public int InitializationCount { get; private set; }
@@ -154,6 +156,12 @@ namespace Liminal
             if (drawMaterial) drawMaterial.SetFloat("_WhaleVisibility", whaleVisibility);
         }
 
+        public void SetWhaleArrival(Vector3 origin, float formation)
+        {
+            arrivalOrigin = origin;
+            whaleFormation = Mathf.Clamp01(formation);
+        }
+
         public void SetDolphinState(int group, Matrix4x4 birth, Vector3 velocity, bool born)
         {
             birthData[group] = birth;
@@ -196,6 +204,8 @@ namespace Liminal
             simulation.SetFloat("_WhaleSurfaceActivity", whaleSurfaceActivity);
             simulation.SetFloat("_WhaleTurn", whaleTurn);
             simulation.SetFloat("_WhaleArrival", whaleArriving ? 1f : 0f);
+            simulation.SetVector("_ArrivalOrigin", arrivalOrigin);
+            simulation.SetFloat("_WhaleFormation", whaleFormation);
 
             if (!initialized)
             {

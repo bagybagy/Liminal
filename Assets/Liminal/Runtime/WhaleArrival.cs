@@ -7,7 +7,7 @@ namespace Liminal
     public sealed class WhaleArrival : MonoBehaviour
     {
         const int ParticleCount = 12000;
-        const float ChargeSeconds = 1.5f;
+        const float ChargeSeconds = 3.1f;
         const float BreachSeconds = 3.8f;
         const float JoinSeconds = 3.5f;
         const float SlamTime = ChargeSeconds + BreachSeconds;
@@ -23,8 +23,10 @@ namespace Liminal
         public bool Complete => Age >= SlamTime + JoinSeconds;
         public float CruiseTime => CruiseOffset + (Complete ? Age - SlamTime - JoinSeconds : 0f);
         public bool Slammed => slammed;
+        public float Formation => Triggered ? Mathf.SmoothStep(0f, 1f,
+            Mathf.InverseLerp(1.1f, ChargeSeconds, Age)) : 0f;
         public float Visibility => Triggered ? Mathf.SmoothStep(0f, 1f,
-            Mathf.InverseLerp(ChargeSeconds, ChargeSeconds + 0.7f, Age)) : 0f;
+            Mathf.InverseLerp(0.6f, 1.1f, Age)) : 0f;
 
         public void Initialize()
         {

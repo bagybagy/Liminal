@@ -38,7 +38,8 @@ namespace Liminal
                     int room=Experience.CurrentRoom;
                     status=room==0?"GARDEN  "+Experience.Marine.CompletedJellies.ToString("D2")+" / "+Experience.Marine.JellyCount.ToString("D2"):
                         room==1?(e.SerpentComplete?"SERPENT RELEASED":"RESONANCE  "+e.BossDamage.ToString("D2")+" / "+e.BossDamageGoal):
-                        (Experience.Marine.WhaleReleased?"HORIZON RELEASED":"HORIZON  "+Experience.Marine.WhaleResonance+" / "+MarineLife.WhaleDamageGoal);
+                        (Experience.Marine.WhaleReleased?"HORIZON RELEASED":Experience.Marine.WhaleRegenerating?
+                            "HORIZON REASSEMBLING":"HORIZON  "+Experience.Marine.WhaleResonance+" / "+MarineLife.WhaleDamageGoal);
                     progressValue=room==0?Experience.Marine.CompletedJellies/(float)Mathf.Max(1,Experience.Marine.JellyCount):
                         room==1?e.BossDamage/(float)e.BossDamageGoal:Experience.Marine.WhaleResonance/(float)MarineLife.WhaleDamageGoal;
                 }

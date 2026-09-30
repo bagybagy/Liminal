@@ -9,14 +9,14 @@ namespace Liminal
         const int JellyTotal = 15;
         const int SchoolTotal = 7;
         const int FishPerSchool = 28;
-        const int WhaleRounds = 2;
         const int WhaleRingCount = PersistentMatter.WhaleRingCount;
         const int WhaleTargetsPerRing = PersistentMatter.WhaleTargetsPerRing;
         public const int WhaleOrganCount = PersistentMatter.WhalePatchCount;
-        public const int WhaleDamageGoal = WhaleOrganCount * WhaleRounds;
+        public const int WhaleDamageGoal = 96;
         const int AmbientCount = 16000;
         const float FishScatterSeconds = 8f;
         const float JellySettleSeconds = 10f;
+        const float WhaleRecallSeconds = 4f;
         const int JellyKind = 1, FishKind = 2, WhaleKind = 3, AmbientKind = 0;
         static readonly Color Aqua = new(0.24f, 1f, 0.87f);
         static readonly Color Pearl = new(0.76f, 0.94f, 1f);
@@ -82,11 +82,13 @@ namespace Liminal
         Vector3 whalePosition, whaleVelocity, previousPlayer;
         Quaternion whaleRotation = Quaternion.identity;
         int whaleGroup, ambientGroup, fishScatteringCount, fishRegroupingCount;
-        float whalePulse, whaleReleaseAt, whaleRoundReadyAt = -1, whaleTurn, jellyImpactAge = -100;
+        float whalePulse, whaleReleaseAt, whaleRecallStartAt = -1f, whaleRecallStartedAt = -1f;
+        float whaleRecallFinishAt = -1f, whaleRecallProgress, whaleTurn, jellyImpactAge = -100;
         int whaleDamage, whaleRound = 1;
         Vector3 jellyImpactPoint;
         int jellyImpactIndex = -1;
-        bool whaleReleased;
+        bool whaleReleased, whaleRegenerating, whaleRecallStarted;
+        int whaleRegenerations, dolphinRecallCount;
         bool whalePoseStarted, playerPoseStarted;
         Matrix4x4 whaleReleaseMatrix;
 
@@ -100,7 +102,14 @@ namespace Liminal
         public int FishRegroupingCount => fishRegroupingCount;
         public int WhaleResonance => whaleDamage;
         public int WhaleRound => whaleRound;
-        public bool WhaleWaveReady => WhaleEntranceComplete && !whaleReleased && whaleRoundReadyAt == -1f;
+        public int RemainingWhaleTargets => whaleDamage >= WhaleDamageGoal ? 0 :
+            Mathf.Max(0, WhaleOrganCount - litResonators.Count);
+        public bool WhaleRegenerating => whaleRegenerating;
+        public float WhaleRecallProgress => whaleRecallProgress;
+        public int WhaleRegenerations => whaleRegenerations;
+        public int DolphinRecallCount => dolphinRecallCount;
+        public bool WhaleWaveReady => WhaleEntranceComplete && !whaleReleased && !whaleRegenerating &&
+            whaleDamage < WhaleDamageGoal;
         public bool WhaleVisible => WhaleVisibility > 0.001f;
         public float WhaleVisibility => arrival ? arrival.Visibility : 0f;
         public bool WhaleEntranceComplete => arrival && arrival.Complete;
@@ -450,9 +459,9 @@ namespace Liminal
 
         void HitWhale(int index, LockTarget target, float song)
         {
-            if (!WhaleWaveReady || litResonators.Contains(index)) return;
+            if (whaleReleased || whaleRecallStarted || litResonators.Contains(index)) return;
             litResonators.Add(index);
-            whaleDamage++;
+            if (whaleDamage < WhaleDamageGoal) whaleDamage++;
             whaleOrganHeat[index] = 1f;
             target.hp = target.reserved;
             whalePulse = 1.6f;
@@ -467,11 +476,13 @@ namespace Liminal
                 dolphinBirthMatrices[slot] = Matrix4x4.TRS(whalePosition, whaleRotation, Vector3.one * 1.8f);
                 dolphinPrevious[slot] = target.position;
             }
-            if (litResonators.Count == WhaleOrganCount)
+            if (whaleDamage >= WhaleDamageGoal)
             {
-                if (whaleDamage >= WhaleDamageGoal && whaleRound >= WhaleRounds) ReleaseWhale(song);
-                else whaleRoundReadyAt = -2f;
+                FreezeWhaleTargets();
+                FreezeDolphinTargets();
             }
+            if (litResonators.Count >= WhaleOrganCount - 4 && whaleDamage < WhaleDamageGoal)
+                BeginWhaleRegeneration();
         }
 
         void ReleaseWhale(float song)
@@ -496,6 +507,7 @@ namespace Liminal
         public void ResetLife()
         {
             arrival.ResetArrival();
+            matter.SetWhaleArrival(arrival.Origin, 0f);
             dolphins.ResetSchool();
             for (int i = 0; i < DolphinEncounter.Capacity; i++)
             {
@@ -506,7 +518,11 @@ namespace Liminal
             litJellies.Clear(); depletedJellies.Clear(); litResonators.Clear();
             Array.Clear(whaleOrganHeat, 0, whaleOrganHeat.Length);
             Array.Clear(whaleOrganPatches, 0, whaleOrganPatches.Length);
-            whaleDamage = 0; whaleRound = 1; whaleRoundReadyAt = -1;
+            whaleDamage = 0; whaleRound = 1;
+            whaleRegenerating = whaleRecallStarted = false;
+            whaleRecallStartAt = whaleRecallStartedAt = whaleRecallFinishAt = -1f;
+            whaleRecallProgress = 0f;
+            whaleRegenerations = dolphinRecallCount = 0;
             FishResponses = 0; SettledJellies = 0; whaleReleased = false;
             jellyImpactIndex = -1; jellyImpactAge = -100; whalePulse = 0; whaleReleaseAt = 0;
             fishScatteringCount = fishRegroupingCount = 0;
@@ -561,6 +577,7 @@ namespace Liminal
             TickJellies(song, dt);
             TickFish(song, dt, player);
             arrival.Tick(song, player);
+            matter.SetWhaleArrival(arrival.Origin, arrival.Formation);
             TickWhale(song, dt);
             TickWhaleTargets(song);
             TickDolphins(song, dt);
@@ -733,6 +750,18 @@ namespace Liminal
         {
             dolphins.Tick(song, dt, whaleReleased);
             var whaleMatrix = Matrix4x4.TRS(whalePosition, whaleRotation, Vector3.one * 1.8f);
+            if (whaleRegenerating && whaleRecallStarted)
+            {
+                float age = Mathf.Max(0f, song - whaleRecallStartedAt);
+                whaleRecallProgress = Mathf.Clamp01(age / WhaleRecallSeconds);
+                for (int slot = 0; slot < DolphinEncounter.Capacity; slot++)
+                {
+                    int group = dolphinGroups[slot];
+                    matter.SetDolphinState(group, dolphinBirthMatrices[slot], Vector3.zero, false);
+                    matter.SetGroup(group, whaleMatrix, MatterPhase.Recall, age, 2f, whalePosition, 1f);
+                }
+                return;
+            }
             for (int slot = 0; slot < DolphinEncounter.Capacity; slot++)
             {
                 int group = dolphinGroups[slot];
@@ -784,6 +813,7 @@ namespace Liminal
 
         void TickWhaleTargets(float song)
         {
+            TickWhaleRegeneration(song);
             for (int i = 0; i < whaleTargets.Count; i++)
             {
                 Vector3 pos = whaleRoot.transform.TransformPoint(WhaleTargetLocal(i, song));
@@ -797,30 +827,105 @@ namespace Liminal
                 else target.hp = target.reserved;
             }
             matter?.SetWhalePatches(whaleOrganPatches);
-            if (whaleRoundReadyAt == -2f && !WhaleShotsOutstanding())
+            if (whaleDamage >= WhaleDamageGoal && !whaleReleased && !WhaleOrDolphinShotsOutstanding())
             {
-                float beat = (float)Score.BeatSeconds;
-                whaleRoundReadyAt = Mathf.Ceil((song + beat * 2f) / beat) * beat;
-            }
-            else if (whaleRoundReadyAt >= 0 && song >= whaleRoundReadyAt)
-            {
-                whaleRoundReadyAt = -1;
-                whaleRound++;
-                litResonators.Clear();
-                for (int i = 0; i < whaleTargets.Count; i++)
-                {
-                    whaleTargets[i].hp = 1 + whaleTargets[i].reserved;
-                    whaleOrganHeat[i] = 0f;
-                    whaleOrganPatches[i].w = 0f;
-                }
-                matter?.SetWhalePatches(whaleOrganPatches);
+                ReleaseWhale(song);
             }
         }
 
-        bool WhaleShotsOutstanding()
+        void BeginWhaleRegeneration()
         {
-            for (int i = 0; i < whaleTargets.Count; i++) if (whaleTargets[i].reserved > 0) return true;
+            if (whaleRegenerating || whaleReleased) return;
+            whaleRegenerating = true;
+            FreezeWhaleTargets();
+            FreezeDolphinTargets();
+        }
+
+        void FreezeWhaleTargets()
+        {
+            foreach (LockTarget target in whaleTargets) target.hp = target.reserved;
+        }
+
+        void FreezeDolphinTargets()
+        {
+            foreach (LockTarget target in combat.Targets)
+                if (target.kind == TargetKind.Dolphin) target.hp = target.reserved;
+        }
+
+        bool WhaleOrDolphinShotsOutstanding()
+        {
+            foreach (LockTarget target in whaleTargets)
+                if (target.reserved > 0) return true;
+            foreach (LockTarget target in combat.Targets)
+                if (target.kind == TargetKind.Dolphin && target.reserved > 0) return true;
             return false;
+        }
+
+        void TickWhaleRegeneration(float song)
+        {
+            if (!whaleRegenerating) return;
+            FreezeWhaleTargets();
+            FreezeDolphinTargets();
+            if (WhaleOrDolphinShotsOutstanding()) return;
+            if (whaleDamage >= WhaleDamageGoal)
+            {
+                whaleRegenerating = false;
+                whaleRecallProgress = 0f;
+                ReleaseWhale(song);
+                return;
+            }
+
+            if (whaleRecallStartAt < 0f)
+            {
+                whaleRecallStartAt = (float)AuthoredScore.Next(song, .02, true);
+            }
+            if (!whaleRecallStarted && song >= whaleRecallStartAt)
+                BeginWhaleRecall();
+            if (whaleRecallStarted)
+            {
+                whaleRecallProgress = Mathf.Clamp01(Mathf.Max(0f, song - whaleRecallStartedAt) / WhaleRecallSeconds);
+                if (song >= whaleRecallFinishAt) FinishWhaleRegeneration();
+            }
+        }
+
+        void BeginWhaleRecall()
+        {
+            whaleRecallStarted = true;
+            whaleRecallStartedAt = whaleRecallStartAt;
+            whaleRecallProgress = 0f;
+            whaleRecallFinishAt = (float)AuthoredScore.Next(whaleRecallStartedAt + WhaleRecallSeconds, 0, true);
+            for (int slot = 0; slot < DolphinEncounter.Capacity; slot++)
+                if (dolphinBorn[slot]) dolphinRecallCount++;
+            for (int slot = 0; slot < DolphinEncounter.Capacity; slot++)
+                matter.SetDolphinState(dolphinGroups[slot], dolphinBirthMatrices[slot], Vector3.zero, false);
+            dolphins.BeginRecall();
+        }
+
+        void FinishWhaleRegeneration()
+        {
+            dolphins.ResetSchool();
+            litResonators.Clear();
+            Array.Clear(whaleOrganHeat, 0, whaleOrganHeat.Length);
+            Array.Clear(whaleOrganPatches, 0, whaleOrganPatches.Length);
+            Array.Clear(dolphinBorn, 0, dolphinBorn.Length);
+            Array.Clear(dolphinBirthMatrices, 0, dolphinBirthMatrices.Length);
+            Array.Clear(dolphinReleaseMatrices, 0, dolphinReleaseMatrices.Length);
+            for (int slot = 0; slot < DolphinEncounter.Capacity; slot++)
+            {
+                dolphinRetiredAt[slot] = -1f;
+                matter.SetDolphinState(dolphinGroups[slot], Matrix4x4.identity, Vector3.zero, false);
+            }
+            for (int i = 0; i < whaleTargets.Count; i++)
+            {
+                whaleTargets[i].hp = 1;
+                whaleOrganPatches[i].w = 0f;
+            }
+            matter.SetWhalePatches(whaleOrganPatches);
+            whaleRound++;
+            whaleRegenerations++;
+            whaleRegenerating = whaleRecallStarted = false;
+            whaleRecallStartAt = whaleRecallStartedAt = whaleRecallFinishAt = -1f;
+            whaleRecallProgress = 0f;
         }
 
         void OnDestroy()
