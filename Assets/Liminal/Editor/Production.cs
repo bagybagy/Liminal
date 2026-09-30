@@ -106,6 +106,12 @@ namespace Liminal.Editor
         public static void Build()
         {
             Create();
+            BuildCurrent();
+        }
+        // Rebuild authored assets without replacing a scene being edited by the user.
+        public static void BuildCurrent()
+        {
+            AssetDatabase.Refresh();
             Directory.CreateDirectory("Builds/Windows");
             var report=BuildPipeline.BuildPlayer(new BuildPlayerOptions {
                 scenes=new[]{Generated+"/AbyssalChoir.unity"},

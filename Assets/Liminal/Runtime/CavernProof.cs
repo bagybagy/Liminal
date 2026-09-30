@@ -65,6 +65,10 @@ namespace Liminal
             persistentCount=initialMatter.Length;
             Require(persistentCount>10000,"Marine forms must use the persistent GPU pool");
             Capture("01-lantern-grotto.png");
+            for(int reveal=0;reveal<6;reveal++) {
+                yield return new WaitForSecondsRealtime(.28f);
+                Capture("01"+reveal+"-grotto-visibility.png");
+            }
             CheckWhaleRoute();
             yield return InspectHorizon();
             Frame(CaveLayout.Spawn+Vector3.forward*30,new Vector3(0,0,-30));
@@ -118,10 +122,16 @@ namespace Liminal
             Require(ray!=null,"Serpent stage must spawn a small enemy for the material transition test");
             if(ray!=null) {
                 var originalMesh=ray.visual.GetComponent<MeshFilter>().sharedMesh;
+                Frame(ray.position,new Vector3(9,6,-20));
                 yield return HitTargets(new[]{ray},1);
                 Require(ray.transformed && experience.Combat.Colonies.Count==1,"A killed ray must enter the colony pool");
-                yield return new WaitForSecondsRealtime(.9f);
-                Frame(ray.position,new Vector3(9,6,-20));
+                Vector3 rayFocus=ray.visual.transform.position;
+                Vector3 rayOffset=(CaveLayout.Rooms[1].Center-rayFocus).normalized*18f;
+                Frame(rayFocus,rayOffset);
+                Capture("03da-ray-source-flash.png");
+                yield return new WaitForSecondsRealtime(.35f);
+                Capture("03db-ray-peeling.png");
+                yield return new WaitForSecondsRealtime(.55f);
                 Capture("03d-ray-transfer.png");
                 yield return new WaitForSecondsRealtime(7.5f);
                 rayMatterRetained=ray.visual && ray.visual.activeSelf &&
@@ -172,9 +182,15 @@ namespace Liminal
             yield return ChaseWhale();
             whaleHits=experience.Marine.WhaleResonance;
             Require(whaleHits==MarineLife.WhaleDamageGoal && !experience.Combat.Ended,"Whale must be completed by continuous flight and central reticle aiming");
-            yield return new WaitForSecondsRealtime(1f);
+            Frame(experience.Marine.WhalePosition,experience.Marine.WhaleRotation*new Vector3(310,65,0));
+            Capture("04ba-whale-source-flash.png");
+            yield return new WaitForSecondsRealtime(.4f);
+            Capture("04bb-whale-peeling.png");
+            yield return new WaitForSecondsRealtime(.6f);
             Capture("04b-whale-release.png");
-            yield return new WaitForSecondsRealtime(11f);
+            yield return new WaitForSecondsRealtime(1.3f);
+            Capture("04bc-whale-cloud.png");
+            yield return new WaitForSecondsRealtime(9.7f);
             whaleReleased=experience.Marine.WhaleReleased;
             foreach(var target in experience.Marine.WhaleResonatorTargets) whaleReleased&=!target.Available;
             Require(whaleReleased,"Whale must release its particles and permanently retire all organs");
@@ -335,7 +351,7 @@ namespace Liminal
                 float at=shot==0?5:shot==1?14:24;
                 while(experience.Music.Time<at) yield return null;
                 Vector3 whale=experience.Marine.WhalePosition;
-                Frame(whale,experience.Marine.WhaleRotation*new Vector3(320,85,-30));
+                Frame(whale,experience.Marine.WhaleRotation*new Vector3(260,45,-20));
                 yield return null;
                 Capture("00"+shot+"-whale-surface-motion.png");
                 var particles=experience.Marine.Matter.Readback();
