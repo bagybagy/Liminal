@@ -183,22 +183,31 @@ void Simulate(uint3 id : SV_DispatchThreadID)
     }
     else if (phase < 2.5)
     {
-        float erupt = 1.0 - smoothstep(0.0, 2.1, age);
-        float settle = smoothstep(0.35, 10.0, age);
-        float travel = smoothstep(0.45, 2.4, age);
+        float release = smoothstep(0.35, 0.95, age);
+        float erupt = release * (1.0 - smoothstep(1.6, 3.8, age));
+        float settle = smoothstep(1.4, 9.6, age);
+        float travel = smoothstep(1.2, 3.2, age);
         float3 toDestination = seed.destination.xyz - position;
         float3 axis = normalize(toDestination + float3(0.001, 0.002, 0.003));
         float3 radial = Curl(position * 0.045 + seed.traits.z, _Song * 0.32 + seed.traits.z * 11.0);
         float3 vortex = cross(axis, radial);
-        acceleration += radial * (7.0 * erupt) + normalize(vortex + 0.0001) * (3.5 * erupt);
+        // Neighbouring anatomical bands peel together before the material joins the reef.
+        float band = floor(seed.form.z / 12.0);
+        float sector = floor(atan2(seed.form.y, seed.form.x) * 3.0);
+        float turn = _Song * 0.55 + band * 1.13 + sector * 0.71;
+        float3 groupFlow = mul((float3x3)group.localToWorld,
+            float3(cos(turn), sin(turn * 0.8) * 0.55, sin(turn))) * 26.0;
+        acceleration += (target - position) * 70.0 * (1.0 - release);
+        acceleration -= velocity * 16.0 * (1.0 - release);
+        acceleration += groupFlow * erupt + radial * (3.0 * erupt) + normalize(vortex + 0.0001) * (2.0 * erupt);
         if (kind > 2.5)
         {
             float whaleStiffness = 12.0;
             acceleration += toDestination * lerp(0.015, whaleStiffness, settle) * travel;
-            acceleration -= velocity * lerp(1.4, 2.0 * sqrt(whaleStiffness), settle);
+            acceleration -= velocity * lerp(0.8, 2.0 * sqrt(whaleStiffness), settle) * release;
         }
         else
-            acceleration += toDestination * lerp(0.015, 12.0, settle) * travel - velocity * lerp(1.4, 5.2, settle);
+            acceleration += toDestination * lerp(0.015, 12.0, settle) * travel - velocity * lerp(0.8, 5.2, settle) * release;
         acceleration += vortex * (0.7 * (1.0 - settle));
         float3 origin = group.impulse.xyz;
         float3 burst = position - origin;
@@ -251,27 +260,44 @@ void Simulate(uint3 id : SV_DispatchThreadID)
         float dive = saturate(-_WhaleVelocity.y / 16.0);
         float tailZone = 1.0 - smoothstep(-76.0, -36.0, seed.form.z);
         float tailBeat = abs(sin(_Song * 0.78 + seed.form.z * 0.047));
-        float3 cobalt = float3(0.025, 0.11, 0.48);
-        float3 sapphire = float3(0.025, 0.34, 0.88);
-        float3 cyan = float3(0.015, 0.76, 0.88);
-        float3 violet = float3(0.34, 0.09, 0.72);
-        float3 magenta = float3(0.88, 0.075, 0.48);
-        float3 pearlGold = float3(1.0, 0.56, 0.2);
-        float3 pearl = float3(0.78, 0.96, 1.12);
+        float3 cobalt = float3(0.035, 0.16, 0.80);
+        float3 sapphire = float3(0.025, 0.48, 1.55);
+        float3 cyan = float3(0.025, 1.35, 1.60);
+        float3 violet = float3(0.68, 0.10, 1.45);
+        float3 magenta = float3(1.75, 0.08, 0.62);
+        float3 pearlGold = float3(2.25, 1.10, 0.20);
+        float3 pearl = float3(1.45, 1.85, 2.15);
         float3 ocean = lerp(sapphire, cyan, wave * 0.86);
         float3 bankColor = lerp(violet, magenta, wave);
         float bankMix = smoothstep(0.15, 0.85, _WhaleTurn * 0.70 + dive * 0.65) * (0.70 + wave * 0.30);
-        float3 movingColor = lerp(lerp(cobalt, ocean, 0.68), bankColor, bankMix);
+        float3 movingColor = lerp(lerp(cobalt, ocean, 0.84), bankColor, bankMix);
         float surfaceMix = smoothstep(0.15, 0.90, _WhaleSurfaceActivity) * (0.70 + wave * 0.30);
-        movingColor = lerp(movingColor, pearlGold, surfaceMix);
+        float anatomy = 0.5 + 0.5 * sin(angle);
+        movingColor = lerp(movingColor, pearlGold, surfaceMix * (0.72 + anatomy * 0.28));
+        movingColor = lerp(movingColor, cyan, (1.0 - anatomy) * (1.0 - surfaceMix) * 0.28);
         movingColor = lerp(movingColor, pearl, tailZone * tailBeat * 0.2);
         movingColor += rib * float3(0.025, 0.07, 0.1);
-        p.colorSize.rgb = lerp(seed.color.rgb, movingColor, 0.88) * (0.52 + sqrt(rib) * 0.68);
+        float scaleCell = floor(angle * 12.0) * 13.0 + floor(seed.form.z * 0.42);
+        float mottling = 0.45 + Hash(scaleCell) * 0.55;
+        p.colorSize.rgb = movingColor * (0.30 + sqrt(rib) * 0.50) * mottling;
         if (seed.traits.w > 1.5) {
-            float traveling = pow(0.5 + 0.5 * sin(seed.form.z * 0.06 - _Song * 1.15 + seed.traits.z * 5.0), 5.0);
-            p.colorSize.rgb = lerp(movingColor, pearl, 0.20 + traveling * 0.30) * (2.0 + traveling * 3.5);
+            float traveling = pow(0.5 + 0.5 * sin(seed.form.z * 0.07 - _Song * 1.15 + seed.traits.z * 5.0), 7.0);
+            p.colorSize.rgb = lerp(movingColor, pearl, 0.12 + traveling * 0.36) * (0.45 + traveling * 1.20);
+            if (seed.traits.w > 3.5) p.colorSize.rgb = pearl * 3.0;
         }
     }
+    else if (kind > 0.5 && phase > 1.5 && phase < 2.5)
+    {
+        float flash = smoothstep(0.0, 0.16, age) * (1.0 - smoothstep(0.65, 1.9, age));
+        float cloud = smoothstep(0.4, 2.0, age) * (1.0 - smoothstep(2.2, 5.5, age));
+        float3 cloudColor = Hash(floor(seed.form.z * 0.3) + floor(seed.traits.z * 8.0)) > 0.6
+            ? float3(0.24,1.50,0.65) : float3(0.08,0.80,1.55);
+        float3 transitionColor = lerp(cloudColor * (0.45 + cloud * 0.55), float3(1.8,2.5,3.0), flash);
+        p.colorSize.rgb = lerp(p.colorSize.rgb, transitionColor, 1.0 - exp(-step * 4.0));
+        p.colorSize.w = seed.form.w * (1.0 + cloud * 1.8);
+    }
+    else if (phase > 2.5)
+        p.colorSize = float4(lerp(seed.color.rgb, float3(0.12,0.70,0.48), 0.72), seed.form.w * 1.3);
     p.identityState.z = phase;
     _Particles[id.x] = p;
 }

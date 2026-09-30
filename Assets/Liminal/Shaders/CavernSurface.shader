@@ -4,6 +4,10 @@ Shader "Liminal/Cavern Surface"
     {
         _BaseTint ("Cavern Tint", Color) = (1, 1, 1, 1)
         _CavePulse ("Ambient Pulse", Float) = 0
+        _CaveReveal ("Authored Room Reveal", Float) = 0
+        _CaveSweep ("Formation Sweep", Float) = 0
+        _CaveBind ("Formation Binding", Float) = 0
+        _CaveSong ("Authored Song Time", Float) = 0
     }
     SubShader
     {
@@ -22,9 +26,10 @@ Shader "Liminal/Cavern Surface"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseTint;
-                float _CavePulse;
+                float _CavePulse, _CaveReveal, _CaveSweep, _CaveBind, _CaveSong;
             CBUFFER_END
-            float4 _CaveLights[8];
+            float4 _CaveLights[10];
+            float4 _CaveLightColors[10];
 
             struct Attributes
             {
@@ -51,23 +56,27 @@ Shader "Liminal/Cavern Surface"
             half4 Frag(Varyings input) : SV_Target
             {
                 float3 p = input.positionWS;
-                float strata = sin(p.y * 0.28 + sin(p.x * 0.055) * 2.7 + sin(p.z * 0.08));
-                float rock = 0.009 + 0.007 * saturate(strata * 0.5 + 0.5);
-                float3 base = input.color.rgb * _BaseTint.rgb * rock;
-                float3 illumination = 0;
+                float strata = 0.5 + 0.5 * sin(p.y * 0.28 + sin(p.x * 0.055) * 2.7 + sin(p.z * 0.08));
+                float ridge = pow(saturate(strata), 3.0);
+                float sweepCoord = frac(p.x * 0.0017 + p.y * 0.0029 + p.z * 0.0011);
+                float sweepDistance = abs(frac(sweepCoord - _CaveSweep + 0.5) - 0.5);
+                float sweepLine = exp(-sweepDistance * sweepDistance * 2200.0) * ridge;
+                float rock = 0.008 + _CaveReveal * (0.045 + ridge * 0.105 + sweepLine * 0.16);
+                float3 baseTint = input.color.rgb * _BaseTint.rgb;
+                float3 color = baseTint * rock * (0.96 + _CavePulse * 0.08);
+                float3 localGlow = 0;
                 [unroll]
-                for (int i = 0; i < 8; i++)
+                for (int i = 0; i < 10; i++)
                 {
                     float3 delta = input.positionWS - _CaveLights[i].xyz;
                     float distanceToLight = length(delta);
-                    float falloff = saturate(1.0 - distanceToLight / 92.0);
-                    falloff *= falloff;
-                    illumination += _CaveLights[i].w * falloff * float3(0.82, 0.94, 1.0);
+                    float radius = max(1.0, _CaveLightColors[i].a);
+                    float falloff = 1.0 - smoothstep(radius * 0.25, radius, distanceToLight);
+                    localGlow += _CaveLightColors[i].rgb * (_CaveLights[i].w * falloff * falloff);
                 }
-                float pulse = 1.0 + _CavePulse * 0.045;
-                float caustic = pow(saturate(sin(p.x * 0.13 + p.z * 0.17 + _Time.y * 0.22)
-                    * sin(p.z * 0.11 - p.y * 0.09 - _Time.y * 0.18)), 6.0);
-                float3 color = base * pulse + base * illumination * (12.0 + caustic * 14.0);
+                float caustic = pow(saturate(sin(p.x * 0.13 + p.z * 0.17 + _CaveSong * 0.22)
+                    * sin(p.z * 0.11 - p.y * 0.09 - _CaveSong * 0.18)), 6.0);
+                color += localGlow * (0.018 + ridge * 0.045 + sweepLine * (0.035 + caustic * 0.06));
                 return half4(color, 1);
             }
             ENDHLSL

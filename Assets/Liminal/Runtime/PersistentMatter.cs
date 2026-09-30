@@ -74,6 +74,8 @@ namespace Liminal
             simulation.SetBuffer(simulateKernel, "_WhalePatches", whalePatchBuffer);
             simulation.SetInt("_Count", ParticleCount);
             drawMaterial.SetBuffer("_Particles", particles);
+            drawMaterial.SetBuffer("_Seeds", seeds);
+            drawMaterial.SetBuffer("_Groups", groups);
             RenderPipelineManager.beginCameraRendering += Render;
         }
 

@@ -96,6 +96,7 @@ namespace Liminal
         public Vector3 WhalePosition => whalePosition;
         public Vector3 WhaleVelocity => whaleVelocity;
         public float WhaleSurfaceActivity { get; private set; }
+        public Color WhaleLightColor { get; private set; } = new(0.05f, 0.65f, 1f);
         public Quaternion WhaleRotation => whaleRotation;
         public IReadOnlyList<LockTarget> JellyTargets => jellyTargets;
         public IReadOnlyList<LockTarget> FishTargets => fishTargets;
@@ -279,7 +280,7 @@ namespace Liminal
                     minZ + (maxZ - minZ) * high / profileSteps, segment);
                 Vector2 radius = WhaleRadius(z);
                 float a = Mathf.Repeat(i * 0.6180339f + (WhaleHash(i + 86017) - 0.5f) * 0.15f, 1f) * Mathf.PI * 2f;
-                float shell = 0.94f + WhaleHash(i + 120013) * 0.08f;
+                float shell = 0.995f + WhaleHash(i + 120013) * 0.010f;
                 Vector3 p = new(Mathf.Cos(a) * radius.x * shell, Mathf.Sin(a) * radius.y * shell, z);
                 float ribPhase = a * 9f + z * 0.13f + Mathf.Sin(z * 0.045f + a * 2.1f) * 0.7f;
                 float rib = Mathf.Pow(0.5f + 0.5f * Mathf.Cos(ribPhase), 12f);
@@ -297,6 +298,7 @@ namespace Liminal
             for (int i = 0; i < 60000 * 6; i++) random.NextDouble();
             AddWhaleFinSeeds(new Vector3(-10, -5, 4), -1, random);
             AddWhaleFinSeeds(new Vector3(10, -5, 4), 1, random);
+            AddWhaleDorsalSeeds();
             AddFlukeSeeds(random);
             AddWhaleHeadDetails();
             AddWhaleLuminousLines();
@@ -305,13 +307,20 @@ namespace Liminal
 
         void AddWhaleLuminousLines()
         {
-            // A small continuous layer supplies anatomy and moving light among quiet surface grains.
-            for(int strand=0;strand<8;strand++) for(int j=0;j<480;j++) {
-                float z=Mathf.Lerp(-74f,74f,j/479f);
-                float angle=strand*Mathf.PI*.25f+Mathf.Sin(z*.028f+strand*.4f)*.20f+z*.006f;
-                Vector2 radius=WhaleRadius(z)*1.035f;
+            // Ordered contours and throat pleats give the luminous skin an anatomical rhythm.
+            for(int strand=0;strand<24;strand++) for(int j=0;j<640;j++) {
+                float z=Mathf.Lerp(-76f,74f,j/639f);
+                float angle=strand*Mathf.PI/12f+Mathf.Sin(z*.028f+strand*.4f)*.12f+z*.004f;
+                Vector2 radius=WhaleRadius(z)*1.012f;
                 Vector3 point=new(Mathf.Cos(angle)*radius.x,Mathf.Sin(angle)*radius.y,z);
-                AddSeed(whaleGroup,point,.14f,new Color(.08f,.75f,1f),WhaleKind,strand*.127f,2f,WhaleGarden(seeds.Count,0));
+                AddSeed(whaleGroup,point,.095f,new Color(.08f,.75f,1f),WhaleKind,strand*.127f,2f,WhaleGarden(seeds.Count,0));
+            }
+            for(int pleat=0;pleat<15;pleat++) for(int j=0;j<320;j++) {
+                float z=Mathf.Lerp(-12f,70f,j/319f);
+                float angle=-Mathf.PI*.5f+(pleat-7)*.080f;
+                Vector2 radius=WhaleRadius(z)*1.018f;
+                AddSeed(whaleGroup,new Vector3(Mathf.Cos(angle)*radius.x,Mathf.Sin(angle)*radius.y,z),
+                    .11f,Pearl,WhaleKind,pleat*.113f,3f,WhaleGarden(seeds.Count,0));
             }
         }
 
@@ -339,6 +348,13 @@ namespace Liminal
                     }
                 }
             }
+            for (int edge=0;edge<2;edge++) for(int j=0;j<480;j++) {
+                float u=j/479f, v=edge;
+                float chord=Mathf.Lerp(15f,0f,Mathf.Pow(u,.72f))+3.5f*Mathf.Sin(u*Mathf.PI);
+                float twist=Mathf.Lerp(0f,-5f,u)+1.4f*Mathf.Sin(u*Mathf.PI);
+                Vector3 p=root+new Vector3(side*u*45f,-1.6f,-u*22f-(v-.5f)*2f*chord+twist*(.5f-v));
+                AddSeed(whaleGroup,p,.13f,Pearl,WhaleKind,u,3f,WhaleGarden(seeds.Count,0));
+            }
         }
 
         void AddFlukeSeeds(System.Random random)
@@ -354,6 +370,19 @@ namespace Liminal
             }
         }
 
+        void AddWhaleDorsalSeeds()
+        {
+            for(int j=0;j<96;j++) for(int k=0;k<30;k++) for(int side=-1;side<=1;side+=2) {
+                float u=j/95f,v=k/29f;
+                float z=-9f-u*16f+(v-.5f)*23f*Mathf.Pow(1f-u,.65f);
+                float y=WhaleRadius(-9f).y+u*13f;
+                float x=side*Mathf.Sin(v*Mathf.PI)*(1f-u)*1.2f;
+                bool rim=k==0||k==29||j==95;
+                AddSeed(whaleGroup,new Vector3(x,y,z),rim?.12f:.065f,Blue,WhaleKind,u,
+                    rim?2f:0f,WhaleGarden(seeds.Count,0));
+            }
+        }
+
         void AddWhaleHeadDetails()
         {
             for (int side = -1; side <= 1; side += 2)
@@ -362,13 +391,13 @@ namespace Liminal
                 {
                     float u = j / 299f;
                     AddSeed(whaleGroup, new Vector3(side * (3.5f + u * 4.2f), 2.2f + u * 0.25f, 47 + u * 27),
-                        0.085f, Color.Lerp(Pearl, new Color(0.34f, 0.88f, 1f), u) * 0.8f, WhaleKind, u, 0, WhaleGarden(seeds.Count, seeds.Capacity));
+                        0.13f, Color.Lerp(Pearl, new Color(0.34f, 0.88f, 1f), u), WhaleKind, u, 3f, WhaleGarden(seeds.Count, seeds.Capacity));
                 }
                 for (int j = 0; j < 72; j++)
                 {
                     float a = j * Mathf.PI * 2 / 72;
                     AddSeed(whaleGroup, new Vector3(side * 6.1f + Mathf.Cos(a) * 0.46f, 3.2f + Mathf.Sin(a) * 0.46f, 65.5f),
-                        0.11f, Pearl, WhaleKind, a, 0, WhaleGarden(seeds.Count, seeds.Capacity));
+                        0.19f, Pearl * 2f, WhaleKind, a, 4f, WhaleGarden(seeds.Count, seeds.Capacity));
                 }
             }
         }
@@ -529,7 +558,7 @@ namespace Liminal
             int index = jellies.IndexOf(jelly);
             litJellies.Add(index);
             jellyImpactIndex = index; jellyImpactPoint = target.position; jellyImpactAge = 0;
-            if (world.Caverns) world.Caverns.Illuminate(target.position, jelly.hits == 1 ? 1.8f : 1.2f);
+            if (world.Caverns) world.Caverns.Illuminate(target.position, jelly.hits == 1 ? 1.8f : 1.2f, Aqua);
             world.BurstAt(target.position, song, Aqua, jelly.hits == 1 ? 1.8f : 1.1f);
             target.hp = 2 - jelly.hits;
             if (jelly.hits >= 2)
@@ -572,8 +601,8 @@ namespace Liminal
             whaleOrganHeat[index] = 1f;
             target.hp = target.reserved;
             whalePulse = 1.6f;
-            if (world.Caverns) world.Caverns.Illuminate(target.position, 1.45f);
             Color hitColor = Color.Lerp(new Color(1f, 0.30f, 0.42f), new Color(1f, 0.72f, 0.42f), (index % 3) * 0.5f);
+            if (world.Caverns) world.Caverns.Illuminate(target.position, 1.45f, hitColor);
             world.BurstAt(target.position, song, hitColor, 1.25f);
             if (litResonators.Count == WhaleOrganCount)
             {
@@ -810,6 +839,10 @@ namespace Liminal
             whaleTurn = Mathf.Abs(Mathf.Sin(phase));
             WhaleSurfaceActivity = Mathf.Clamp01((whalePosition.y - (CaveLayout.HorizonSurfaceY - 42f)) / 42f) *
                 Mathf.Clamp01(whaleVelocity.magnitude / 18f);
+            float dive = Mathf.Clamp01(-whaleVelocity.y / 16f);
+            WhaleLightColor = Color.Lerp(new Color(.04f,.85f,1f),new Color(1f,.12f,.62f),
+                Mathf.SmoothStep(0,1,Mathf.Clamp01(whaleTurn*.70f+dive*.65f)));
+            WhaleLightColor = Color.Lerp(WhaleLightColor,new Color(1f,.60f,.16f),WhaleSurfaceActivity);
             float tailStroke = Mathf.Sin(song * 0.78f);
             matter.SetGroup(whaleGroup, Matrix4x4.TRS(whalePosition, whaleRotation, Vector3.one * 1.8f),
                 MatterPhase.Form, 0, 0.10f + Mathf.Abs(tailStroke) * 0.08f + whalePulse * 0.10f, whalePosition, whaleVelocity.magnitude * 0.35f);

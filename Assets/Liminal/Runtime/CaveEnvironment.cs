@@ -7,18 +7,30 @@ namespace Liminal
     public sealed class CaveEnvironment : MonoBehaviour
     {
         const int LightSlots = 8;
+        const int OrganismLightSlots = 2;
+        const int ShaderLightSlots = LightSlots + OrganismLightSlots;
         const float LightLifetime = 10f;
         const float TunnelRadius = CaveLayout.PassageRadius + 9f;
         static readonly int LightArrayId = Shader.PropertyToID("_CaveLights");
+        static readonly int LightColorsId = Shader.PropertyToID("_CaveLightColors");
         static readonly int PulseId = Shader.PropertyToID("_CavePulse");
+        static readonly int CaveSongId = Shader.PropertyToID("_CaveSong");
+        static readonly int CaveRevealId = Shader.PropertyToID("_CaveReveal");
+        static readonly int CaveSweepId = Shader.PropertyToID("_CaveSweep");
+        static readonly int CaveBindId = Shader.PropertyToID("_CaveBind");
+        const float VolumeLayer = 0.15f;
+        const float FormationLayer = 0.55f;
+        const float MineralLayer = 0.85f;
         readonly List<Mesh> meshes = new();
         readonly List<Material> materials = new();
-        readonly Vector4[] lights = new Vector4[LightSlots];
+        readonly Vector4[] lights = new Vector4[ShaderLightSlots];
+        readonly Vector4[] lightColors = new Vector4[ShaderLightSlots];
         readonly float[] lightUntil = new float[LightSlots];
         readonly float[] lightStrength = new float[LightSlots];
         readonly System.Random random = new(264991);
         ParticleWorld world;
-        Material particleMaterial, surfaceMaterial;
+        MarineLife marineLife;
+        Material particleMaterial, cavernMatterMaterial, surfaceMaterial;
         Mesh surfaceMesh;
         float clock;
         int lightCursor, particleCount;
@@ -35,6 +47,12 @@ namespace Liminal
             particleMaterial.SetFloat("_Gain", 1.25f);
             particleMaterial.SetFloat("_CaveWaveEnergy", 0f);
             materials.Add(particleMaterial);
+            Shader matterShader = Resources.Load<Shader>("CavernMatter");
+            if (!matterShader) matterShader = Shader.Find("Liminal/Cavern Matter");
+            if (!matterShader) throw new InvalidOperationException("Liminal/Cavern Matter shader is missing from Resources.");
+            cavernMatterMaterial = new Material(matterShader);
+            cavernMatterMaterial.SetFloat("_Gain", 2.6f);
+            materials.Add(cavernMatterMaterial);
             Material surfaceTemplate = owner.cavernSurface;
             if (!surfaceTemplate) {
                 Shader fallback = Shader.Find("Liminal/Cavern Surface");
@@ -44,14 +62,16 @@ namespace Liminal
             materials.Add(surfaceMaterial);
 
             var structural = new PointCloud();
-            BuildShell(structural);
-            BuildLuminousStrata(structural);
+            var backgroundMatter = new PointCloud();
+            BuildShell(backgroundMatter);
+            BuildLuminousStrata(backgroundMatter);
             BuildPassages(structural);
-            BuildSeabedEcology(structural);
-            BuildRoomArchitecture(structural);
-            BuildSuspendedMatter(structural);
-            particleCount = structural.Count;
-            PointCloud.Place("Cavern strata and reef", Mesh(structural, "Cavern particles"), particleMaterial, transform);
+            BuildSeabedEcology(backgroundMatter);
+            BuildRoomArchitecture(backgroundMatter);
+            BuildSuspendedMatter(backgroundMatter);
+            particleCount = structural.Count + backgroundMatter.Count;
+            PointCloud.Place("Cavern passages", Mesh(structural, "Passage accents"), particleMaterial, transform);
+            PointCloud.Place("Cavern drift and mineral grains", Mesh(backgroundMatter, "Cavern matter"), cavernMatterMaterial, transform);
             var shell = new GameObject("Inward cavern walls");
             shell.transform.SetParent(transform, false);
             shell.AddComponent<MeshFilter>().sharedMesh = surfaceMesh;
@@ -60,6 +80,9 @@ namespace Liminal
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             surfaceMaterial.SetVectorArray(LightArrayId, lights);
+            surfaceMaterial.SetVectorArray(LightColorsId, lightColors);
+            cavernMatterMaterial.SetVectorArray(LightArrayId, lights);
+            cavernMatterMaterial.SetVectorArray(LightColorsId, lightColors);
         }
 
         Mesh Mesh(PointCloud points, string name)
@@ -114,7 +137,7 @@ namespace Liminal
                     float chance = Mathf.Lerp(0.012f, 0.24f, band) + fleck * 0.14f;
                     if (R() > chance) continue;
                     Color col = Color.Lerp(room.Color, room.Accent, R(0.10f, 0.48f));
-                    particles.Add(p, R(0.04f, 0.075f), col * R(0.10f, 0.25f), R(), 0.035f);
+                    particles.Add(p, R(0.04f, 0.075f), col * R(0.10f, 0.25f), R(), MineralLayer);
                 }
             }
             surfaceMesh = new Mesh { name = "Three chamber shell", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
@@ -148,7 +171,7 @@ namespace Liminal
                     float colony = Mathf.PerlinNoise(theta * 3.4f + index * 13, phi * 5.2f);
                     float radiance = (0.12f + vein * 0.9f) * Mathf.Lerp(0.3f, 1.3f, colony);
                     Color color = Color.Lerp(room.Color, room.Accent, vein * 0.65f);
-                    particles.Add(at, R(0.09f, 0.18f), color * radiance, R(), 0.02f);
+                    particles.Add(at, R(0.09f, 0.18f), color * radiance, R(), FormationLayer);
                 }
                 // A lower, rippled seabed gives a readable horizon below the open swimming volume.
                 for (int i = 0; i < 40000; i++) {
@@ -159,7 +182,7 @@ namespace Liminal
                     Vector3 at = room.Center + new Vector3(x * room.Radius.x, floor, z * room.Radius.z);
                     if (CaveLayout.InPassage(at, -4)) continue;
                     float ripple = Mathf.Pow(0.5f + 0.5f * Mathf.Sin(x * 94 + Mathf.Sin(z * 19) * 3), 4);
-                    particles.Add(at, R(0.08f, 0.15f), Color.Lerp(room.Color, room.Accent, ripple * 0.6f) * (0.2f + ripple * 0.7f), R(), 0.14f);
+                    particles.Add(at, R(0.08f, 0.15f), Color.Lerp(room.Color, room.Accent, ripple * 0.6f) * (0.2f + ripple * 0.7f), R(), FormationLayer);
                 }
             }
         }
@@ -264,7 +287,7 @@ namespace Liminal
                 float t = i / (float)Mathf.Max(1, stemDots - 1);
                 Vector3 at = root + Vector3.up * (stemHeight * t) + lean * (t * t * 0.65f);
                 at += new Vector3(Mathf.Cos(i * 2.399f), 0f, Mathf.Sin(i * 2.399f)) * 0.18f;
-                p.Add(at, 0.052f, stemColor, R(), 0.025f);
+                p.Add(at, 0.052f, stemColor, R(), FormationLayer);
             }
 
             int plates = 2 + (seed % 2);
@@ -279,7 +302,7 @@ namespace Liminal
                     float lobe = 1f + 0.08f * Mathf.Sin(angle * 5f + phase);
                     Vector3 at = root + Vector3.up * height + lean * (height / stemHeight * 0.65f);
                     at += new Vector3(Mathf.Cos(angle) * radius * lobe, 0f, Mathf.Sin(angle) * radius * lobe);
-                    p.Add(at, 0.075f, color * R(0.78f, 1.08f), R(), 0.025f);
+                    p.Add(at, 0.075f, color * R(0.78f, 1.08f), R(), FormationLayer);
                 }
                 for (int ray = 0; ray < ribs; ray++) {
                     float angle = phase + ray * Mathf.PI * 2f / ribs;
@@ -289,7 +312,7 @@ namespace Liminal
                         Vector3 at = root + Vector3.up * (height + Mathf.Sin(t * Mathf.PI) * 0.18f);
                         at += lean * (height / stemHeight * 0.65f);
                         at += new Vector3(Mathf.Cos(angle) * r, 0f, Mathf.Sin(angle) * r);
-                        p.Add(at, 0.052f, color * 0.82f, R(), 0.02f);
+                        p.Add(at, 0.052f, color * 0.82f, R(), FormationLayer);
                     }
                 }
             }
@@ -319,11 +342,11 @@ namespace Liminal
                         float waviness = 1f + 0.06f * Mathf.Sin(angle * 3f + t * 5f + seed);
                         Vector3 at = baseAt + Vector3.up * y + new Vector3(Mathf.Cos(angle) * radius * waviness, 0f,
                             Mathf.Sin(angle) * radius * waviness);
-                        p.Add(at, 0.062f, Color.Lerp(color, room.Accent * 0.22f, t * 0.34f), R(), 0.025f);
+                        p.Add(at, 0.062f, Color.Lerp(color, room.Accent * 0.22f, t * 0.34f), R(), FormationLayer);
                         if (row == rows) {
                             Vector3 innerLip = baseAt + Vector3.up * (height - 0.16f) +
                                 new Vector3(Mathf.Cos(angle) * radius * 0.68f, 0f, Mathf.Sin(angle) * radius * 0.68f);
-                            p.Add(innerLip, 0.05f, color * 0.82f, R(), 0.02f);
+                            p.Add(innerLip, 0.05f, color * 0.82f, R(), FormationLayer);
                         }
                     }
                 }
@@ -339,7 +362,7 @@ namespace Liminal
                 float radius = Mathf.Sqrt((i + 0.5f) / 52f) * 1.35f * scale;
                 Vector3 at = root + new Vector3(Mathf.Cos(angle) * radius, 0.12f + radius * 0.22f,
                     Mathf.Sin(angle) * radius);
-                p.Add(at, 0.055f, baseColor, R(), 0.035f);
+                p.Add(at, 0.055f, baseColor, R(), FormationLayer);
             }
             int tentacles = 15 + seed % 6;
             for (int tentacle = 0; tentacle < tentacles; tentacle++) {
@@ -354,7 +377,7 @@ namespace Liminal
                     Vector3 at = root + Vector3.up * (length * t) +
                         new Vector3(Mathf.Cos(angle) * (0.22f + curl), 0f, Mathf.Sin(angle) * (0.22f + curl));
                     Color color = Color.Lerp(baseColor, tip, t * 0.82f);
-                    p.Add(at, Mathf.Lerp(0.047f, 0.065f, t), color, R(), 0.055f);
+                    p.Add(at, Mathf.Lerp(0.047f, 0.065f, t), color, R(), FormationLayer);
                 }
             }
         }
@@ -383,7 +406,7 @@ namespace Liminal
                     float glint = R();
                     float energy = glint > 0.997f ? R(0.25f, 0.42f) : R(0.045f, 0.15f);
                     Color tint = Color.Lerp(room.Color, room.Accent, R(0.08f, glint > 0.97f ? 0.75f : 0.34f));
-                    particles.Add(at, R(0.021f, glint > 0.98f ? 0.064f : 0.043f), tint * energy, R(), R(0.035f, 0.18f));
+                    particles.Add(at, R(0.021f, glint > 0.98f ? 0.064f : 0.043f), tint * energy, R(), VolumeLayer);
                 }
             }
         }
@@ -444,7 +467,7 @@ namespace Liminal
                         Vector3 at = root + Vector3.up * (length * f) + direction * (f * (3f + (7 - Mathf.Abs(ray)) * 0.7f) * scale);
                         at += Vector3.up * Mathf.Sin(f * Mathf.PI) * 1.4f * scale;
                         Color tint = Color.Lerp(color, room.Accent, 0.22f + f * 0.28f) * 0.25f;
-                        p.Add(at, 0.047f + (1f - f) * 0.018f, tint * R(0.82f, 1.08f), R(), 0.04f);
+                        p.Add(at, 0.047f + (1f - f) * 0.018f, tint * R(0.82f, 1.08f), R(), FormationLayer);
                     }
                 }
                 built++;
@@ -479,7 +502,7 @@ namespace Liminal
                             Vector3 across = new(-Mathf.Sin(angleAtRoot), 0f, Mathf.Cos(angleAtRoot));
                             Vector3 at = center + across * (edge * width * 0.5f);
                             Color bladeColor = Color.Lerp(color * 0.72f, room.Accent, 0.10f + f * 0.18f) * 0.22f;
-                            p.Add(at, edge == 0 ? 0.054f : 0.043f, bladeColor * R(0.82f, 1.08f), R(), 0.12f);
+                            p.Add(at, edge == 0 ? 0.054f : 0.043f, bladeColor * R(0.82f, 1.08f), R(), FormationLayer);
                         }
                     }
                 }
@@ -489,33 +512,103 @@ namespace Liminal
         public void Tick(float song, float dt, Vector3 player)
         {
             clock = song;
-            surfaceMaterial.SetFloat(PulseId, Mathf.Clamp01(Score.Pulse(song)));
+            float pulse = Mathf.Clamp01(Score.Pulse(song));
+            EvaluateReveal(song, out float reveal, out float sweep, out float bind);
+            surfaceMaterial.SetFloat(PulseId, pulse);
+            surfaceMaterial.SetFloat(CaveSongId, song);
+            surfaceMaterial.SetFloat(CaveRevealId, reveal);
+            surfaceMaterial.SetFloat(CaveSweepId, sweep);
+            surfaceMaterial.SetFloat(CaveBindId, bind);
+            cavernMatterMaterial.SetFloat(CaveSongId, song);
+            cavernMatterMaterial.SetFloat(CaveRevealId, reveal);
+            cavernMatterMaterial.SetFloat(CaveSweepId, sweep);
+            cavernMatterMaterial.SetFloat(CaveBindId, bind);
             for (int i = 0; i < LightSlots; i++) {
                 float remaining = Mathf.Clamp01((lightUntil[i] - song) / LightLifetime);
                 lights[i].w = lightStrength[i] * remaining;
                 if (remaining <= 0f) { lights[i] = Vector4.zero; lightStrength[i] = 0f; }
             }
+            if (!marineLife) marineLife = world.GetComponent<Experience>()?.Marine;
+            if (world.Serpent)
+                SetOrganismLight(LightSlots, Anatomy.Head(song), 0.78f, RoomTint(1), 145f);
+            else lights[LightSlots] = Vector4.zero;
+            if (marineLife)
+                SetOrganismLight(LightSlots + 1, marineLife.WhalePosition, marineLife.WhaleReleased ? 1.15f : 0.72f,
+                    marineLife.WhaleLightColor, 300f);
+            else lights[LightSlots + 1] = Vector4.zero;
             surfaceMaterial.SetVectorArray(LightArrayId, lights);
+            surfaceMaterial.SetVectorArray(LightColorsId, lightColors);
+            cavernMatterMaterial.SetVectorArray(LightArrayId, lights);
+            cavernMatterMaterial.SetVectorArray(LightColorsId, lightColors);
         }
 
         public void Illuminate(Vector3 position, float strength)
         {
+            Illuminate(position, strength, RoomTint(CaveLayout.NearestRoom(position)));
+        }
+
+        public void Illuminate(Vector3 position, float strength, Color color)
+        {
             int slot = lightCursor++ % LightSlots;
             lightStrength[slot] = Mathf.Clamp(strength, 0f, 8f);
             lights[slot] = new Vector4(position.x, position.y, position.z, lightStrength[slot]);
+            float radius = Mathf.Clamp(CaveLayout.Rooms[CaveLayout.NearestRoom(position)].Radius.y * 0.8f, 90f, 240f);
+            lightColors[slot] = new Vector4(color.r, color.g, color.b, radius);
             lightUntil[slot] = clock + LightLifetime;
             surfaceMaterial.SetVectorArray(LightArrayId, lights);
+            surfaceMaterial.SetVectorArray(LightColorsId, lightColors);
+            cavernMatterMaterial.SetVectorArray(LightArrayId, lights);
+            cavernMatterMaterial.SetVectorArray(LightColorsId, lightColors);
             particleMaterial.SetVector("_CaveWave", new Vector4(position.x, position.y, position.z, clock));
             particleMaterial.SetFloat("_CaveWaveEnergy", Mathf.Clamp(strength, 0f, 4f));
+            cavernMatterMaterial.SetVector("_CaveWave", new Vector4(position.x, position.y, position.z, clock));
+            cavernMatterMaterial.SetFloat("_CaveWaveEnergy", Mathf.Clamp(strength, 0f, 4f));
         }
 
         public void ResetLighting()
         {
             Array.Clear(lights, 0, lights.Length);
+            Array.Clear(lightColors, 0, lightColors.Length);
             Array.Clear(lightUntil, 0, lightUntil.Length);
             Array.Clear(lightStrength, 0, lightStrength.Length);
             if (surfaceMaterial) surfaceMaterial.SetVectorArray(LightArrayId, lights);
+            if (surfaceMaterial) surfaceMaterial.SetVectorArray(LightColorsId, lightColors);
+            if (cavernMatterMaterial) cavernMatterMaterial.SetVectorArray(LightArrayId, lights);
+            if (cavernMatterMaterial) cavernMatterMaterial.SetVectorArray(LightColorsId, lightColors);
             if (particleMaterial) particleMaterial.SetFloat("_CaveWaveEnergy", 0f);
+            if (cavernMatterMaterial) cavernMatterMaterial.SetFloat("_CaveWaveEnergy", 0f);
+        }
+
+        static Color RoomTint(int roomIndex)
+        {
+            var room = CaveLayout.Rooms[Mathf.Clamp(roomIndex, 0, CaveLayout.Rooms.Length - 1)];
+            return Color.Lerp(room.Color, room.Accent, roomIndex == 0 ? 0.22f : 0.68f);
+        }
+
+        void SetOrganismLight(int slot, Vector3 position, float strength, Color color, float radius)
+        {
+            lights[slot] = new Vector4(position.x, position.y, position.z, strength);
+            lightColors[slot] = new Vector4(color.r, color.g, color.b, radius);
+        }
+
+        static void EvaluateReveal(float song, out float reveal, out float sweep, out float bind)
+        {
+            AuthoredScore.Timeline score = AuthoredScore.Data;
+            double localSample = AuthoredScore.LocalSample(song);
+            int beatIndex = AuthoredScore.Previous(score.beats, localSample);
+            int startIndex = beatIndex - beatIndex % 3;
+            int startSample = score.beats[startIndex];
+            double elapsed = Math.Max(0, localSample - startSample) / score.sampleRate;
+            int nextIndex = startIndex + 3;
+            double period = nextIndex < score.beats.Length
+                ? (score.beats[nextIndex] - startSample) / (double)score.sampleRate
+                : (score.sampleCount - startSample + score.beats[0]) / (double)score.sampleRate;
+            float periodSeconds = Mathf.Max(0.1f, (float)period);
+            float age = (float)elapsed;
+            reveal = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.015f, 0.17f, age)) *
+                (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(periodSeconds * 0.46f, periodSeconds * 0.92f, age)));
+            sweep = Mathf.Clamp01(age / periodSeconds);
+            bind = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.06f, 0.46f, age));
         }
 
         void OnDestroy()
