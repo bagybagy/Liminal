@@ -8,6 +8,7 @@ Shader "Liminal/Cavern Matter"
         [HideInInspector] _CaveReveal ("Authored Room Reveal", Float) = 0
         [HideInInspector] _CaveSweep ("Formation Sweep", Float) = 0
         [HideInInspector] _CaveBind ("Formation Binding", Float) = 0
+        [HideInInspector] _CavePlayerPosition ("Player Position", Vector) = (0,0,0,0)
         [HideInInspector] _CaveWave ("Light Wave", Vector) = (0,0,0,0)
         [HideInInspector] _CaveWaveEnergy ("Light Wave Energy", Float) = 0
     }
@@ -30,11 +31,19 @@ Shader "Liminal/Cavern Matter"
                 float4 _Tint;
                 float _Gain;
                 float _CaveSong, _CaveReveal, _CaveSweep, _CaveBind;
+                float4 _CavePlayerPosition;
                 float4 _CaveWave;
                 float _CaveWaveEnergy;
             CBUFFER_END
             float4 _CaveLights[10];
             float4 _CaveLightColors[10];
+
+            float Hash31(float3 p)
+            {
+                p = frac(p * 0.1031);
+                p += dot(p, p.yzx + 33.33);
+                return frac((p.x + p.y) * p.z);
+            }
 
             struct Attributes
             {
@@ -58,11 +67,13 @@ Shader "Liminal/Cavern Matter"
                 float seed = input.data.x;
                 float layer = input.data.y;
                 float volumeLayer = 1.0 - step(0.35, layer);
-                float formationLayer = step(0.35, layer) * (1.0 - step(0.72, layer));
+                float formationLayer = step(0.35, layer) * (1.0 - step(0.64, layer));
+                float marineLayer = step(0.64, layer) * (1.0 - step(0.72, layer));
                 float mineralLayer = step(0.72, layer);
-                float habitat = pow(saturate(0.5 + 0.5 * sin(anchor.x * 0.028 + anchor.y * 0.021 +
-                    sin(anchor.z * 0.018) * 2.4)), 3.0);
+                float habitat = 0.24 + 0.76 * frac(seed * 7.137 + 0.317);
                 float distanceToCamera = length(_WorldSpaceCameraPos - anchor);
+                float distanceToPlayer = length(_CavePlayerPosition.xyz - anchor);
+                float playerProximity = 1.0 - smoothstep(110.0, 280.0, distanceToPlayer);
                 float flowFade = smoothstep(20.0, 125.0, distanceToCamera);
                 float3 phase = float3(seed * 31.7, seed * 53.1, seed * 79.3);
                 float3 drift = float3(
@@ -70,19 +81,23 @@ Shader "Liminal/Cavern Matter"
                     sin(_CaveSong * 0.16 + phase.y + anchor.x * 0.006),
                     cos(_CaveSong * 0.19 + phase.z + anchor.y * 0.007));
                 float formationDrift = formationLayer * (1.0 - _CaveBind) * 1.45;
+                float marineDrift = marineLayer * (1.0 - _CaveBind) * 0.18;
                 float mineralDrift = mineralLayer * (1.0 - _CaveBind) * 0.62;
-                p += drift * flowFade * (volumeLayer * 2.15 + formationDrift + mineralDrift);
+                p += drift * flowFade * (volumeLayer * 2.15 + formationDrift + marineDrift + mineralDrift);
 
                 float sparkle = smoothstep(0.94, 0.99, frac(seed * 1.618 + anchor.x * 0.00013));
-                float sweepCoord = frac(dot(anchor, float3(0.0017, 0.0031, 0.0011)) + seed * 0.11);
+                float sweepCoord = frac(Hash31(floor(anchor * 0.025)) + seed * 0.618);
                 float sweepDistance = abs(frac(sweepCoord - _CaveSweep + 0.5) - 0.5);
-                float edgeSweep = exp(-sweepDistance * sweepDistance * 1800.0) * _CaveReveal;
+                float edgeSweep = exp(-sweepDistance * sweepDistance * 2200.0) * _CaveReveal;
 
                 float volumeSelection = smoothstep(0.72, 0.85, seed);
-                float volumeEnergy = (0.075 + sparkle * 0.45 + _CaveReveal * 0.08) * volumeSelection;
-                float formationEnergy = (0.025 + _CaveReveal * (0.14 + sparkle * 0.24) + edgeSweep * 0.72) * (0.16 + habitat * 0.84);
-                float mineralEnergy = (0.012 + _CaveReveal * (0.08 + sparkle * 0.18) + edgeSweep * 1.75) * (0.12 + habitat * 0.88);
-                float energy = volumeLayer * volumeEnergy + formationLayer * formationEnergy + mineralLayer * mineralEnergy;
+                float volumeEnergy = (0.018 + sparkle * 0.25 + _CaveReveal * 0.07 + playerProximity * 0.018) * volumeSelection;
+                float formationEnergy = (0.012 + _CaveReveal * (0.12 + sparkle * 0.20) + edgeSweep * 0.56) * (0.16 + habitat * 0.84);
+                float marineEnergy = (0.012 + playerProximity * (0.24 + sparkle * 0.20) +
+                    _CaveReveal * (0.18 + sparkle * 0.26) + edgeSweep * 0.92) * (0.18 + habitat * 0.82);
+                float mineralEnergy = (0.008 + _CaveReveal * (0.08 + sparkle * 0.18) + edgeSweep * 1.20) * (0.12 + habitat * 0.88);
+                float energy = volumeLayer * volumeEnergy + formationLayer * formationEnergy +
+                    marineLayer * marineEnergy + mineralLayer * mineralEnergy;
 
                 float3 localGlow = 0;
                 [unroll]
@@ -96,6 +111,7 @@ Shader "Liminal/Cavern Matter"
 
                 float3 color = input.color.rgb * _Tint.rgb * (_Gain * energy);
                 color += localGlow * (0.012 + edgeSweep * 0.10) * (0.12 + habitat * 0.88);
+                color += localGlow * marineLayer * playerProximity * 0.06;
                 color *= lerp(1.0, volumeSelection, volumeLayer);
                 if (_CaveWaveEnergy > 0.001)
                 {
@@ -108,6 +124,7 @@ Shader "Liminal/Cavern Matter"
                 float projectionScale = max(1.0, abs(UNITY_MATRIX_P[1][1]) * _ScreenParams.y * 0.5);
                 float nativeRadiusPixels = input.uv.z * projectionScale / max(1.0, distanceToCamera);
                 float maxRadiusPixels = lerp(1.12, 1.65, max(sparkle, edgeSweep));
+                maxRadiusPixels = lerp(maxRadiusPixels, 1.95, marineLayer * playerProximity);
                 float minRadiusPixels = volumeLayer > 0.5 ? 1.10 : 0.95;
                 float radiusPixels = clamp(nativeRadiusPixels, minRadiusPixels, maxRadiusPixels);
                 float worldRadius = radiusPixels * distanceToCamera / projectionScale;

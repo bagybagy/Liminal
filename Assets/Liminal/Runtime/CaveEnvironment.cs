@@ -18,8 +18,10 @@ namespace Liminal
         static readonly int CaveRevealId = Shader.PropertyToID("_CaveReveal");
         static readonly int CaveSweepId = Shader.PropertyToID("_CaveSweep");
         static readonly int CaveBindId = Shader.PropertyToID("_CaveBind");
+        static readonly int CavePlayerPositionId = Shader.PropertyToID("_CavePlayerPosition");
         const float VolumeLayer = 0.15f;
         const float FormationLayer = 0.55f;
+        const float MarineLayer = 0.68f;
         const float MineralLayer = 0.85f;
         readonly List<Mesh> meshes = new();
         readonly List<Material> materials = new();
@@ -64,7 +66,7 @@ namespace Liminal
             var structural = new PointCloud();
             var backgroundMatter = new PointCloud();
             BuildShell(backgroundMatter);
-            BuildLuminousStrata(backgroundMatter);
+            BuildSparseRockLight(backgroundMatter);
             BuildPassages(structural);
             BuildSeabedEcology(backgroundMatter);
             BuildRoomArchitecture(backgroundMatter);
@@ -111,8 +113,7 @@ namespace Liminal
                         float relief = ShellRelief(theta, phi, roomIndex);
                         Vector3 p = room.Center + Vector3.Scale(unit, room.Radius * (1.018f + relief));
                         vertices.Add(p);
-                        float strata = 0.5f + 0.5f * Mathf.Sin(phi * 13f + Mathf.Sin(theta * 6f) * 2f + Mathf.Sin(theta * 17f - phi * 8f) * 0.35f);
-                        colors.Add(Color.Lerp(room.Color, room.Accent, 0.08f + strata * 0.06f) * (0.10f + strata * 0.025f));
+                        colors.Add(Color.Lerp(room.Color, room.Accent, 0.055f) * 0.11f);
                         if (lat < 1 || lat >= latitudes) continue;
                         if (lon == 0) continue;
                     }
@@ -127,17 +128,14 @@ namespace Liminal
                     if (!CaveLayout.InPassage(center2, -8f)) { triangles.Add(a); triangles.Add(c); triangles.Add(d); }
                 }
 
-                // Mineral seams are concentrated in broken bands, with occasional isolated glints.
+                // Sparse mineral flecks break up the dark shell without forming continuous bands.
                 for (int lat = 1; lat < latitudes; lat++) for (int lon = 0; lon < longitudes; lon++) {
                     int index = first + lat * (longitudes + 1) + lon;
                     Vector3 p = vertices[index];
                     if (CaveLayout.InPassage(p, -8f)) continue;
-                    float band = Mathf.Pow(Mathf.Abs(Mathf.Sin(lat * 0.105f + Mathf.Sin(lon * 0.037f) * 1.7f)), 5f);
-                    float fleck = Mathf.Pow(Mathf.Abs(Mathf.Sin(lat * 0.51f + lon * 0.13f)), 12f);
-                    float chance = Mathf.Lerp(0.012f, 0.24f, band) + fleck * 0.14f;
-                    if (R() > chance) continue;
+                    if (R() > 0.022f) continue;
                     Color col = Color.Lerp(room.Color, room.Accent, R(0.10f, 0.48f));
-                    particles.Add(p, R(0.04f, 0.075f), col * R(0.10f, 0.25f), R(), MineralLayer);
+                    particles.Add(p, R(0.04f, 0.075f), col * R(0.06f, 0.14f), R(), MineralLayer);
                 }
             }
             surfaceMesh = new Mesh { name = "Three chamber shell", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
@@ -157,32 +155,34 @@ namespace Liminal
                 + 0.010f * (0.5f + 0.5f * Mathf.Sin(theta * 19f + phi * 13f + room * 2f));
         }
 
-        void BuildLuminousStrata(PointCloud particles)
+        void BuildSparseRockLight(PointCloud particles)
         {
             for (int index = 0; index < CaveLayout.Rooms.Length; index++) {
                 var room = CaveLayout.Rooms[index];
-                for (int i = 0; i < 72000; i++) {
+                for (int i = 0; i < 4800; i++) {
                     float y = R(-1, 1), theta = R(0, Mathf.PI * 2), phi = Mathf.Acos(y);
                     float radial = Mathf.Sqrt(1 - y * y);
                     Vector3 unit = new(radial * Mathf.Cos(theta), y, radial * Mathf.Sin(theta));
                     Vector3 at = room.Center + Vector3.Scale(unit, room.Radius * (1.006f + ShellRelief(theta, phi, index)));
                     if (CaveLayout.InPassage(at, -9)) continue;
-                    float vein = Mathf.Pow(0.5f + 0.5f * Mathf.Sin(phi * 31 + Mathf.Sin(theta * 7) * 3), 8);
-                    float colony = Mathf.PerlinNoise(theta * 3.4f + index * 13, phi * 5.2f);
-                    float radiance = (0.12f + vein * 0.9f) * Mathf.Lerp(0.3f, 1.3f, colony);
-                    Color color = Color.Lerp(room.Color, room.Accent, vein * 0.65f);
-                    particles.Add(at, R(0.09f, 0.18f), color * radiance, R(), FormationLayer);
+                    float patch = Mathf.PerlinNoise((at.x + at.z * 0.31f) * 0.012f + index * 19.7f,
+                        (at.y - at.z * 0.23f) * 0.012f);
+                    if (patch < 0.70f && R() > 0.025f) continue;
+                    Color color = Color.Lerp(room.Color, room.Accent, R(0.18f, 0.62f));
+                    particles.Add(at, R(0.07f, 0.13f), color * R(0.035f, 0.095f), R(), FormationLayer);
                 }
-                // A lower, rippled seabed gives a readable horizon below the open swimming volume.
-                for (int i = 0; i < 40000; i++) {
+                // Low-contrast floor flecks keep the seabed legible without a repeated ripple pattern.
+                for (int i = 0; i < 2600; i++) {
                     float x = R(-0.83f, 0.83f), z = R(-0.83f, 0.83f);
                     if (x * x + z * z > 0.69f) continue;
                     float floor = -Mathf.Sqrt(1 - x * x - z * z) * room.Radius.y + 4;
-                    floor += Mathf.Sin(x * 18 + z * 8) * 1.5f;
+                    floor += (Mathf.PerlinNoise(x * 4.4f + index * 7.1f, z * 4.8f) - 0.5f) * 2.4f;
                     Vector3 at = room.Center + new Vector3(x * room.Radius.x, floor, z * room.Radius.z);
                     if (CaveLayout.InPassage(at, -4)) continue;
-                    float ripple = Mathf.Pow(0.5f + 0.5f * Mathf.Sin(x * 94 + Mathf.Sin(z * 19) * 3), 4);
-                    particles.Add(at, R(0.08f, 0.15f), Color.Lerp(room.Color, room.Accent, ripple * 0.6f) * (0.2f + ripple * 0.7f), R(), FormationLayer);
+                    float patch = Mathf.PerlinNoise(x * 12f + index * 13.2f, z * 13.5f);
+                    if (patch < 0.56f && R() > 0.06f) continue;
+                    Color color = Color.Lerp(room.Color, room.Accent, patch * 0.52f);
+                    particles.Add(at, R(0.07f, 0.13f), color * R(0.045f, 0.10f), R(), FormationLayer);
                 }
             }
         }
@@ -384,29 +384,107 @@ namespace Liminal
 
         void BuildSuspendedMatter(PointCloud particles)
         {
-            const int perRoom = 24000;
+            const int perRoom = 2400;
             for (int roomIndex = 0; roomIndex < CaveLayout.Rooms.Length; roomIndex++) {
                 var room = CaveLayout.Rooms[roomIndex];
                 for (int i = 0; i < perRoom; i++) {
-                    Vector3 normalized;
-                    if (i % 4 == 0) {
-                        float t = R();
-                        float angle = t * Mathf.PI * 2.8f + roomIndex * 1.9f + R(-0.16f, 0.16f);
-                        float orbit = 0.36f + 0.16f * Mathf.Sin(t * Mathf.PI * 3f);
-                        normalized = new Vector3(Mathf.Cos(angle) * orbit, (t - 0.5f) * 1.05f, Mathf.Sin(angle) * orbit);
-                        normalized += new Vector3(R(-0.06f, 0.06f), R(-0.045f, 0.045f), R(-0.06f, 0.06f));
-                    } else {
-                        float y = R(-1f, 1f);
-                        float angle = R(0f, Mathf.PI * 2f);
-                        float radial = Mathf.Pow(R(), 1f / 3f) * 0.92f;
-                        float planar = Mathf.Sqrt(1f - y * y) * radial;
-                        normalized = new Vector3(Mathf.Cos(angle) * planar, y * radial, Mathf.Sin(angle) * planar);
-                    }
+                    float y = R(-1f, 1f), angle = R(0f, Mathf.PI * 2f);
+                    float radius = Mathf.Pow(R(), 1f / 3f) * 0.92f;
+                    float planar = Mathf.Sqrt(1f - y * y) * radius;
+                    Vector3 normalized = new(Mathf.Cos(angle) * planar, y * radius, Mathf.Sin(angle) * planar);
                     Vector3 at = room.Center + Vector3.Scale(room.Radius, normalized);
                     float glint = R();
-                    float energy = glint > 0.997f ? R(0.25f, 0.42f) : R(0.045f, 0.15f);
+                    float energy = glint > 0.997f ? R(0.20f, 0.36f) : R(0.018f, 0.065f);
                     Color tint = Color.Lerp(room.Color, room.Accent, R(0.08f, glint > 0.97f ? 0.75f : 0.34f));
                     particles.Add(at, R(0.021f, glint > 0.98f ? 0.064f : 0.043f), tint * energy, R(), VolumeLayer);
+                }
+            }
+            BuildSiphonophoreColonies(particles);
+        }
+
+        void BuildSiphonophoreColonies(PointCloud particles)
+        {
+            const int colonyCount = 10;
+            CaveLayout.Chamber room = CaveLayout.Rooms[2];
+            Vector3 arrivalOrigin = new(room.Center.x, CaveLayout.HorizonSurfaceY - 28f, room.Center.z - 260f);
+            for (int colony = 0; colony < colonyCount; colony++) {
+                float angle = Mathf.Lerp(0.8f, Mathf.PI * 2f - 0.8f, colony / (float)(colonyCount - 1));
+                float orbitOffset = colony == 0 || colony == colonyCount - 1 ? 98f : (colony & 1) == 0 ? 82f : -78f;
+                float xRadius = 330f + orbitOffset;
+                float zRadius = 400f + orbitOffset;
+                float whaleY = -35f + 115f * Mathf.Sin(angle * 2f + 0.35f);
+                Vector3 anchor = room.Center + new Vector3(xRadius * Mathf.Sin(angle), whaleY + R(-12f, 12f),
+                    -zRadius * Mathf.Cos(angle));
+                if ((anchor - arrivalOrigin).sqrMagnitude < 250f * 250f) continue;
+                Vector3 tangent = new(xRadius * Mathf.Cos(angle), 230f * Mathf.Cos(angle * 2f + 0.35f),
+                    zRadius * Mathf.Sin(angle));
+                tangent.Normalize();
+                Vector3 radial = new(Mathf.Sin(angle), 0f, -Mathf.Cos(angle));
+                BuildSiphonophore(particles, anchor, tangent, radial);
+            }
+        }
+
+        void BuildSiphonophore(PointCloud particles, Vector3 anchor, Vector3 tangent, Vector3 radial)
+        {
+            float phase = R(0f, Mathf.PI * 2f);
+            float turns = R(1.18f, 1.48f);
+            float coilRadius = R(20f, 27f);
+            float axisLength = R(24f, 34f);
+            Color bellTint = Color.Lerp(new Color(0.20f, 0.76f, 0.96f), new Color(0.78f, 0.96f, 1f), R(0.24f, 0.72f));
+            Color veilTint = Color.Lerp(bellTint, new Color(0.40f, 0.92f, 0.94f), 0.42f);
+
+            Vector3 CoilPoint(float t)
+            {
+                float angle = phase + t * Mathf.PI * 2f * turns;
+                float radius = Mathf.Lerp(4f, coilRadius, Mathf.SmoothStep(0f, 1f, t));
+                float rise = Mathf.Sin(angle) * radius * 0.58f;
+                return anchor + radial * (Mathf.Cos(angle) * radius) + Vector3.up * rise +
+                    tangent * ((t - 0.5f) * axisLength + Mathf.Sin(angle * 0.55f + phase) * 3.5f);
+            }
+
+            const int chainSamples = 420;
+            for (int sample = 0; sample < chainSamples; sample++) {
+                float t = sample / (float)(chainSamples - 1);
+                particles.Add(CoilPoint(t), 0.16f, veilTint * 0.055f, R(), MarineLayer);
+            }
+
+            const int bellCount = 24;
+            for (int bell = 0; bell < bellCount; bell++) {
+                float t = (bell + 0.5f) / bellCount + R(-0.004f, 0.004f);
+                Vector3 at = CoilPoint(t);
+                Vector3 bellTangent = (CoilPoint(Mathf.Min(1f, t + 0.006f)) -
+                    CoilPoint(Mathf.Max(0f, t - 0.006f))).normalized;
+                Vector3 across = Vector3.Cross(bellTangent, Vector3.up).normalized;
+                if (across.sqrMagnitude < 0.1f) across = radial;
+                Vector3 other = Vector3.Cross(bellTangent, across).normalized;
+                Color bellColor = bellTint * R(0.16f, 0.27f);
+                particles.Add(at, R(0.44f, 0.72f), bellColor, R(), MarineLayer);
+                for (int ring = 0; ring < 4; ring++) {
+                    float ringAngle = ring * Mathf.PI * 0.5f + phase;
+                    Vector3 point = at + (across * Mathf.Cos(ringAngle) + other * Mathf.Sin(ringAngle)) * 0.92f;
+                    particles.Add(point, 0.34f, bellColor * 0.72f, R(), MarineLayer);
+                }
+            }
+
+            const int tentacleCount = 8;
+            const int tentacleSamples = 112;
+            for (int tentacle = 0; tentacle < tentacleCount; tentacle++) {
+                float rootT = 0.13f + tentacle * 0.105f + R(-0.025f, 0.025f);
+                Vector3 root = CoilPoint(rootT);
+                float directionAngle = phase + tentacle * 2.399963f + R(-0.3f, 0.3f);
+                Vector3 side = (radial * Mathf.Cos(directionAngle) + tangent * Mathf.Sin(directionAngle)).normalized;
+                float length = R(22f, 43f);
+                float curl = R(2.5f, 6.5f);
+                float threadPhase = R(0f, Mathf.PI * 2f);
+                float brightness = R(0.025f, 0.075f);
+                for (int sample = 0; sample < tentacleSamples; sample++) {
+                    float t = sample / (float)(tentacleSamples - 1);
+                    float sway = Mathf.Sin(t * 4.1f + threadPhase) * curl * t +
+                        Mathf.Sin(t * 8.7f + threadPhase * 1.7f) * curl * 0.22f * t;
+                    Vector3 at = root + Vector3.down * (length * t) + side * sway +
+                        tangent * (Mathf.Sin(t * 2.8f + threadPhase) * 2.2f * t);
+                    Color color = veilTint * (brightness * Mathf.Lerp(0.52f, 1f, Mathf.Sin(t * Mathf.PI) * 0.5f + 0.5f));
+                    particles.Add(at, Mathf.Lerp(0.075f, 0.21f, t), color, R(), MarineLayer);
                 }
             }
         }
@@ -523,6 +601,7 @@ namespace Liminal
             cavernMatterMaterial.SetFloat(CaveRevealId, reveal);
             cavernMatterMaterial.SetFloat(CaveSweepId, sweep);
             cavernMatterMaterial.SetFloat(CaveBindId, bind);
+            cavernMatterMaterial.SetVector(CavePlayerPositionId, player);
             for (int i = 0; i < LightSlots; i++) {
                 float remaining = Mathf.Clamp01((lightUntil[i] - song) / LightLifetime);
                 lights[i].w = lightStrength[i] * remaining;
@@ -532,10 +611,14 @@ namespace Liminal
             if (world.Serpent)
                 SetOrganismLight(LightSlots, Anatomy.Head(song), 0.78f, RoomTint(1), 145f);
             else lights[LightSlots] = Vector4.zero;
-            if (marineLife)
-                SetOrganismLight(LightSlots + 1, marineLife.WhalePosition, marineLife.WhaleReleased ? 1.15f : 0.72f,
-                    marineLife.WhaleLightColor, 300f);
-            else lights[LightSlots + 1] = Vector4.zero;
+            float whaleVisibility = marineLife ? Mathf.Clamp01(marineLife.WhaleVisibility) : 0f;
+            if (marineLife && marineLife.WhaleVisible && whaleVisibility > 0.001f)
+                SetOrganismLight(LightSlots + 1, marineLife.WhalePosition,
+                    (marineLife.WhaleReleased ? 1.15f : 0.72f) * whaleVisibility, marineLife.WhaleLightColor, 300f);
+            else {
+                lights[LightSlots + 1] = Vector4.zero;
+                lightColors[LightSlots + 1] = Vector4.zero;
+            }
             surfaceMaterial.SetVectorArray(LightArrayId, lights);
             surfaceMaterial.SetVectorArray(LightColorsId, lightColors);
             cavernMatterMaterial.SetVectorArray(LightArrayId, lights);
