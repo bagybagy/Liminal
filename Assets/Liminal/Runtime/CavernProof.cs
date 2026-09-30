@@ -29,6 +29,15 @@ namespace Liminal
         float whaleChaseSeconds, whaleChaseTravel, whaleChaseMaxSpeed;
         double playbackPhaseError;
         bool rayMatterRetained;
+        bool arrivalTriggered,arrivalCompleted,arrivalSlammed,arrivalResetClean;
+        bool arrivalPretriggerHidden,arrivalPretriggerTargetsUnavailable;
+        bool dolphinSpawned,dolphinIdentityStable,dolphinMorphed,dolphinPressureIntercepted;
+        bool dolphinRetired,dolphinPressureCleared,dolphinReefTransferred,dolphinAboveBoostSpeed;
+        float arrivalApproachSeconds,arrivalTriggerDistance,arrivalCompletionAge,arrivalWaveAmplitude,arrivalWaveRadius;
+        float arrivalChargeVisibility,arrivalBreachVisibility;
+        float dolphinBirthAge,dolphinMatureAge,dolphinPoseDisplacement,dolphinPoseTravel;
+        float dolphinGpuDisplacement,dolphinReefProgress,dolphinMinSpeed=float.MaxValue,dolphinMaxSpeed,dolphinSpeedWindow;
+        int arrivalMajorWaves,dolphinParticleCount,dolphinSpawnedCount,dolphinNormalHits,dolphinPressureShots,dolphinPressureInterceptions;
         public void Initialize(Experience value)
         {
             experience=value;
@@ -70,6 +79,9 @@ namespace Liminal
                 Capture("01"+reveal+"-grotto-visibility.png");
             }
             CheckWhaleRoute();
+            arrivalResetClean=ArrivalIsDormant();
+            Require(arrivalResetClean,"Restart must leave the whale arrival dormant, targets hidden, dolphins unspawned, and pressure shots absent");
+            yield return InspectArrival();
             yield return InspectHorizon();
             Frame(CaveLayout.Spawn+Vector3.forward*30,new Vector3(0,0,-30));
             var firstJelly=new[] {experience.Marine.JellyTargets[0]};
@@ -179,6 +191,18 @@ namespace Liminal
             Capture("04-horizon-whale.png");
             var whaleOrgans=experience.Marine.WhaleResonatorTargets;
             Require(whaleOrgans.Count==MarineLife.WhaleOrganCount && whaleOrgans.Count>=48,"Whale must expose dense independently aimed organs");
+            int dolphinGroup=experience.Marine.DolphinGroupAt(0);
+            dolphinParticleCount=experience.Marine.DolphinParticleCount;
+            yield return HitTargets(new[]{whaleOrgans[8]},1);
+            var dolphinTarget=FindDolphinTarget(0);
+            var dolphinPose=experience.Marine.Dolphins.PoseAt(0);
+            dolphinSpawned=experience.Marine.SpawnedDolphins==1 && dolphinPose.Active &&
+                dolphinGroup>=0 && experience.Marine.DolphinGroupAt(0)==dolphinGroup && dolphinTarget!=null && dolphinTarget.Available;
+            dolphinSpawnedCount=experience.Marine.SpawnedDolphins;
+            Require(dolphinSpawned,"A normal hit on whale resonator 8 must spawn dolphin 0 and expose its real target");
+            Require(dolphinParticleCount>0,"Dolphin forms must occupy the persistent GPU particle pool");
+            Capture("04aa-whale-dolphin-birth-hit.png");
+            yield return InspectDolphin(dolphinTarget,dolphinGroup);
             yield return ChaseWhale();
             whaleHits=experience.Marine.WhaleResonance;
             Require(whaleHits==MarineLife.WhaleDamageGoal && !experience.Combat.Ended,"Whale must be completed by continuous flight and central reticle aiming");
@@ -223,10 +247,11 @@ namespace Liminal
             experience.TogglePause();
             experience.Restart();
             yield return null;
+            arrivalResetClean=ArrivalIsDormant();
             restartClean=experience.Combat.BossDamage==0 && experience.Marine.WhaleResonance==0 &&
                 experience.Marine.IlluminatedJellies==0 && !experience.Combat.HasPending &&
                 Vector3.Distance(flight.Position,CaveLayout.Spawn)<.01f && !experience.Marine.WhaleReleased &&
-                experience.Marine.CompletedJellies==0 && !experience.World.Serpent.Released;
+                experience.Marine.CompletedJellies==0 && !experience.World.Serpent.Released && arrivalResetClean;
             restartClean &= experience.Combat.Colonies.Count==0 && experience.Combat.Colonies.ReservedCount==0;
             int afterRestart=experience.Combat.Targets.Count;
             experience.Restart();
@@ -245,6 +270,23 @@ namespace Liminal
                 whaleChaseSeconds=whaleChaseSeconds,whaleChaseTravel=whaleChaseTravel,whaleChaseMaxSpeed=whaleChaseMaxSpeed,
                 playbackPhaseError=playbackPhaseError,
                 rayMatterRetained=rayMatterRetained,
+                arrivalTriggered=arrivalTriggered,arrivalCompleted=arrivalCompleted,arrivalSlammed=arrivalSlammed,
+                arrivalResetClean=arrivalResetClean,arrivalApproachSeconds=arrivalApproachSeconds,
+                arrivalTriggerDistance=arrivalTriggerDistance,arrivalCompletionAge=arrivalCompletionAge,
+                arrivalPretriggerHidden=arrivalPretriggerHidden,
+                arrivalPretriggerTargetsUnavailable=arrivalPretriggerTargetsUnavailable,
+                arrivalChargeVisibility=arrivalChargeVisibility,arrivalBreachVisibility=arrivalBreachVisibility,
+                arrivalMajorWaves=arrivalMajorWaves,arrivalWaveAmplitude=arrivalWaveAmplitude,arrivalWaveRadius=arrivalWaveRadius,
+                dolphinSpawned=dolphinSpawned,dolphinParticleCount=dolphinParticleCount,dolphinIdentityStable=dolphinIdentityStable,
+                dolphinMorphed=dolphinMorphed,dolphinBirthAge=dolphinBirthAge,dolphinMatureAge=dolphinMatureAge,
+                dolphinPoseDisplacement=dolphinPoseDisplacement,dolphinPoseTravel=dolphinPoseTravel,
+                dolphinGpuDisplacement=dolphinGpuDisplacement,dolphinMinSpeed=dolphinMinSpeed,
+                dolphinMaxSpeed=dolphinMaxSpeed,dolphinAboveBoostSpeed=dolphinAboveBoostSpeed,
+                dolphinPressureShots=dolphinPressureShots,dolphinPressureInterceptions=dolphinPressureInterceptions,
+                dolphinPressureIntercepted=dolphinPressureIntercepted,dolphinRetired=dolphinRetired,
+                dolphinPressureCleared=dolphinPressureCleared,dolphinReefTransferred=dolphinReefTransferred,
+                dolphinReefProgress=dolphinReefProgress,dolphinSpawnedCount=dolphinSpawnedCount,
+                dolphinNormalHits=dolphinNormalHits,dolphinSpeedWindow=dolphinSpeedWindow,
                 renderedFractions=renderedFractions.ToArray(),errors=errors.ToArray(),gpu=SystemInfo.graphicsDeviceName};
             File.WriteAllText(Path.Combine(directory,"report.json"),JsonUtility.ToJson(report,true));
             Debug.Log("LIMINAL_CAVERNS_PROOF "+JsonUtility.ToJson(report));
@@ -343,12 +385,358 @@ namespace Liminal
             Require(whaleVerticalSpan>150 && high>CaveLayout.HorizonSurfaceY,"Whale must rise through the second horizon then dive");
         }
 
+        IEnumerator InspectArrival()
+        {
+            var marine=experience.Marine;
+            var arrival=marine.Arrival;
+            float start=Time.realtimeSinceStartup;
+            float outsideDistance=Vector3.Distance(experience.Flight.Position,arrival.Origin);
+            arrivalPretriggerHidden=!arrival.Triggered && !marine.WhaleVisible && marine.WhaleVisibility==0f;
+            arrivalPretriggerTargetsUnavailable=true;
+            foreach(var target in marine.WhaleResonatorTargets)
+                arrivalPretriggerTargetsUnavailable&=!target.Available;
+            Require(ArrivalIsDormant() && outsideDistance>190f,
+                "Whale arrival must begin hidden and dormant while the swimmer is genuinely outside its 190 m trigger");
+            Require(arrivalPretriggerHidden && arrivalPretriggerTargetsUnavailable,
+                "Before proximity entry, visibility must be zero and every whale target unavailable");
+
+            var route=new List<Vector3> {CaveLayout.Spawn,CaveLayout.Rooms[0].Center};
+            route.AddRange(CaveLayout.Passages[0]);
+            route.Add(CaveLayout.Rooms[1].Center);
+            route.AddRange(CaveLayout.Passages[1]);
+            route.Add(CaveLayout.Rooms[2].Center);
+            route.Add(arrival.Origin);
+            int waypoint=1;
+            float deadline=start+75f;
+            while(!arrival.Triggered && Time.realtimeSinceStartup<deadline)
+            {
+                while(waypoint<route.Count-1 && Vector3.Distance(experience.Flight.Position,route[waypoint])<24f) waypoint++;
+                Vector3 destination=route[Mathf.Min(waypoint,route.Count-1)];
+                StepFlightToward(experience.Flight,destination,Mathf.Min(Time.unscaledDeltaTime,.05f));
+                yield return null;
+            }
+            arrivalApproachSeconds=Time.realtimeSinceStartup-start;
+            arrivalTriggerDistance=Vector3.Distance(experience.Flight.Position,arrival.Origin);
+            arrivalTriggered=arrival.Triggered;
+            Require(arrivalTriggered && arrivalTriggerDistance<=190.5f,
+                "The whale arrival must trigger from a real Flight.Step approach inside 190 m");
+            if(!arrivalTriggered) yield break;
+            Require(Mathf.Approximately(marine.WhaleVisibility,0f) && !marine.WhaleVisible,
+                "The whale must remain hidden during the initial blue-vortex charge");
+
+            yield return WaitForArrivalAge(.9f);
+            arrivalChargeVisibility=marine.WhaleVisibility;
+            Frame(arrival.Origin,new Vector3(0,48,-205));
+            yield return null;
+            Capture("00-arrival-blue-vortex.png");
+
+            yield return WaitForArrivalAge(2.8f);
+            arrivalBreachVisibility=marine.WhaleVisibility;
+            Require(marine.WhaleVisibility>.99f && marine.WhaleVisible,
+                "The whale outline must emerge during the breach, not before the proximity-triggered charge");
+            Vector3 whale=marine.WhalePosition;
+            Frame(whale,marine.WhaleRotation*new Vector3(0,36,-225));
+            yield return null;
+            Capture("00a-arrival-large-whale-outline.png");
+
+            yield return WaitForArrivalAge(4f);
+            whale=marine.WhalePosition;
+            Frame(whale,marine.WhaleRotation*new Vector3(0,42,-235));
+            yield return null;
+            Capture("00b-arrival-breach-apex.png");
+
+            yield return WaitForArrivalAge(6.1f);
+            Vector3 slamFocus=experience.Horizon.LastMajorOrigin;
+            Frame(slamFocus+Vector3.up*24,new Vector3(115,62,-185));
+            yield return null;
+            Capture("00c-arrival-slam-wave.png");
+
+            float completeDeadline=Time.realtimeSinceStartup+3f;
+            while(!arrival.Complete && Time.realtimeSinceStartup<completeDeadline) yield return null;
+            arrivalCompleted=arrival.Complete;
+            arrivalCompletionAge=arrival.Age;
+            arrivalSlammed=arrival.Slammed;
+            arrivalMajorWaves=experience.Horizon.MajorWaveCount;
+            Require(arrivalCompleted && arrivalCompletionAge<=9.05f,
+                "The whale entrance must complete within about nine seconds of its trigger");
+            Require(arrivalSlammed && arrivalMajorWaves>=1,
+                "The arrival slam must create a major horizon wave");
+
+            if(experience.Horizon.LastMajorTime>=0f)
+            {
+                float sampleSong=experience.Horizon.LastMajorTime+2f;
+                Vector3 origin=experience.Horizon.LastMajorOrigin;
+                for(float radius=100f;radius<=240f;radius+=5f)
+                    for(int angle=0;angle<72;angle++)
+                    {
+                        float radians=angle*Mathf.PI*2f/72f;
+                        float height=experience.Horizon.SampleHeight(origin.x+Mathf.Cos(radians)*radius,
+                            origin.z+Mathf.Sin(radians)*radius,sampleSong);
+                        float amplitude=Mathf.Abs(height-experience.Horizon.SurfaceHeight);
+                        if(amplitude>arrivalWaveAmplitude)
+                        {
+                            arrivalWaveAmplitude=amplitude;
+                            arrivalWaveRadius=radius;
+                        }
+                    }
+            }
+            Require(arrivalWaveAmplitude>4f && arrivalWaveRadius>=100f,
+                "The public major-wave origin and time must produce a greater-than-4 m far-ring surface sample");
+        }
+
+        IEnumerator WaitForArrivalAge(float age)
+        {
+            while(experience.Marine.Arrival && experience.Marine.Arrival.Age<age) yield return null;
+        }
+
+        bool ArrivalIsDormant()
+        {
+            var marine=experience.Marine;
+            if(!marine || !marine.Arrival || marine.Arrival.Triggered || marine.WhaleEntranceComplete ||
+                marine.WhaleVisibility!=0f || marine.SpawnedDolphins!=0 ||
+                experience.Combat.LivePressureShots(marine.Dolphins)!=0) return false;
+            foreach(var target in marine.WhaleResonatorTargets) if(target.Available) return false;
+            return true;
+        }
+
+        void StepFlightToward(Flight flight,Vector3 destination,float dt)
+        {
+            Vector3 offset=destination-flight.Position;
+            if(offset.sqrMagnitude<.01f) return;
+            Vector3 forward=flight.transform.forward;
+            float desiredYaw=Mathf.Atan2(offset.x,offset.z)*Mathf.Rad2Deg;
+            float yaw=Mathf.Atan2(forward.x,forward.z)*Mathf.Rad2Deg;
+            float desiredPitch=Mathf.Asin(Mathf.Clamp(offset.normalized.y,-1f,1f))*Mathf.Rad2Deg;
+            float pitch=Mathf.Asin(Mathf.Clamp(forward.y,-1f,1f))*Mathf.Rad2Deg;
+            Vector2 look=new(Mathf.Clamp(Mathf.DeltaAngle(yaw,desiredYaw),-90f*dt,90f*dt)/2.1f,
+                Mathf.Clamp(desiredPitch-pitch,-65f*dt,65f*dt)/1.7f);
+            Vector3 move=Vector3.Dot(forward,offset.normalized)>.45f?Vector3.forward:Vector3.zero;
+            flight.Step((float)experience.Music.Time,dt,move,look,offset.magnitude>70f);
+        }
+
+        void StepFlightLookAt(Flight flight,Vector3 point,float dt,Vector3 localMove)
+        {
+            Vector3 offset=point-flight.Position;
+            if(offset.sqrMagnitude<.01f)
+            {
+                flight.Step((float)experience.Music.Time,dt,localMove,Vector2.zero,false);
+                return;
+            }
+            Vector3 forward=flight.transform.forward;
+            float desiredYaw=Mathf.Atan2(offset.x,offset.z)*Mathf.Rad2Deg;
+            float yaw=Mathf.Atan2(forward.x,forward.z)*Mathf.Rad2Deg;
+            float desiredPitch=Mathf.Asin(Mathf.Clamp(offset.normalized.y,-1f,1f))*Mathf.Rad2Deg;
+            float pitch=Mathf.Asin(Mathf.Clamp(forward.y,-1f,1f))*Mathf.Rad2Deg;
+            Vector2 look=new(Mathf.Clamp(Mathf.DeltaAngle(yaw,desiredYaw),-90f*dt,90f*dt)/2.1f,
+                Mathf.Clamp(desiredPitch-pitch,-65f*dt,65f*dt)/1.7f);
+            flight.Step((float)experience.Music.Time,dt,localMove,look,false);
+        }
+
+        IEnumerator InspectDolphin(LockTarget dolphinTarget,int expectedGroup)
+        {
+            if(dolphinTarget==null) yield break;
+            var marine=experience.Marine;
+            var dolphin=marine.Dolphins;
+            float birthDeadline=Time.realtimeSinceStartup+3f;
+            while(!dolphin.PoseAt(0).Active && Time.realtimeSinceStartup<birthDeadline) yield return null;
+            Require(dolphin.PoseAt(0).Active && marine.DolphinGroupAt(0)==expectedGroup,
+                "The first dolphin must retain its preallocated particle group when it is born");
+
+            while(dolphin.PoseAt(0).Age<.5f && Time.realtimeSinceStartup<birthDeadline+2f) yield return null;
+            var birthPose=dolphin.PoseAt(0);
+            dolphinBirthAge=birthPose.Age;
+            Require(dolphinBirthAge>=.4f && dolphinBirthAge<=.8f,
+                "Dolphin birth capture must sample the early peel near age 0.5 seconds");
+            Frame(birthPose.Position,new Vector3(0,22,-88));
+            yield return null;
+            Capture("04ab-dolphin-birth-peel.png");
+            MatterParticle[] birthParticles=marine.Matter.Readback();
+
+            float matureDeadline=Time.realtimeSinceStartup+4f;
+            while(dolphin.PoseAt(0).Age<2f && Time.realtimeSinceStartup<matureDeadline) yield return null;
+            float matureAimDeadline=Time.realtimeSinceStartup+.55f;
+            while(Time.realtimeSinceStartup<matureAimDeadline)
+            {
+                var pose=dolphin.PoseAt(0);
+                StepFlightLookAt(experience.Flight,pose.Position,Mathf.Min(Time.unscaledDeltaTime,.05f),Vector3.right);
+                Vector3 screen=experience.Flight.View.WorldToScreenPoint(pose.Position);
+                if(screen.z>0 && Vector2.Distance(screen,experience.Flight.AimScreenPosition)<experience.Combat.LockRadiusPixels*.7f) break;
+                yield return null;
+            }
+            var maturePose=dolphin.PoseAt(0);
+            dolphinMatureAge=maturePose.Age;
+            Require(dolphinMatureAge>=1.8f && dolphinMatureAge<=2.8f,
+                "Dolphin mature-form capture must sample near age two seconds");
+            dolphinPoseDisplacement=Vector3.Distance(birthPose.Position,maturePose.Position);
+            Frame(maturePose.Position,maturePose.Rotation*new Vector3(36,12,-6));
+            yield return null;
+            Capture("04ac-dolphin-mature-form.png");
+            MatterParticle[] matureParticles=marine.Matter.Readback();
+            dolphinIdentityStable=marine.DolphinGroupAt(0)==expectedGroup && birthParticles.Length==matureParticles.Length;
+            int groupCount=0,matureFormCount=0;
+            double displacement=0;
+            for(int i=0;i<Mathf.Min(birthParticles.Length,matureParticles.Length);i++)
+            {
+                MatterParticle before=birthParticles[i],after=matureParticles[i];
+                if(Mathf.RoundToInt(before.identityState.y)!=expectedGroup) continue;
+                groupCount++;
+                dolphinIdentityStable&=before.identityState.x==after.identityState.x &&
+                    before.identityState.y==after.identityState.y;
+                displacement+=Vector3.Distance(before.positionAge,after.positionAge);
+                if(Mathf.RoundToInt(after.identityState.z)==(int)MatterPhase.Dolphin) matureFormCount++;
+            }
+            dolphinGpuDisplacement=(float)(displacement/Math.Max(1,groupCount));
+            dolphinMorphed=dolphinIdentityStable && groupCount>0 && matureFormCount==groupCount &&
+                dolphinPoseDisplacement>2f && dolphinGpuDisplacement>1f;
+            Require(dolphinIdentityStable && groupCount>0,
+                "Dolphin particle IDs and immutable group membership must survive the birth-to-mature transition");
+            Require(dolphinMorphed,
+                "The dolphin must move and morph its persistent GPU particles, not merely switch a phase flag");
+
+            yield return ExerciseDolphinCombat(dolphinTarget,maturePose.Age);
+            yield return null;
+            dolphinPressureShots=experience.Combat.DolphinPressureShots;
+            dolphinPressureInterceptions=experience.Combat.DolphinPressureInterceptions;
+            var retiredPose=dolphin.PoseAt(0);
+            dolphinRetired=retiredPose.Retired && dolphinTarget.hp==0 && !dolphinTarget.Available &&
+                !experience.Combat.Locks.Contains(dolphinTarget);
+            dolphinPressureIntercepted=dolphinPressureShots>0 && dolphinPressureInterceptions>0;
+            dolphinPressureCleared=dolphinRetired && experience.Combat.LivePressureShots(dolphin)==0 &&
+                !experience.Combat.HasPending;
+            dolphinAboveBoostSpeed=dolphinMaxSpeed>52f;
+            Require(dolphinPressureIntercepted,
+                "At least one automatically fired dolphin pressure shot must be intercepted through normal target acquisition");
+            Require(dolphinRetired,
+                "Three normal hits must retire the actual dolphin target and close its encounter callback");
+            Require(dolphinPressureCleared,
+                "Retiring the last spawned dolphin must leave no live pressure shots before the whale chase");
+            Require(dolphinMaxSpeed>40f,
+                "The dolphin's measured swim speed must exceed 40 m/s during its six-second mature window");
+            Require(dolphinAboveBoostSpeed,
+                "The dolphin sprint must actually exceed the player's 52 m/s boost speed");
+
+            MatterParticle[] retiredParticles=marine.Matter.Readback();
+            float transferAt=(float)experience.Music.Time+2.2f;
+            while(experience.Music.Time<transferAt) yield return null;
+            MatterParticle[] reefParticles=marine.Matter.Readback();
+            double beforeError=0,afterError=0;
+            int transferCount=0,reefCount=0;
+            for(int i=0;i<Mathf.Min(retiredParticles.Length,reefParticles.Length);i++)
+            {
+                if(Mathf.RoundToInt(retiredParticles[i].identityState.y)!=expectedGroup) continue;
+                MatterParticle before=retiredParticles[i],after=reefParticles[i];
+                Vector3 destination=marine.SeedAt(i).destination;
+                beforeError+=Vector3.Distance(before.positionAge,destination);
+                afterError+=Vector3.Distance(after.positionAge,destination);
+                reefCount++;
+                if(Mathf.RoundToInt(after.identityState.z)==(int)MatterPhase.Transfer) transferCount++;
+            }
+            dolphinReefProgress=(float)((beforeError-afterError)/Math.Max(1,reefCount));
+            dolphinReefTransferred=reefCount>0 && transferCount==reefCount && dolphinReefProgress>.25f;
+            Require(dolphinReefTransferred,
+                "Retired dolphin particles must leave the animal form and physically transfer toward their reef destinations");
+            Frame(marine.WhalePosition,new Vector3(180,58,-320));
+            Capture("04ad-dolphin-reef-transfer.png");
+        }
+
+        IEnumerator ExerciseDolphinCombat(LockTarget dolphinTarget,float matureAge)
+        {
+            var flight=experience.Flight;
+            var combat=experience.Combat;
+            var marine=experience.Marine;
+            float deadline=Time.realtimeSinceStartup+16f;
+            float sampleThrough=matureAge+6f;
+            float sampleStart=matureAge,lastPoseSample=matureAge;
+            Vector3 previousPose=marine.Dolphins.PoseAt(0).Position;
+            int hitsFired=0;
+            while(Time.realtimeSinceStartup<deadline)
+            {
+                var pose=marine.Dolphins.PoseAt(0);
+                if(pose.Active && !pose.Retired)
+                {
+                    dolphinMinSpeed=Mathf.Min(dolphinMinSpeed,pose.Speed);
+                    dolphinMaxSpeed=Mathf.Max(dolphinMaxSpeed,pose.Speed);
+                    dolphinPoseTravel+=Vector3.Distance(previousPose,pose.Position);
+                    previousPose=pose.Position;
+                    lastPoseSample=pose.Age;
+                }
+                LockTarget pressure=FindLiveDolphinPressure(marine.Dolphins);
+                bool sampleDone=lastPoseSample>=sampleThrough;
+                bool canRetire=sampleDone && !pose.Retired && dolphinTarget.Available;
+                Vector3 aim=pressure!=null?pressure.position:dolphinTarget.position;
+                float dt=Mathf.Min(Time.unscaledDeltaTime,.05f);
+                if (canRetire && pressure == null) StepFlightToward(flight,aim,dt);
+                else StepFlightLookAt(flight,aim,dt,Vector3.right);
+
+                if(!combat.HasPending)
+                {
+                    if(pressure!=null)
+                    {
+                        Vector3 screen=flight.View.WorldToScreenPoint(pressure.position);
+                        int locks=combat.Locks.Count;
+                        combat.AcquireAt(new Vector2(screen.x,screen.y));
+                        if(combat.Locks.Contains(pressure)) combat.Release();
+                        else if(combat.Locks.Count>locks) combat.AbandonLocks();
+                    }
+                    else if(canRetire)
+                    {
+                        Vector3 screen=flight.View.WorldToScreenPoint(dolphinTarget.position);
+                        int locks=combat.Locks.Count;
+                        combat.AcquireAt(new Vector2(screen.x,screen.y));
+                        if(combat.Locks.Contains(dolphinTarget))
+                        {
+                            combat.Release();
+                            hitsFired++;
+                        }
+                        else if(combat.Locks.Count>locks) combat.AbandonLocks();
+                    }
+                }
+
+                bool retired=marine.Dolphins.PoseAt(0).Retired;
+                if(lastPoseSample>=sampleThrough && retired &&
+                    combat.LivePressureShots(marine.Dolphins)==0 && !combat.HasPending) break;
+                yield return null;
+            }
+            float sampledSeconds=Mathf.Max(0f,lastPoseSample-sampleStart);
+            dolphinSpeedWindow=sampledSeconds;
+            dolphinNormalHits=hitsFired;
+            Require(sampledSeconds>=5.7f,
+                "Dolphin speed must be measured across approximately six seconds of its mature swim");
+            Require(hitsFired==3,
+                "The dolphin must receive all three scheduled hits through normal AcquireAt and Release calls");
+        }
+
+        LockTarget FindDolphinTarget(int slot)
+        {
+            int found=0;
+            foreach(var target in experience.Combat.Targets)
+                if(target.kind==TargetKind.Dolphin)
+                {
+                    if(found++==slot) return target;
+                }
+            return null;
+        }
+
+        LockTarget FindLiveDolphinPressure(DolphinEncounter owner)
+        {
+            LockTarget best=null;
+            float nearest=float.MaxValue;
+            foreach(var target in experience.Combat.Targets)
+            {
+                if(!target.isPressureShot || target.pressureOwner!=owner || target.hp<=0 || target.reserved>0) continue;
+                float distance=Vector3.Distance(experience.Flight.Position,target.position);
+                if(distance<nearest) {nearest=distance;best=target;}
+            }
+            return best;
+        }
+
         IEnumerator InspectHorizon()
         {
             Require(experience.Horizon && experience.Horizon.Ready,"Horizon surface and spray must initialize");
             Vector3 firstColor=Vector3.zero;
+            float start=(float)experience.Music.Time;
             for(int shot=0;shot<3;shot++) {
-                float at=shot==0?5:shot==1?14:24;
+                float at=start+(shot==0?0:shot==1?5:14);
                 while(experience.Music.Time<at) yield return null;
                 Vector3 whale=experience.Marine.WhalePosition;
                 Frame(whale,experience.Marine.WhaleRotation*new Vector3(260,45,-20));
@@ -479,6 +867,16 @@ namespace Liminal
             public float whaleChaseSeconds,whaleChaseTravel,whaleChaseMaxSpeed;
             public double playbackPhaseError;
             public bool rayMatterRetained;
+            public bool arrivalTriggered,arrivalCompleted,arrivalSlammed,arrivalResetClean;
+            public bool arrivalPretriggerHidden,arrivalPretriggerTargetsUnavailable;
+            public bool dolphinSpawned,dolphinIdentityStable,dolphinMorphed,dolphinPressureIntercepted;
+            public bool dolphinRetired,dolphinPressureCleared,dolphinReefTransferred,dolphinAboveBoostSpeed;
+            public float arrivalApproachSeconds,arrivalTriggerDistance,arrivalCompletionAge,arrivalWaveAmplitude,arrivalWaveRadius;
+            public float arrivalChargeVisibility,arrivalBreachVisibility;
+            public float dolphinBirthAge,dolphinMatureAge,dolphinPoseDisplacement,dolphinPoseTravel;
+            public float dolphinGpuDisplacement,dolphinMinSpeed,dolphinMaxSpeed,dolphinReefProgress,dolphinSpeedWindow;
+            public int arrivalMajorWaves,dolphinParticleCount,dolphinSpawnedCount,dolphinNormalHits;
+            public int dolphinPressureShots,dolphinPressureInterceptions;
             public float halfSpeed,cruiseSpeed,coastSpeed;
             public int jellyHits,fishResponses,serpentHits,whaleHits;
             public double gridError;
