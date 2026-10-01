@@ -72,7 +72,7 @@ namespace Liminal
                 yield return new WaitForSecondsRealtime(.35f);Capture("hermit-close-stance.png");
                 yield return new WaitForSecondsRealtime(.3f);Capture("hermit-close-step.png");
             }
-            yield return HitBatch(hermits.SmallTargets, 8);
+            for(int batch=0;batch<4;batch++) yield return HitBatch(hermits.SmallTargets, 8);
             Require(hermits.SmallDefeated == 8 && hermits.Merging, "One third of the swarm must trigger particle coalescence");
             yield return new WaitForSecondsRealtime(4.5f);
             report.hermitMerge = hermits.MergeProgress;
@@ -90,7 +90,7 @@ namespace Liminal
             }
             report.hermitHits = hermits.BossHits;
             report.hermitComplete = hermits.Complete;
-            Require(hermits.Complete && hermits.BossHits == 32, "Giant must finish after thirty-two normally scheduled impacts");
+            Require(hermits.Complete && hermits.BossHits == 48, "Giant must finish after forty-eight normally scheduled impacts");
             Require(hermits.ParticleCount == report.hermitParticles && hermits.InitializationCount == hermitInitializations,
                 "Hermit state changes must retain their original particle pool");
             Frame(hermits.BossPosition, new Vector3(60, 45, -100));
@@ -266,11 +266,11 @@ namespace Liminal
             for(int room=0;room<CaveLayout.Passages.Length;room++) {
                 CaveLayout.GetPortal(room,true,out Vector3 portal,out Vector3 direction);
                 CaveLayout.GetPortal(room,false,out Vector3 reverse,out _);
-                Require(Mathf.Abs(CaveLayout.RoomDistance(room,portal)-1)<.0001f &&
-                    Mathf.Abs(CaveLayout.RoomDistance(room+1,reverse)-1)<.0001f,"Beacons must mark actual wall openings");
-                Vector3 start=room==0?CaveLayout.Spawn:CaveLayout.Passages[room-1][CaveLayout.Passages[room-1].Length-1];
+                Require(Mathf.Abs(CaveLayout.RoomDistance(CaveLayout.FromRoom(room),portal)-1)<.0001f &&
+                    Mathf.Abs(CaveLayout.RoomDistance(CaveLayout.ToRoom(room),reverse)-1)<.0001f,"Beacons must mark actual wall openings");
+                Vector3 start=portal-direction*30;
                 experience.Flight.SetPose(start,Quaternion.LookRotation(portal-start));
-                Require(CaveLayout.NextPassage(start,out Vector3 waypoint,out int next) && next==room+1 &&
+                Require(CaveLayout.NextPassage(start,out Vector3 waypoint,out int next) && next==CaveLayout.ToRoom(room) &&
                     Vector3.Distance(portal,waypoint)<.01f,"Uncleared rooms must point to the next passage rather than the boss");
                 yield return null;
                 Capture("navigation-room-"+room+".png");

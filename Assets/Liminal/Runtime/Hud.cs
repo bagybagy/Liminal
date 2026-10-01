@@ -22,6 +22,7 @@ namespace Liminal
         public void OnGUI()
         {
             if(!Experience || !Experience.Ready) return;
+            if(Experience.Vr && Experience.Vr.Enabled) return;
             Setup();
             var e=Experience.Combat; var music=Experience.Music;
             float w=Screen.width,h=Screen.height,t=(float)music.Time;
@@ -157,6 +158,26 @@ namespace Liminal
         void DrawPassageReadout(float w,float h)
         {
             var flight=Experience.Flight;
+            int room=Experience.CurrentRoom;
+            if(CaveLayout.RoomDistance(room,flight.Position)<1) {
+                foreach(int passage in CaveLayout.IncidentPassages(room)) {
+                    bool forward=CaveLayout.FromRoom(passage)==room;
+                    int destination=CaveLayout.Destination(passage,forward);
+                    CaveLayout.GetPortal(passage,forward,out var mouth,out _);
+                    var screen=flight.View.WorldToScreenPoint(mouth);
+                    if(screen.z<=0 || screen.x<100 || screen.x>w-100 || screen.y<130 || screen.y>h-135) continue;
+                    var point=new Vector2(screen.x,h-screen.y);
+                    bool cleared=destination==1?Experience.Progress.Has(BossId.Serpent):
+                        destination==3?Experience.Progress.Has(BossId.Hermit):
+                        destination==4?Experience.Progress.Has(BossId.Submarine):Experience.Progress.Has(BossId.Whale);
+                    Color color=cleared?Muted:Cyan;
+                    Ring(point,9,color,24);
+                    string destinationName=CaveLayout.Rooms[destination].Name;
+                    Text(new Rect(point.x-100,point.y+14,200,36),destinationName+"\n"+
+                        Vector3.Distance(flight.Position,mouth).ToString("F0")+" M",small,color,TextAnchor.MiddleCenter);
+                }
+                return;
+            }
             if(!CaveLayout.NextPassage(flight.Position,out Vector3 waypoint,out int next)) return;
             float distance=Vector3.Distance(flight.Position,waypoint);
             string name=CaveLayout.Rooms[next].Name;
@@ -191,11 +212,11 @@ namespace Liminal
         {
             Fill(new Rect(0,0,w,h),new Color(0.004f,0.009f,0.014f,0.08f));
             Matrix4x4 previous=GUI.matrix;
-            float scale=Mathf.Min(1,w/360,(h-24)/470);
+            float scale=Mathf.Min(1,w/360,(h-24)/522);
             GUI.matrix=previous*Matrix4x4.Scale(new Vector3(scale,scale,1));
             w/=scale;h/=scale;
-            float x=w*0.5f-150,y=(h-442)*.5f;
-            Fill(new Rect(x-20,y-12,340,466),new Color(0.004f,0.009f,0.014f,0.92f));
+            float x=w*0.5f-150,y=(h-494)*.5f;
+            Fill(new Rect(x-20,y-12,340,518),new Color(0.004f,0.009f,0.014f,0.92f));
             Text(new Rect(x,y,300,42),"PAUSED",title,White,TextAnchor.MiddleCenter);
             if(GUI.Button(new Rect(x,y+58,300,36),"RESUME",button)) Experience.TogglePause();
             Text(new Rect(x,y+113,100,23),"MUSIC",small,Muted);
@@ -217,7 +238,14 @@ namespace Liminal
                 if(GUI.Button(new Rect(x+202,y+274,98,36),"SKIP",button)) Experience.SkipTutorial();
             }
             if(GUI.Button(new Rect(x,y+330,300,36),"RESTART",button)) Experience.Restart();
-            if(GUI.Button(new Rect(x,y+386,300,36),"EXIT",button)) Experience.Quit();
+            if(Experience.Vr) {
+                bool enabledBefore=GUI.enabled;
+                GUI.enabled=enabledBefore&&!Experience.Vr.Starting;
+                if(GUI.Button(new Rect(x,y+382,300,36),"PC VR",button)) Experience.Vr.RequestEnable();
+                GUI.enabled=enabledBefore;
+                Text(new Rect(x,y+422,300,20),Experience.Vr.Status,small,Muted,TextAnchor.MiddleCenter);
+            }
+            if(GUI.Button(new Rect(x,y+450,300,36),"EXIT",button)) Experience.Quit();
             GUI.matrix=previous;
         }
         void Results(float w,float h)
