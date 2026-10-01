@@ -16,7 +16,9 @@ namespace Liminal
         static readonly float[] RouteFractions = { 0.32f, 0.5f, 0.68f };
         static readonly Color[] ShoalTints = {
             new(0.22f, 0.96f, 0.82f), new(0.28f, 0.70f, 1f),
-            new(0.49f, 0.94f, 0.70f), new(1f, 0.60f, 0.27f)
+            new(0.49f, 0.94f, 0.70f), new(1f, 0.60f, 0.27f),
+            new(0.75f, 0.69f, 1f), new(1f, 0.48f, 0.52f),
+            new(0.48f, 0.91f, 0.76f)
         };
 
         sealed class Fish
@@ -185,7 +187,7 @@ namespace Liminal
 
         void CreateSchools()
         {
-            for (int passage = 0; passage < CaveLayout.Passages.Length; passage++)
+            for (int passage = 0; passage < CaveLayout.PassageCount; passage++)
             for (int shoalIndex = 0; shoalIndex < SchoolsPerPassage; shoalIndex++)
             {
                 RoutePose(CaveLayout.Passages[passage], RouteFractions[shoalIndex], out Vector3 home, out Vector3 forward);

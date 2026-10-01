@@ -208,7 +208,8 @@ namespace Liminal
                             float angle = radial * Mathf.PI * 2f / 24f;
                             Vector3 p = center + (side * Mathf.Cos(angle) + up * Mathf.Sin(angle)) * (TunnelRadius - 2f);
                             if (IsBuriedInRoom(p) || InsideOtherPassage(p, route, segment - 1)) continue;
-                            Color col = Color.Lerp(CaveLayout.Rooms[passage].Color, CaveLayout.Rooms[passage+1].Color, segment / (float)route.Length);
+                            Color col = Color.Lerp(CaveLayout.Rooms[CaveLayout.FromRoom(passage)].Color,
+                                CaveLayout.Rooms[CaveLayout.ToRoom(passage)].Color, segment / (float)route.Length);
                             float trail = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(angle * 5f + f * 13f)), 9f);
                             if (trail > 0.56f) particles.Add(p, 0.06f, col * R(0.12f, 0.25f), R(), 0.025f);
                         }
@@ -219,7 +220,8 @@ namespace Liminal
                         for (int radial = 0; radial <= 24; radial++) {
                             float angle = radial * Mathf.PI * 2f / 24f;
                             verts.Add(center + (side * Mathf.Cos(angle) + up * Mathf.Sin(angle)) * TunnelRadius);
-                            cols.Add(Color.Lerp(CaveLayout.Rooms[passage].Color, CaveLayout.Rooms[passage+1].Color, segment / (float)route.Length) * 0.11f);
+                            cols.Add(Color.Lerp(CaveLayout.Rooms[CaveLayout.FromRoom(passage)].Color,
+                                CaveLayout.Rooms[CaveLayout.ToRoom(passage)].Color, segment / (float)route.Length) * 0.11f);
                         }
                     }
                     for (int step = 0; step < steps; step++) {
