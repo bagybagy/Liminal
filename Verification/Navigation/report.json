@@ -1,0 +1,33 @@
+{
+    "mode": "navigation",
+    "passed": true,
+    "connectedRooms": true,
+    "tutorialComplete": false,
+    "hermitComplete": false,
+    "submarineComplete": false,
+    "restartClean": false,
+    "tutorialActions": 0,
+    "tutorialNotes": 0,
+    "hermitParticles": 0,
+    "hermitHits": 0,
+    "submarineParticles": 0,
+    "submarineHits": 0,
+    "completedPhases": 0,
+    "pressureShots": 0,
+    "interceptions": 0,
+    "damageTaken": 0,
+    "hits": 0,
+    "notes": 0,
+    "haloNear": 0,
+    "haloFar": 0,
+    "hermitMerge": 0.0,
+    "gridError": 0.0,
+    "visibleFractions": [
+        0.06317500025033951,
+        0.014690971933305264,
+        0.014584028162062168,
+        0.004548611119389534
+    ],
+    "gpu": "NVIDIA GeForce RTX 5070 Ti",
+    "errors": []
+}

@@ -23,6 +23,7 @@ namespace Liminal
         public HermitEncounter Hermits { get; private set; }
         public SubmarineEncounter Submarines { get; private set; }
         public ParticleTutorial Tutorial { get; private set; }
+        public PassageBeacons PassageGuide { get; private set; }
         public bool CavernMode { get; private set; }
         public int CurrentRoom { get; private set; }
         public int RoomsVisited { get; private set; }
@@ -65,6 +66,7 @@ namespace Liminal
                 Submarines=gameObject.AddComponent<SubmarineEncounter>();Submarines.Initialize(Combat,World,Flight,Music);
                 Tutorial=gameObject.AddComponent<ParticleTutorial>();Tutorial.Initialize(World,Combat,Flight,Music);
                 Tutorial.SetEnabled(!ProofActive && PlayerPrefs.GetInt("particleTutorialCompleted",0)==0);
+                PassageGuide=gameObject.AddComponent<PassageBeacons>();PassageGuide.Initialize();
                 sceneCamera.farClipPlane=2300;
             }
             var hud=gameObject.AddComponent<Hud>();hud.Experience=this;
@@ -91,6 +93,7 @@ namespace Liminal
                 CurrentRoom=CaveLayout.NearestRoom(Flight.Position);
                 if(!visitedRooms[CurrentRoom]) {visitedRooms[CurrentRoom]=true;RoomsVisited++;}
                 Combat.ActiveRoom=CurrentRoom;
+                PassageGuide.Tick(song);
                 Tutorial.Tick(song,dt,!ProofActive && !Combat.Ended);
                 if(!ProofActive && Tutorial.Complete && !tutorialSaved) {
                     tutorialSaved=true;PlayerPrefs.SetInt("particleTutorialCompleted",1);PlayerPrefs.Save();

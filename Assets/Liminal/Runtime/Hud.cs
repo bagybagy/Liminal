@@ -50,6 +50,7 @@ namespace Liminal
                 Fill(new Rect((w-bw)*0.5f,56,bw*Mathf.Clamp01(progressValue),1),Experience.CavernMode?CaveLayout.Rooms[Experience.CurrentRoom].Accent:e.Section>=3?Gold:Cyan);
                 DrawTargets();
                 DrawBattleReadouts(w,h,t);
+                if(Experience.CavernMode) DrawPassageReadout(w,h);
                 Vector2 aim=Experience.Flight.AimScreenPosition;
                 aim.y=h-aim.y;
                 Color cursor=e.Locks.Count>0?Gold:White;
@@ -152,6 +153,39 @@ namespace Liminal
             Line(tip,tip-direction*14-cross*7,Gold,2);
             Vector2 label=tip-direction*38;
             Text(new Rect(label.x-60,label.y-10,120,22),relative.z<0?"BEHIND":distance.ToString("F0")+" M",small,Gold,TextAnchor.MiddleCenter);
+        }
+        void DrawPassageReadout(float w,float h)
+        {
+            var flight=Experience.Flight;
+            if(!CaveLayout.NextPassage(flight.Position,out Vector3 waypoint,out int next)) return;
+            float distance=Vector3.Distance(flight.Position,waypoint);
+            string name=CaveLayout.Rooms[next].Name;
+            Text(new Rect(w*.5f-210,91,420,22),"NEXT  "+(next+1).ToString("D2")+" / "+name+"  "+distance.ToString("F0")+" M",
+                small,Cyan,TextAnchor.MiddleCenter);
+            Vector3 relative=flight.View.transform.InverseTransformPoint(waypoint);
+            Vector3 projected=flight.View.WorldToScreenPoint(waypoint);
+            Vector2 tip=new(projected.x,h-projected.y);
+            bool onScreen=relative.z>0 && tip.x>115 && tip.x<w-115 && tip.y>135 && tip.y<h-150;
+            if(onScreen) {
+                float radius=9;
+                Line(tip+Vector2.up*radius,tip+Vector2.right*radius,Cyan,2);
+                Line(tip+Vector2.right*radius,tip+Vector2.down*radius,Cyan,2);
+                Line(tip+Vector2.down*radius,tip+Vector2.left*radius,Cyan,2);
+                Line(tip+Vector2.left*radius,tip+Vector2.up*radius,Cyan,2);
+                Text(new Rect(tip.x-80,tip.y+14,160,20),"PASSAGE  "+distance.ToString("F0")+" M",small,Cyan,TextAnchor.MiddleCenter);
+                return;
+            }
+            Vector2 direction=new(relative.x,-relative.y);
+            if(direction.sqrMagnitude<.001f) direction=Vector2.down;
+            direction.Normalize();
+            Vector2 center=new(w*.5f,h*.5f),extents=new(Mathf.Max(60,w*.5f-100),Mathf.Max(60,h*.5f-155));
+            float scale=Mathf.Min(extents.x/Mathf.Max(.001f,Mathf.Abs(direction.x)),extents.y/Mathf.Max(.001f,Mathf.Abs(direction.y)));
+            tip=center+direction*scale;
+            Vector2 cross=new(-direction.y,direction.x);
+            Line(tip,tip-direction*16+cross*8,Cyan,2);
+            Line(tip,tip-direction*16-cross*8,Cyan,2);
+            Vector2 label=tip-direction*46;
+            Text(new Rect(label.x-80,label.y-10,160,20),relative.z<0?"PASSAGE / BEHIND":"PASSAGE",small,Cyan,TextAnchor.MiddleCenter);
         }
         void PausePanel(float w,float h)
         {

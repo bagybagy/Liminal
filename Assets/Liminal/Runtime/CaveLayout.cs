@@ -127,5 +127,51 @@ namespace Liminal
             }
             return route[Mathf.Min(route.Length-1,closest+(best<45?1:0))];
         }
+
+        public static void GetPortal(int passage,bool forward,out Vector3 position,out Vector3 direction)
+        {
+            var route=Passages[passage];
+            int room=forward?passage:passage+1;
+            position=forward?route[0]:route[route.Length-1];
+            direction=Vector3.forward;
+            for(int step=1;step<route.Length;step++) {
+                int a=forward?step-1:route.Length-step;
+                int b=forward?step:route.Length-step-1;
+                direction=(route[b]-route[a]).normalized;
+                if(RoomDistance(room,route[a])>1 || RoomDistance(room,route[b])<1) continue;
+                float low=0,high=1;
+                for(int iteration=0;iteration<20;iteration++) {
+                    float middle=(low+high)*.5f;
+                    if(RoomDistance(room,Vector3.Lerp(route[a],route[b],middle))<1) low=middle;
+                    else high=middle;
+                }
+                position=Vector3.Lerp(route[a],route[b],(low+high)*.5f);
+                return;
+            }
+        }
+
+        public static bool NextPassage(Vector3 position,out Vector3 waypoint,out int destination)
+        {
+            int room=NearestRoom(position);
+            waypoint=position;destination=room;
+            if(RoomDistance(room,position)<=1) {
+                if(room>=Passages.Length) return false;
+                GetPortal(room,true,out waypoint,out _);
+                destination=room+1;
+                return true;
+            }
+            // Keep following the current tunnel until the next chamber is actually entered.
+            float best=float.MaxValue;
+            int passage=-1,segment=0;
+            for(int p=0;p<Passages.Length;p++) for(int s=1;s<Passages[p].Length;s++) {
+                float distance=(position-ClosestOnSegment(position,Passages[p][s-1],Passages[p][s])).sqrMagnitude;
+                if(distance<best) {best=distance;passage=p;segment=s;}
+            }
+            if(passage<0) return false;
+            var route=Passages[passage];
+            if(Vector3.Distance(position,route[segment])<14 && segment<route.Length-1) segment++;
+            waypoint=route[segment];destination=passage+1;
+            return true;
+        }
     }
 }

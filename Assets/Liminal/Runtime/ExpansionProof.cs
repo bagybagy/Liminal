@@ -45,6 +45,9 @@ namespace Liminal
         IEnumerator Start()
         {
             yield return null;
+            if(Array.IndexOf(Environment.GetCommandLineArgs(),"--navigation-only")>=0) {
+                yield return InspectNavigation();yield break;
+            }
             report.connectedRooms = TravelRoutes();
             Require(report.connectedRooms, "All five chambers must have traversable open passages");
             experience.Restart();
@@ -128,6 +131,39 @@ namespace Liminal
             experience.Tutorial.SetEnabled(true);
             report.restartClean &= experience.Tutorial.StepIndex == 0 && !experience.Tutorial.Complete;
             Require(report.restartClean, "Restart must restore new stages and replayable tutorial without duplicate targets");
+            Finish();
+        }
+
+        IEnumerator InspectNavigation()
+        {
+            report.mode="navigation";
+            Require(experience.PassageGuide.PortalCount==CaveLayout.Passages.Length*2,"Every passage must have two visible mouths");
+            for(int room=0;room<CaveLayout.Passages.Length;room++) {
+                CaveLayout.GetPortal(room,true,out Vector3 portal,out Vector3 direction);
+                CaveLayout.GetPortal(room,false,out Vector3 reverse,out _);
+                Require(Mathf.Abs(CaveLayout.RoomDistance(room,portal)-1)<.0001f &&
+                    Mathf.Abs(CaveLayout.RoomDistance(room+1,reverse)-1)<.0001f,"Beacons must mark actual wall openings");
+                Vector3 start=room==0?CaveLayout.Spawn:CaveLayout.Passages[room-1][CaveLayout.Passages[room-1].Length-1];
+                experience.Flight.SetPose(start,Quaternion.LookRotation(portal-start));
+                Require(CaveLayout.NextPassage(start,out Vector3 waypoint,out int next) && next==room+1 &&
+                    Vector3.Distance(portal,waypoint)<.01f,"Uncleared rooms must point to the next passage rather than the boss");
+                yield return null;
+                Capture("navigation-room-"+room+".png");
+                var image=Render(experience.Flight.View,1600,900);
+                Vector3 projected=experience.Flight.View.WorldToScreenPoint(portal);
+                int cx=Mathf.RoundToInt(projected.x*1600/Screen.width),cy=Mathf.RoundToInt(projected.y*900/Screen.height);
+                int bright=0;
+                for(int y=Mathf.Max(0,cy-55);y<Mathf.Min(900,cy+55);y++)
+                    for(int x=Mathf.Max(0,cx-55);x<Mathf.Min(1600,cx+55);x++) {
+                        Color color=image.GetPixel(x,y);
+                        if(Mathf.Max(color.g,color.b)>.45f) bright++;
+                    }
+                Require(bright>30,"Passage mouth must be rendered visibly from chamber "+room);
+                Destroy(image);
+                Require(CaveLayout.Contains(portal+direction*8),"Forward passage marker must lead into traversable space");
+            }
+            report.connectedRooms=TravelRoutes();
+            Require(report.connectedRooms,"Navigation changes must preserve all physical passage routes");
             Finish();
         }
 
@@ -317,6 +353,7 @@ namespace Liminal
         void OnDestroy() { Application.logMessageReceived -= OnLog; }
         [Serializable] sealed class Report
         {
+            public string mode="expansion";
             public bool passed, connectedRooms, tutorialComplete, hermitComplete, submarineComplete, restartClean;
             public int tutorialActions, tutorialNotes, hermitParticles, hermitHits, submarineParticles, submarineHits;
             public int completedPhases, pressureShots, interceptions, damageTaken, hits, notes, haloNear, haloFar;
