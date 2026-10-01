@@ -35,12 +35,15 @@ namespace Liminal
         Matrix4x4 submarineMatrix, fleetMatrix, giantMatrix, reefMatrix;
         MaterialPropertyBlock markerProperties;
         int submarineMatrixId, fleetMatrixId, giantMatrixId, reefMatrixId;
-        int formFromId, formToId, morphId, beatPositionId, songId, reducedId, tintId;
+        int formFromId, formToId, morphId, beatPositionId, songId, reducedId, tintId, spearChargeId;
         int activePoolCount, lastWholeBeat = -1;
         int fromForm, toForm;
         float transitionStartSong, fleetAngle;
         bool initialized, roomIsActive, closing, morphStarted;
         Vector3 submarinePosition, focus;
+        Vector3 spearAim;
+        int spearPattern = -1;
+        float geometryBeat, spearChargeBeat;
 
         public IReadOnlyList<LockTarget> Targets => publicTargets;
         public bool Complete { get; private set; }
@@ -57,6 +60,12 @@ namespace Liminal
         public int CompletedPhases { get; private set; }
         public Vector3 SubmarinePosition => submarinePosition;
         public Vector3 GiantChestPosition => giantMatrix.MultiplyPoint3x4(new Vector3(0f, -204f, 0f));
+        public Vector3 SpearTip => giantMatrix.MultiplyPoint3x4(
+            SubmarineGeometry.PoseGiant(SubmarineGeometry.SpearTip, 4, geometryBeat));
+        public int SpearShots { get; private set; }
+        public int SpearVolleys { get; private set; }
+        public int SpearTelegraphs { get; private set; }
+        public bool SpearCharging => spearPattern >= 0;
 
         public void Initialize(Encounter combat, ParticleWorld world, Flight flight, MusicTransport music)
         {
@@ -86,6 +95,7 @@ namespace Liminal
             songId = Shader.PropertyToID("_Song");
             reducedId = Shader.PropertyToID("_Reduced");
             tintId = Shader.PropertyToID("_Tint");
+            spearChargeId = Shader.PropertyToID("_SpearCharge");
             markerProperties = new MaterialPropertyBlock();
 
             matterMesh = SubmarineGeometry.Build();
@@ -127,11 +137,14 @@ namespace Liminal
             {
                 RemoveOwnedLocks();
                 combat.ClearPressureShots(this);
+                ClearSpearPattern();
             }
 
             if (matterObject && matterObject.activeSelf != roomActive)
                 matterObject.SetActive(roomActive);
 
+            if (SpearCharging && (combat.Ended || beatPosition - spearChargeBeat > 4.5f))
+                ClearSpearPattern();
             UpdateGeometry(song, dt, beatPosition);
             UpdateTargetPoses(beatPosition);
             UpdateTargetVisibility();
@@ -159,6 +172,8 @@ namespace Liminal
         {
             if (!initialized) return;
             combat.ClearPressureShots(this);
+            ClearSpearPattern();
+            SpearShots = SpearVolleys = SpearTelegraphs = 0;
             UnregisterPool(submarinePool);
             UnregisterPool(fleetPool);
             UnregisterPool(giantPool);
@@ -217,7 +232,8 @@ namespace Liminal
                 if (slot.target == null) continue;
                 slot.target.acquireRange = slot.phase == FleetPhase ? 145f : 155f;
                 if (slot.phase == SubmarinePhase) slot.target.acquireRange = 160f;
-                slot.target.position = TargetPosition(slot, 0f);
+                if (slot.phase == GiantPhase) slot.target.acquireRange = 330f;
+                slot.target.position = TargetPosition(slot, slot.phase == GiantPhase ? geometryBeat : 0f);
                 slot.visual.transform.position = slot.target.position;
                 slot.visual.transform.localScale = Vector3.one * 1.35f;
                 slot.visual.SetActive(roomIsActive);
@@ -268,6 +284,8 @@ namespace Liminal
         {
             if (closing || Complete) return;
             closing = true;
+            ClearSpearPattern();
+            if (Phase == GiantPhase) combat.ClearPressureShots(this);
             Transitioning = true;
             TransitionProgress = 0f;
             RemoveOwnedLocks();
@@ -280,6 +298,7 @@ namespace Liminal
         {
             UnregisterPool(CurrentPool());
             combat.ClearPressureShots(this);
+            ClearSpearPattern();
             fromForm = Phase;
             toForm = Phase == GiantPhase ? ReefPhase : Phase + 1;
             transitionStartSong = song;
@@ -356,6 +375,7 @@ namespace Liminal
 
         void UpdateGeometry(float song, float dt, float beatPosition)
         {
+            geometryBeat = beatPosition;
             Vector3 center = SubmarineGeometry.RoomCenter;
             float orbit = song * 0.15f;
             Vector3 position = center + new Vector3(Mathf.Cos(orbit) * 135f,
@@ -387,6 +407,8 @@ namespace Liminal
             matterMaterial.SetFloat(beatPositionId, beatPosition);
             matterMaterial.SetFloat(songId, song);
             matterMaterial.SetFloat(reducedId, flight.ReducedMotion ? 1f : 0f);
+            float charge = SpearCharging ? Mathf.Clamp01((beatPosition - spearChargeBeat) / 2f) : 0f;
+            matterMaterial.SetFloat(spearChargeId, charge);
 
             if (Phase == SubmarinePhase) focus = submarinePosition;
             else if (Phase == FleetPhase) focus = flight.Position;
@@ -454,9 +476,13 @@ namespace Liminal
             if (currentBeat < lastWholeBeat)
             {
                 lastWholeBeat = currentBeat;
+                ClearSpearPattern();
+                if (Phase == GiantPhase) combat.ClearPressureShots(this);
                 return;
             }
             int first = Mathf.Max(lastWholeBeat + 1, currentBeat - 32);
+            // A skipped frame must not replay a phrase of spear curtains at one origin/time.
+            if (Phase == GiantPhase) first = Mathf.Max(first, currentBeat);
             for (int beat = first; beat <= currentBeat; beat++)
                 ProcessBeat(beat, song);
             lastWholeBeat = currentBeat;
@@ -479,9 +505,13 @@ namespace Liminal
             }
             else if (Phase == GiantPhase)
             {
-                if (position == 0) FireHandVolley(song, beat, true);
-                else if (position == 3) FireHandVolley(song, beat, false);
-                else if (position == 6) FireShockRing(song, beat);
+                int stage = beat % 32;
+                if (stage == 0) TelegraphSpear(song, beat, 0);
+                else if (stage == 10) TelegraphSpear(song, beat, 1);
+                else if (stage == 22) TelegraphSpear(song, beat, 2);
+                else if (stage == 2 || stage == 4) FireSpearCurtain(song, beat, 0, stage == 4);
+                else if (stage == 12 || stage == 14) FireSpearCurtain(song, beat, 1, stage == 14);
+                else if (stage == 24 || stage == 26) FireSpearCurtain(song, beat, 2, stage == 26);
             }
         }
 
@@ -491,8 +521,8 @@ namespace Liminal
             for (int i = 0; i < 5; i++)
             {
                 int tube = i % 4;
-                float side = i % 2 == 0 ? -1f : 1f;
-                Vector3 origin = submarineMatrix.MultiplyPoint3x4(new Vector3(side * 12.8f, -1.8f, -39f + tube * 20f));
+                int side = i % 2 == 0 ? -1 : 1;
+                Vector3 origin = submarineMatrix.MultiplyPoint3x4(SubmarineGeometry.SubmarineMuzzle(side, tube));
                 Vector3 forward = (aim - origin).normalized;
                 Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
                 float spread = (i - 2) * 0.075f;
@@ -503,8 +533,8 @@ namespace Liminal
 
         void FireSequentialTorpedo(float song, int beat, int position)
         {
-            float side = (position + beat) % 2 == 0 ? -1f : 1f;
-            Vector3 origin = submarineMatrix.MultiplyPoint3x4(new Vector3(side * 13f, -2f, -37f + (position - 3) * 18f));
+            int side = (position + beat) % 2 == 0 ? -1 : 1;
+            Vector3 origin = submarineMatrix.MultiplyPoint3x4(SubmarineGeometry.SubmarineMuzzle(side, position - 3));
             Vector3 aim = LeadPoint();
             Vector3 direction = (aim - origin).normalized;
             Launch(origin, direction, song, 24f + (beat % 3), HitColor(SubmarinePhase));
@@ -524,34 +554,89 @@ namespace Liminal
             }
         }
 
-        void FireHandVolley(float song, int beat, bool left)
+        void TelegraphSpear(float song, int beat, int pattern)
         {
-            int index = left ? 26 : 29;
-            Vector3 local = SubmarineGeometry.GiantTarget(index, out int joint);
-            Vector3 origin = giantMatrix.MultiplyPoint3x4(SubmarineGeometry.PoseGiant(local, joint,
-                (float)AuthoredScore.BeatPosition(song)));
-            world.BurstAt(origin, song, HitColor(GiantPhase), 1.25f);
-            Vector3 aim = LeadPoint();
-            Vector3 forward = (aim - origin).normalized;
-            Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
-            for (int i = 0; i < 3; i++)
-            {
-                float spread = (i - 1) * 0.07f;
-                Launch(origin, (forward + right * spread).normalized, song, 23f + ((beat + i) % 5), HitColor(GiantPhase));
-            }
+            spearAim = LeadPoint();
+            spearPattern = pattern;
+            spearChargeBeat = beat;
+            SpearTelegraphs++;
+            world.BurstAt(SpearTip, song, new Color(0.18f, 0.68f, 1f), 0.85f);
         }
 
-        void FireShockRing(float song, int beat)
+        void FireSpearCurtain(float song, int beat, int pattern, bool secondLayer)
         {
-            Vector3 center = giantMatrix.MultiplyPoint3x4(new Vector3(0f, -224f, 0f));
-            for (int i = 0; i < 10; i++)
+            if (spearPattern != pattern) return;
+            if (beat - spearChargeBeat > 4f)
             {
-                if (i == 1 || i == 6) continue;
-                float angle = i * Mathf.PI * 2f / 10f + beat * 0.035f;
-                Vector3 radial = new Vector3(Mathf.Cos(angle), 0.04f * ((i % 3) - 1), Mathf.Sin(angle)).normalized;
-                Vector3 origin = center + radial * 18f;
-                Launch(origin, radial, song, 22f + (i % 4) * 1.5f, HitColor(GiantPhase));
+                ClearSpearPattern();
+                return;
             }
+            int count = pattern == 1 ? 5 : 7;
+            if (combat.LivePressureShots(this) + count > 24 || !combat.CanRegisterPressureShots(count))
+            {
+                if (secondLayer) ClearSpearPattern();
+                return;
+            }
+
+            Vector3 origin = SpearTip;
+            Vector3 forward = spearAim - origin;
+            if (forward.sqrMagnitude < 0.001f) forward = giantMatrix.MultiplyVector(Vector3.forward);
+            forward.Normalize();
+            Vector3 reference = Mathf.Abs(Vector3.Dot(forward, Vector3.up)) > 0.95f ? Vector3.forward : Vector3.up;
+            Vector3 right = Vector3.Cross(reference, forward).normalized;
+            Vector3 up = Vector3.Cross(forward, right).normalized;
+            float layer = secondLayer ? 1f : -1f;
+            int lanes = pattern == 0 ? 9 : pattern == 1 ? 7 : 10;
+            int fired = 0;
+            for (int i = 0; i < lanes; i++)
+            {
+                float x, y;
+                if (pattern == 0)
+                {
+                    // A broad fan with a persistent central escape lane and one side opening.
+                    if (i == 4 || i == ((beat / 32) % 2 == 0 ? 2 : 6)) continue;
+                    x = (i - 4) * 0.12f;
+                    y = layer * 0.065f;
+                }
+                else if (pattern == 1)
+                {
+                    if (i == 3 || i == ((beat / 32) % 2 == 0 ? 1 : 5)) continue;
+                    float angle = (i - 3) * Mathf.PI / 6f;
+                    x = Mathf.Sin(angle) * 0.38f;
+                    y = Mathf.Cos(angle) * 0.22f * layer;
+                }
+                else
+                {
+                    // An expanding electric ring, not a filled disk; three sectors stay open.
+                    if (i == 0 || i == 1 || i == 5) continue;
+                    float angle = i * Mathf.PI * 2f / 10f + layer * 0.12f;
+                    x = Mathf.Cos(angle) * 0.32f;
+                    y = Mathf.Sin(angle) * 0.32f;
+                }
+                Vector3 direction = (forward + right * x + up * y).normalized;
+                // Fixed, interceptable trajectories. No tracking after the authored warning.
+                float speed = 19f + (i % 3) * 1.5f;
+                Color electric = new Color(0.24f + (i % 2) * 0.26f, 0.72f, 1f);
+                if (combat.RegisterPressureShot(origin, direction, song, electric, this, speed) != null)
+                {
+                    SpearShots++;
+                    fired++;
+                }
+            }
+            if (fired > 0)
+            {
+                SpearVolleys++;
+                world.BurstAt(origin, song, new Color(0.62f, 0.89f, 1f), 1.1f);
+            }
+            if (secondLayer) ClearSpearPattern();
+        }
+
+        void ClearSpearPattern()
+        {
+            spearPattern = -1;
+            spearAim = Vector3.zero;
+            spearChargeBeat = 0f;
+            if (matterMaterial) matterMaterial.SetFloat(spearChargeId, 0f);
         }
 
         void Launch(Vector3 origin, Vector3 direction, float song, float speed, Color color)
@@ -618,7 +703,7 @@ namespace Liminal
                 Status = Phase == GiantPhase ? "SCARLET ENGINE / ENGINE AWAKENING" : "SCARLET ENGINE / MATTER FORMING";
                 return;
             }
-            string label = Phase == SubmarinePhase ? "SUBMARINE" : Phase == FleetPhase ? "SUBMERSIBLES" : "MACHINE GIANT";
+            string label = Phase == SubmarinePhase ? "SUBMARINE" : Phase == FleetPhase ? "SUBMERSIBLES" : "POSEIDON / INDRA'S ARROW";
             Status = $"SCARLET ENGINE / {label} {PhaseHits}/{GoalFor(Phase)}";
         }
 
@@ -629,6 +714,7 @@ namespace Liminal
             if (matterObject) matterObject.SetActive(false);
             RemoveOwnedLocks();
             combat.ClearPressureShots(this);
+            ClearSpearPattern();
             HidePool(submarinePool);
             HidePool(fleetPool);
             HidePool(giantPool);
