@@ -42,6 +42,8 @@ namespace Liminal
                             "HORIZON REASSEMBLING":"HORIZON  "+Experience.Marine.WhaleResonance+" / "+MarineLife.WhaleDamageGoal);
                     progressValue=room==0?Experience.Marine.CompletedJellies/(float)Mathf.Max(1,Experience.Marine.JellyCount):
                         room==1?e.BossDamage/(float)e.BossDamageGoal:Experience.Marine.WhaleResonance/(float)MarineLife.WhaleDamageGoal;
+                    if(room==3) {status=Experience.Hermits.Status;progressValue=Experience.Hermits.Progress;}
+                    if(room==4) {status=Experience.Submarines.Status;progressValue=Experience.Submarines.Progress;}
                 }
                 Text(new Rect((w-bw)*0.5f,28,bw,24),status,small,Muted,TextAnchor.MiddleCenter);
                 Fill(new Rect((w-bw)*0.5f,56,bw,1),new Color(0.15f,0.25f,0.27f));
@@ -65,7 +67,7 @@ namespace Liminal
             Text(new Rect(w-205,h-66,172,18),"OVERDRIVE",small,e.Charge>=1?Gold:Muted,TextAnchor.UpperRight);
             Fill(new Rect(w-174,h-39,140,2),new Color(0.2f,0.27f,0.29f));
             Fill(new Rect(w-174,h-39,140*e.Charge,2),Gold);
-            float progress=Experience.CavernMode?Experience.RoomsVisited/3f:Mathf.Clamp01(t/(float)Score.Duration);
+            float progress=Experience.CavernMode?Experience.RoomsVisited/(float)CaveLayout.Rooms.Length:Mathf.Clamp01(t/(float)Score.Duration);
             Fill(new Rect(0,h-2,w*progress,2),Cyan*0.65f);
             if(t<7 && !music.Paused) {
                 float a=Mathf.Min(t/2,1)*Mathf.Clamp01((7-t)/2);
@@ -126,8 +128,10 @@ namespace Liminal
             string destination="SERPENT";
             if(Experience.CavernMode) {
                 int room=Experience.CurrentRoom;
-                if(room==2) {focus=Experience.Marine.WhalePosition;destination="HORIZON";}
-                else if(room==0 || Experience.Combat.SerpentComplete) {focus=CaveLayout.ForwardWaypoint(flight.Position,room);destination="DESCENT";}
+                if(room==2 && !Experience.Marine.WhaleReleased) {focus=Experience.Marine.WhalePosition;destination="HORIZON";}
+                else if(room==3 && !Experience.Hermits.Complete) {focus=Experience.Hermits.BossPosition;destination="TIDAL SHELLS";}
+                else if(room==4) {focus=Experience.Submarines.Focus;destination="SCARLET ENGINE";}
+                else if(room==0 || room>=2 || Experience.Combat.SerpentComplete) {focus=CaveLayout.ForwardWaypoint(flight.Position,room);destination="DESCENT";}
             }
             float distance=Vector3.Distance(flight.Position,focus);
             Text(new Rect(33,h-98,190,20),flight.Speed.ToString("F0")+" M/S",small,Muted);
@@ -152,7 +156,7 @@ namespace Liminal
         void PausePanel(float w,float h)
         {
             Fill(new Rect(0,0,w,h),new Color(0.004f,0.009f,0.014f,0.88f));
-            float x=w*0.5f-150,y=Mathf.Max(80,h*0.5f-172);
+            float x=w*0.5f-150,y=Mathf.Max(35,h*0.5f-200);
             Text(new Rect(x,y,300,42),"PAUSED",title,White,TextAnchor.MiddleCenter);
             if(GUI.Button(new Rect(x,y+70,300,38),"RESUME",button)) Experience.TogglePause();
             Text(new Rect(x,y+133,110,23),"MUSIC",small,Muted);
@@ -160,8 +164,12 @@ namespace Liminal
             Experience.Music.SetVolume(volume);
             bool motion=GUI.Toggle(new Rect(x,y+178,300,26),Experience.ReducedMotion,"  REDUCED MOTION");
             Experience.SetReducedMotion(motion);
-            if(GUI.Button(new Rect(x,y+227,300,36),"RESTART",button)) Experience.Restart();
-            if(GUI.Button(new Rect(x,y+277,300,36),"EXIT",button)) Experience.Quit();
+            if(Experience.CavernMode) {
+                if(GUI.Button(new Rect(x,y+222,194,36),"PARTICLE TUTORIAL",button)) Experience.ReplayTutorial();
+                if(GUI.Button(new Rect(x+202,y+222,98,36),"SKIP",button)) Experience.SkipTutorial();
+            }
+            if(GUI.Button(new Rect(x,y+275,300,36),"RESTART",button)) Experience.Restart();
+            if(GUI.Button(new Rect(x,y+325,300,36),"EXIT",button)) Experience.Quit();
         }
         void Results(float w,float h)
         {

@@ -138,7 +138,7 @@ namespace Liminal
                     particles.Add(p, R(0.04f, 0.075f), col * R(0.06f, 0.14f), R(), MineralLayer);
                 }
             }
-            surfaceMesh = new Mesh { name = "Three chamber shell", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            surfaceMesh = new Mesh { name = "Connected chamber shell", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             surfaceMesh.SetVertices(vertices);
             surfaceMesh.SetColors(colors);
             surfaceMesh.SetTriangles(triangles, 0);
@@ -192,7 +192,8 @@ namespace Liminal
             var verts = new List<Vector3>();
             var cols = new List<Color>();
             var tris = new List<int>();
-            foreach (var route in CaveLayout.Passages) {
+            for (int passage = 0; passage < CaveLayout.Passages.Length; passage++) {
+                var route = CaveLayout.Passages[passage];
                 for (int segment = 1; segment < route.Length; segment++) {
                     Vector3 start = route[segment - 1], end = route[segment];
                     int steps = Mathf.Max(2, Mathf.CeilToInt(Vector3.Distance(start, end) / 12f));
@@ -207,7 +208,7 @@ namespace Liminal
                             float angle = radial * Mathf.PI * 2f / 24f;
                             Vector3 p = center + (side * Mathf.Cos(angle) + up * Mathf.Sin(angle)) * (TunnelRadius - 2f);
                             if (IsBuriedInRoom(p) || InsideOtherPassage(p, route, segment - 1)) continue;
-                            Color col = Color.Lerp(CaveLayout.Rooms[1].Color, CaveLayout.Rooms[2].Color, segment / (float)route.Length);
+                            Color col = Color.Lerp(CaveLayout.Rooms[passage].Color, CaveLayout.Rooms[passage+1].Color, segment / (float)route.Length);
                             float trail = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(angle * 5f + f * 13f)), 9f);
                             if (trail > 0.56f) particles.Add(p, 0.06f, col * R(0.12f, 0.25f), R(), 0.025f);
                         }
@@ -218,7 +219,7 @@ namespace Liminal
                         for (int radial = 0; radial <= 24; radial++) {
                             float angle = radial * Mathf.PI * 2f / 24f;
                             verts.Add(center + (side * Mathf.Cos(angle) + up * Mathf.Sin(angle)) * TunnelRadius);
-                            cols.Add(Color.Lerp(CaveLayout.Rooms[1].Color, CaveLayout.Rooms[2].Color, segment / (float)route.Length) * 0.11f);
+                            cols.Add(Color.Lerp(CaveLayout.Rooms[passage].Color, CaveLayout.Rooms[passage+1].Color, segment / (float)route.Length) * 0.11f);
                         }
                     }
                     for (int step = 0; step < steps; step++) {
@@ -233,7 +234,7 @@ namespace Liminal
             if (verts.Count == 0) return;
             var tube = new Mesh { name = "Passage tunnel shell", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             tube.SetVertices(verts); tube.SetColors(cols); tube.SetTriangles(tris, 0); tube.RecalculateNormals();
-            tube.bounds = new Bounds(new Vector3(50, 0, 50), new Vector3(800, 800, 1400));
+            tube.bounds = CaveLayout.WorldBounds;
             meshes.Add(tube);
             var obj = new GameObject("Passage tunnel walls");
             obj.transform.SetParent(transform, false);

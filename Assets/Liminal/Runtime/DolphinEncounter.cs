@@ -198,6 +198,11 @@ namespace Liminal
             {
                 return;
             }
+            if (CaveLayout.NearestRoom(flight.Position) != 2)
+            {
+                if (combat.LivePressureShots(this) > 0) combat.ClearPressureShots(this);
+                return;
+            }
 
             dt = Mathf.Clamp(dt, 0f, 0.1f);
             schoolAge += dt;

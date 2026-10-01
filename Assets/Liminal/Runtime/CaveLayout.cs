@@ -19,7 +19,11 @@ namespace Liminal
             new("SERPENT SANCTUM",new Vector3(0,10,35),new Vector3(215,110,225),
                 new Color(.20f,.55f,.66f),new Color(1,.62f,.22f)),
             new("HORIZON WHALE",new Vector3(90,-360,1120),new Vector3(700,300,720),
-                new Color(.24f,.44f,.86f),new Color(.80f,.88f,1))
+                new Color(.24f,.44f,.86f),new Color(.80f,.88f,1)),
+            new("TIDAL SHELLS",new Vector3(-120,-840,2290),new Vector3(380,160,410),
+                new Color(.12f,.70f,.52f),new Color(1,.78f,.30f)),
+            new("SCARLET ENGINE",new Vector3(240,-1020,3370),new Vector3(520,280,560),
+                new Color(.65f,.12f,.19f),new Color(1,.53f,.24f))
         };
         public const float PassageRadius=34f;
         public static float HorizonSurfaceY => Rooms[2].Center.y+65f;
@@ -32,7 +36,9 @@ namespace Liminal
         }
         public static readonly Vector3[][] Passages = {
             new[] {new Vector3(0,180,-360),new Vector3(60,130,-285),new Vector3(55,65,-195),new Vector3(0,35,-115)},
-            new[] {new Vector3(110,-25,175),new Vector3(190,-95,320),new Vector3(170,-190,430),new Vector3(90,-315,570)}
+            new[] {new Vector3(110,-25,175),new Vector3(190,-95,320),new Vector3(170,-190,430),new Vector3(90,-315,570)},
+            new[] {new Vector3(90,-500,1630),new Vector3(80,-610,1800),new Vector3(-20,-715,1910),new Vector3(-120,-815,2040)},
+            new[] {new Vector3(60,-900,2550),new Vector3(160,-945,2730),new Vector3(235,-1030,2920),new Vector3(240,-1060,3060)}
         };
         public static Vector3 Spawn => Rooms[0].Center+new Vector3(0,-4,-70);
         public static Quaternion SpawnRotation => Quaternion.LookRotation(new Vector3(0,-.05f,1));
@@ -112,7 +118,7 @@ namespace Liminal
 
         public static Vector3 ForwardWaypoint(Vector3 position,int room)
         {
-            if(room>=Passages.Length) return Rooms[2].Center;
+            if(room>=Passages.Length) return Rooms[Rooms.Length-1].Center;
             var route=Passages[room];
             int closest=0;float best=float.MaxValue;
             for(int i=0;i<route.Length;i++) {
