@@ -75,6 +75,7 @@ namespace Liminal
         readonly float[] dolphinRetiredAt = new float[DolphinEncounter.Capacity];
         WhaleArrival arrival;
         DolphinEncounter dolphins;
+        WhaleInheritance inheritance;
         PersistentMatter matter;
         ParticleWorld world;
         Encounter combat;
@@ -90,6 +91,7 @@ namespace Liminal
         bool whaleReleased, whaleRegenerating, whaleRecallStarted;
         int whaleRegenerations, dolphinRecallCount;
         bool whalePoseStarted, playerPoseStarted;
+        bool whalePeakEffectsPlayed;
         Matrix4x4 whaleReleaseMatrix;
 
         public PersistentMatter Matter => matter;
@@ -115,6 +117,19 @@ namespace Liminal
         public bool WhaleEntranceComplete => arrival && arrival.Complete;
         public WhaleArrival Arrival => arrival;
         public DolphinEncounter Dolphins => dolphins;
+        public WhaleInheritance Inheritance => inheritance;
+        public BossId GrowthMask => inheritance ? inheritance.GrowthMask : BossId.None;
+        public int SummonCount => inheritance ? inheritance.SummonCount : 0;
+        public int SummonsAlive => inheritance ? inheritance.SummonsAlive : 0;
+        public int SpearTargets => inheritance ? inheritance.SpearTargets : 0;
+        public IReadOnlyList<LockTarget> SummonTargets => inheritance ? inheritance.SummonTargets : Array.Empty<LockTarget>();
+        public IReadOnlyList<LockTarget> SpearLockTargets => inheritance ? inheritance.SpearLockTargets : Array.Empty<LockTarget>();
+        public int SpearHits => inheritance ? inheritance.SpearHits : 0;
+        public int RingShots => inheritance ? inheritance.RingShots : 0;
+        public int InheritedShotsSpawned => inheritance ? inheritance.ShotsSpawned : 0;
+        public int InheritedShotsLive => inheritance ? inheritance.ShotsLive : 0;
+        public int InheritedShotsResolved => inheritance ? inheritance.ShotsResolved : 0;
+        public int InheritedCurtainsFired => inheritance ? inheritance.CurtainsFired : 0;
         public int DolphinParticleCount { get; private set; }
         public int DolphinGroupAt(int index) => dolphinGroups[index];
         public int SpawnedDolphins
@@ -157,7 +172,20 @@ namespace Liminal
             arrival.Initialize();
             dolphins = gameObject.AddComponent<DolphinEncounter>();
             dolphins.Initialize(combat, world, GetComponent<Experience>().Flight);
+            inheritance = gameObject.AddComponent<WhaleInheritance>();
+            inheritance.Initialize(combat, world, GetComponent<Experience>().Flight, dolphins);
             ResetLife();
+        }
+
+        public void ConfigureInheritance(BossId mask)
+        {
+            if (inheritance) inheritance.ConfigureInheritance(mask);
+        }
+
+        public void PrepareFinale(Func<int, Vector3> sampler)
+        {
+            if (sampler == null) throw new ArgumentNullException(nameof(sampler));
+            matter.SetWhaleDestinations(sampler);
         }
 
         void BuildJellies()
@@ -468,7 +496,7 @@ namespace Liminal
             Color hitColor = index % 11 == 0 ? new Color(1f, 0.52f, 0.10f) : new Color(0.035f, 0.62f, 1f);
             if (world.Caverns) world.Caverns.Illuminate(target.position, 1.45f, hitColor);
             world.BurstAt(target.position, song, hitColor, 1.25f);
-            for (int slot = 0; slot < DolphinOrgans.Length; slot++)
+            for (int slot = 0; whaleDamage < WhaleDamageGoal && slot < DolphinOrgans.Length; slot++)
             {
                 if (index != DolphinOrgans[slot] || dolphinBorn[slot]) continue;
                 if (!dolphins.TrySpawn(slot, target.position, whaleRotation, song)) continue;
@@ -509,6 +537,7 @@ namespace Liminal
             arrival.ResetArrival();
             matter.SetWhaleArrival(arrival.Origin, 0f);
             dolphins.ResetSchool();
+            inheritance.Reset();
             for (int i = 0; i < DolphinEncounter.Capacity; i++)
             {
                 dolphinBorn[i] = false;
@@ -534,6 +563,7 @@ namespace Liminal
             whaleRoot.transform.localScale = Vector3.one * 1.8f;
             previousPlayer = CaveLayout.Spawn;
             whalePoseStarted = playerPoseStarted = false;
+            whalePeakEffectsPlayed = false;
             bool registered = jellyTargets.Count == JellyTotal && combat.Targets.Contains(jellyTargets[0]);
             if (!registered) RegisterTargets();
             for (int i = 0; i < jellies.Count; i++)
@@ -579,6 +609,14 @@ namespace Liminal
             arrival.Tick(song, player);
             matter.SetWhaleArrival(arrival.Origin, arrival.Formation);
             TickWhale(song, dt);
+            if (arrival.PeakReached && !whalePeakEffectsPlayed)
+            {
+                whalePeakEffectsPlayed = true;
+                if (world.Caverns) world.Caverns.Illuminate(whalePosition, 5f, Blue);
+                world.BurstAt(whalePosition, song, Blue, 4f);
+            }
+            inheritance.Tick(song, arrival.Age, arrival.PeakTime, arrival.Triggered, whaleReleased,
+                whaleRegenerating || whaleRecallStarted, whaleDamage >= WhaleDamageGoal, whalePosition, whaleRotation);
             TickWhaleTargets(song);
             TickDolphins(song, dt);
             matter.SetWhaleVisibility(WhaleVisibility);
@@ -748,7 +786,8 @@ namespace Liminal
 
         void TickDolphins(float song, float dt)
         {
-            dolphins.Tick(song, dt, whaleReleased);
+            dolphins.Tick(song, dt, whaleReleased, whaleDamage >= WhaleDamageGoal,
+                whaleRegenerating || whaleRecallStarted);
             var whaleMatrix = Matrix4x4.TRS(whalePosition, whaleRotation, Vector3.one * 1.8f);
             if (whaleRegenerating && whaleRecallStarted)
             {

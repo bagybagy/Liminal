@@ -11,7 +11,7 @@ namespace Liminal
         public const int FleetTargets = 24;
         public const int GiantTargets = 32;
 
-        public static Vector3 RoomCenter => new(240f, -1020f, 3370f);
+        public static Vector3 RoomCenter => CaveLayout.Rooms[4].Center;
         public static Vector3 SpearBase => new(65f, -282f, 5f);
         public static Vector3 SpearNeck => new(49f, -120f, 5f);
         public static Vector3 SpearTip => new(46.8f, -98f, 5f);
@@ -163,7 +163,7 @@ namespace Liminal
             if (index < 12)
             {
                 int point = index - 4;
-                float y = -180f - (point / 2) * 9f;
+                float y = -179f - (point / 2) * 7f;
                 float radius = ChestRadius(y);
                 float angle = point % 2 == 0 ? 0.95f : Mathf.PI - 0.95f;
                 return new Vector3(Mathf.Cos(angle) * radius, y, Mathf.Sin(angle) * radius * 0.55f + 0.7f);
@@ -171,7 +171,8 @@ namespace Liminal
             if (index < 16)
             {
                 int point = index - 12;
-                return new Vector3(point % 2 == 0 ? -9f : 9f, -225f - (point / 2) * 8f, 9.5f);
+                float side = point % 2 == 0 ? -1f : 1f;
+                return new Vector3(side * (7f + (point / 2) * 5f), -164f - (point / 2) * 8f, 10f);
             }
             if (index < 20)
             {
@@ -179,24 +180,28 @@ namespace Liminal
                 bool left = point < 2;
                 joint = left ? 1 : 3;
                 float side = left ? -1f : 1f;
-                float t = point % 2 == 0 ? 0.34f : 0.78f;
+                float t = point % 2 == 0 ? 0.28f : 0.74f;
                 return SegmentSurface(Shoulder(side), Elbow(side), 5.8f, t, Mathf.PI * 1.5f, 1.04f);
             }
             if (index < 26)
             {
                 int point = index - 20;
                 bool left = point < 3;
-                joint = left ? 2 : 4;
+                joint = left ? 1 : 3;
                 float side = left ? -1f : 1f;
-                float t = point % 3 == 0 ? 0.18f : point % 3 == 1 ? 0.56f : 0.91f;
-                return SegmentSurface(Elbow(side), Hand(side), 5f, t, Mathf.PI * 1.5f, 1.05f);
+                Vector3 forearmEnd = Elbow(side) + new Vector3(side * 2f, -8f, 3f);
+                float t = point % 3 == 0 ? 0.22f : point % 3 == 1 ? 0.58f : 0.9f;
+                return SegmentSurface(Elbow(side), forearmEnd, 5f, t, Mathf.PI * 1.5f, 1.05f);
             }
             {
                 int point = index - 26;
                 joint = 4;
-                if (point == 5) return SpearTip;
-                if (point == 4) return Vector3.Lerp(SpearNeck, SpearTip, 0.45f) + Vector3.forward * 3.3f;
-                return Vector3.Lerp(SpearBase, SpearNeck, 0.18f + point * 0.25f) + Vector3.forward * 2.1f;
+                if (point == 5) return new Vector3(46.8f, -103f, 8f);
+                if (point == 4) return new Vector3(48.5f, -116f, 10f);
+                if (point == 3) return new Vector3(50f, -133f, 7f);
+                if (point == 2) return new Vector3(54f, -158f, 6f);
+                if (point == 1) return new Vector3(59f, -185f, 5f);
+                return new Vector3(65f, -210f, 5f);
             }
         }
 

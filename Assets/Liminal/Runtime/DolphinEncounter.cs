@@ -62,13 +62,22 @@ namespace Liminal
         static readonly Color BlueShot = new(0.04f, 0.43f, 1f);
         static readonly Color OrangeShot = new(1f, 0.38f, 0.08f);
         readonly Slot[] slots = new Slot[Capacity];
+        readonly int[] candidateSlots = new int[Capacity];
+        readonly float[] candidateWeights = new float[Capacity];
         Encounter combat;
         ParticleWorld world;
         Flight flight;
-        bool initialized, released;
+        bool initialized, released, pressureSpawningSuppressed;
         int shotSequence;
         int nextBurstSlot;
+        int actionSequence, optionalCount;
+        bool inheritedBubbleRings;
         float schoolAge, nextSchoolBurstAge;
+
+        public float AttackRateMultiplier => Mathf.Min(2f, 1f + optionalCount / 3f);
+        public int BubbleRingShots { get; private set; }
+        public int ShotsSpawned { get; private set; }
+        public int NormalBursts { get; private set; }
 
         public void Initialize(Encounter combat, ParticleWorld world, Flight flight)
         {
@@ -108,6 +117,7 @@ namespace Liminal
             }
             initialized = true;
             released = false;
+            pressureSpawningSuppressed = false;
             combat.RegisterDolphinSchool(this);
         }
 
@@ -115,7 +125,9 @@ namespace Liminal
         {
             if (combat) combat.ClearPressureShots(this);
             released = false;
+            pressureSpawningSuppressed = false;
             shotSequence = 0;
+            actionSequence = 0;
             schoolAge = 0f;
             nextSchoolBurstAge = 2f;
             nextBurstSlot = 0;
@@ -145,9 +157,23 @@ namespace Liminal
             }
         }
 
+        public void ConfigureInheritance(BossId mask)
+        {
+            mask &= RunProgress.OptionalBosses;
+            optionalCount = RunProgress.Count(mask);
+            inheritedBubbleRings = (mask & BossId.Hermit) != 0;
+        }
+
+        public void ResetInheritance()
+        {
+            ConfigureInheritance(BossId.None);
+            BubbleRingShots = ShotsSpawned = NormalBursts = 0;
+        }
+
         public bool TrySpawn(int slotIndex, Vector3 origin, Quaternion rotation, float song)
         {
-            if (!initialized || released || !combat || combat.Ended || slotIndex < 0 || slotIndex >= Capacity)
+            if (!initialized || released || !combat || combat.Ended || combat.Peaceful ||
+                slotIndex < 0 || slotIndex >= Capacity)
                 return false;
             Slot slot = slots[slotIndex];
             if (slot.spawned) return false;
@@ -186,7 +212,7 @@ namespace Liminal
             return true;
         }
 
-        public void Tick(float song, float dt, bool whaleReleased)
+        public void Tick(float song, float dt, bool whaleReleased, bool whaleComplete = false, bool recalling = false)
         {
             if (!initialized || !combat || !world || !flight) return;
             if (whaleReleased && !released)
@@ -198,11 +224,18 @@ namespace Liminal
             {
                 return;
             }
-            if (CaveLayout.NearestRoom(flight.Position) != 2)
+            if (whaleComplete || recalling || combat.Ended || combat.Peaceful)
             {
-                if (combat.LivePressureShots(this) > 0) combat.ClearPressureShots(this);
+                StopUnreservedPressureShots();
                 return;
             }
+            if ((combat.ExplorationMode && combat.ActiveRoom != 2) ||
+                CaveLayout.NearestRoom(flight.Position) != 2)
+            {
+                StopUnreservedPressureShots();
+                return;
+            }
+            pressureSpawningSuppressed = false;
 
             dt = Mathf.Clamp(dt, 0f, 0.1f);
             schoolAge += dt;
@@ -215,6 +248,14 @@ namespace Liminal
                 Swim(i, slot, age, dt, song);
             }
             FireBurstIfReady(song);
+        }
+
+        void StopUnreservedPressureShots()
+        {
+            if (pressureSpawningSuppressed) return;
+            pressureSpawningSuppressed = true;
+            if (combat && combat.LivePressureShots(this) > 0)
+                combat.ClearPressureShots(this);
         }
 
         public DolphinPose PoseAt(int slot)
@@ -341,46 +382,77 @@ namespace Liminal
 
         void FireBurstIfReady(float song)
         {
+            if (combat.Ended || combat.Peaceful ||
+                (combat.ExplorationMode && combat.ActiveRoom != 2)) return;
             if (schoolAge < nextSchoolBurstAge) return;
-            if (combat.LivePressureShots(this) + ShotsPerBurst > MaxConcurrentShots ||
-                !combat.CanRegisterPressureShots(ShotsPerBurst))
+
+            int candidateCount = 0;
+            float totalWeight = 0f;
+            for (int index = 0; index < Capacity; index++)
+            {
+                Slot candidate = slots[index];
+                if (!candidate.spawned || candidate.pose.Retired || !candidate.aimable ||
+                    candidate.pose.Age < candidate.nextFireAge ||
+                    (flight.Position - candidate.pose.Position).sqrMagnitude > 105f * 105f) continue;
+                float weight = IsInView(candidate.pose.Position) ? 1.2f : 1f;
+                candidateSlots[candidateCount] = index;
+                candidateWeights[candidateCount] = weight;
+                candidateCount++;
+                totalWeight += weight;
+            }
+            if (candidateCount == 0) return;
+
+            float selection = StableUnit(actionSequence * 37 + shotSequence * 11 + nextBurstSlot) * totalWeight;
+            int selected = candidateSlots[candidateCount - 1];
+            for (int i = 0; i < candidateCount; i++)
+            {
+                selection -= candidateWeights[i];
+                if (selection < 0f) { selected = candidateSlots[i]; break; }
+            }
+            Slot slot = slots[selected];
+            Vector3 origin = slot.pose.Position + slot.pose.Rotation * new Vector3(0f, 0.25f, 0.6f);
+            bool fireRing = inheritedBubbleRings && actionSequence % 3 == 2;
+            int desiredShots = fireRing ? 1 : ShotsPerBurst;
+            if (combat.LivePressureShots(this) + desiredShots > MaxConcurrentShots ||
+                !combat.CanRegisterPressureShots(desiredShots))
             {
                 nextSchoolBurstAge = schoolAge + 0.15f;
                 return;
             }
 
-            int selected = -1;
-            Slot slot = null;
-            for (int offset = 0; offset < Capacity; offset++)
-            {
-                int index = (nextBurstSlot + offset) % Capacity;
-                Slot candidate = slots[index];
-                if (!candidate.spawned || candidate.pose.Retired || !candidate.aimable ||
-                    candidate.pose.Age < candidate.nextFireAge ||
-                    (flight.Position - candidate.pose.Position).sqrMagnitude > 105f * 105f) continue;
-                selected = index;
-                slot = candidate;
-                break;
-            }
-            if (slot == null) return;
-
-            Vector3 directionToPlayer = AimDirection(slot.pose.Position, shotSequence);
+            Vector3 directionToPlayer = AimDirection(origin, shotSequence);
             Vector3 spreadAxis = Vector3.ProjectOnPlane(Vector3.up, directionToPlayer);
             if (spreadAxis.sqrMagnitude < 0.001f)
                 spreadAxis = Vector3.ProjectOnPlane(Vector3.right, directionToPlayer);
             spreadAxis.Normalize();
             int fired = 0;
-            for (int burstIndex = 0; burstIndex < ShotsPerBurst; burstIndex++)
+            if (fireRing)
             {
-                int sequence = shotSequence;
-                Vector3 direction = AimDirection(slot.pose.Position, sequence);
-                float spread = (burstIndex - 1) * 12f + Mathf.Sin((sequence + 1) * 1.31f) * 2f;
-                direction = Quaternion.AngleAxis(spread, spreadAxis) * direction;
-                Color color = (sequence & 1) == 0 ? BlueShot : OrangeShot;
-                if (combat.RegisterPressureShot(slot.pose.Position, direction, song, color, this, PressureSpeed) == null)
-                    break;
-                shotSequence++;
-                fired++;
+                Vector3 direction = Quaternion.AngleAxis(-3f, spreadAxis) * directionToPlayer;
+                if (combat.RegisterPressureShot(origin, direction, song, new Color(0.18f, 0.76f, 1f),
+                    this, PressureSpeed * 0.78f, 9.5f, true) != null)
+                {
+                    shotSequence++;
+                    ShotsSpawned++;
+                    BubbleRingShots++;
+                    fired++;
+                }
+            }
+            else
+            {
+                for (int burstIndex = 0; burstIndex < ShotsPerBurst; burstIndex++)
+                {
+                    int sequence = shotSequence;
+                    Vector3 direction = AimDirection(origin, sequence);
+                    float spread = (burstIndex - 1) * 12f + Mathf.Sin((sequence + 1) * 1.31f) * 2f;
+                    direction = Quaternion.AngleAxis(spread, spreadAxis) * direction;
+                    Color color = (sequence & 1) == 0 ? BlueShot : OrangeShot;
+                    if (combat.RegisterPressureShot(origin, direction, song, color, this, PressureSpeed) == null)
+                        break;
+                    shotSequence++;
+                    ShotsSpawned++;
+                    fired++;
+                }
             }
 
             if (fired == 0)
@@ -390,9 +462,34 @@ namespace Liminal
             }
             nextBurstSlot = (selected + 1) % Capacity;
             float actorCooldown = 2.2f + 1.2f * (0.5f + 0.5f * Mathf.Sin((shotSequence + selected) * 1.71f));
-            slot.nextFireAge = slot.pose.Age + actorCooldown;
+            slot.nextFireAge = slot.pose.Age + actorCooldown / AttackRateMultiplier * (fireRing ? 1.18f : 1f);
             float stagger = 1f + 0.5f * (0.5f + 0.5f * Mathf.Sin((shotSequence + selected) * 1.37f));
-            nextSchoolBurstAge = schoolAge + stagger;
+            nextSchoolBurstAge = schoolAge + stagger / AttackRateMultiplier;
+            actionSequence++;
+            if (!fireRing) NormalBursts++;
+        }
+
+        bool IsInView(Vector3 position)
+        {
+            Camera camera = flight.View;
+            if (!camera) return false;
+            Vector3 viewport = camera.WorldToViewportPoint(position);
+            return viewport.z >= camera.nearClipPlane && viewport.z <= camera.farClipPlane &&
+                viewport.x >= 0f && viewport.x <= 1f && viewport.y >= 0f && viewport.y <= 1f;
+        }
+
+        static float StableUnit(int value)
+        {
+            unchecked
+            {
+                uint x = (uint)value + 0x9e3779b9u;
+                x ^= x >> 16;
+                x *= 0x7feb352du;
+                x ^= x >> 15;
+                x *= 0x846ca68bu;
+                x ^= x >> 16;
+                return (x & 0x00ffffffu) / 16777216f;
+            }
         }
 
         Vector3 AimDirection(Vector3 origin, int sequence)

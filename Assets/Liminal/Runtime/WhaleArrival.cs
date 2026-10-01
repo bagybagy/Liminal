@@ -12,6 +12,8 @@ namespace Liminal
         const float JoinSeconds = 3.5f;
         const float SlamTime = ChargeSeconds + BreachSeconds;
         const float CruiseOffset = 13.777778f;
+        const float RiseDistance = 320f;
+        const float RiseStartSpeed = 24f;
         Material vortex;
         HorizonWater water;
         float startedAt = -1f, song;
@@ -23,10 +25,12 @@ namespace Liminal
         public bool Complete => Age >= SlamTime + JoinSeconds;
         public float CruiseTime => CruiseOffset + (Complete ? Age - SlamTime - JoinSeconds : 0f);
         public bool Slammed => slammed;
+        public float PeakTime => ChargeSeconds;
+        public bool PeakReached => Triggered && Age >= ChargeSeconds;
         public float Formation => Triggered ? Mathf.SmoothStep(0f, 1f,
-            Mathf.InverseLerp(1.1f, ChargeSeconds, Age)) : 0f;
+            Mathf.InverseLerp(0f, ChargeSeconds, Age)) : 0f;
         public float Visibility => Triggered ? Mathf.SmoothStep(0f, 1f,
-            Mathf.InverseLerp(0.6f, 1.1f, Age)) : 0f;
+            Mathf.InverseLerp(ChargeSeconds, ChargeSeconds + 0.16f, Age)) : 0f;
 
         public void Initialize()
         {
@@ -39,6 +43,7 @@ namespace Liminal
             vortex.SetVector("_Origin", Origin);
             vortex.SetFloat("_Age", -1f);
             vortex.SetFloat("_Song", 0f);
+            vortex.SetFloat("_PeakTime", ChargeSeconds);
             RenderPipelineManager.beginCameraRendering += Render;
         }
 
@@ -67,20 +72,28 @@ namespace Liminal
 
         public void Pose(out Vector3 position, out Quaternion rotation)
         {
-            if (Age < ChargeSeconds)
+            Vector3 peak = Origin - Vector3.up * 75f;
+            Vector3 breachControl1 = Origin + new Vector3(15f, 185f, 15f);
+            Vector3 breachVelocity = 3f * (breachControl1 - peak) / BreachSeconds;
+            if (!Triggered || Age < ChargeSeconds)
             {
-                position = Origin - Vector3.up * 100f;
-                rotation = Quaternion.LookRotation(new Vector3(0.45f, 1f, 0.08f), Vector3.up);
+                Vector3 start = peak - Vector3.up * RiseDistance;
+                Vector3 control1 = start + Vector3.up * (RiseStartSpeed * ChargeSeconds / 3f);
+                Vector3 control2 = peak - breachVelocity * (ChargeSeconds / 3f);
+                float rise = Triggered ? Mathf.Clamp01(Age / ChargeSeconds) : 0f;
+                position = Cubic(start, control1, control2, peak, rise);
+                Vector3 riseTangent = CubicTangent(start, control1, control2, peak, rise) / ChargeSeconds;
+                rotation = Quaternion.LookRotation(riseTangent.normalized, Vector3.forward);
                 return;
             }
             float u = Mathf.Clamp01((Age - ChargeSeconds) / BreachSeconds);
-            Vector3 p0 = Origin - Vector3.up * 75f;
-            Vector3 p1 = Origin + new Vector3(15f, 185f, 15f);
+            Vector3 p0 = peak;
+            Vector3 p1 = breachControl1;
             Vector3 p2 = Origin + new Vector3(150f, 155f, -45f);
             Vector3 p3 = Origin + new Vector3(170f, -14f, -85f);
             float v = 1f - u;
-            position = v * v * v * p0 + 3f * v * v * u * p1 + 3f * v * u * u * p2 + u * u * u * p3;
-            Vector3 tangent = 3f * v * v * (p1 - p0) + 6f * v * u * (p2 - p1) + 3f * u * u * (p3 - p2);
+            position = Cubic(p0, p1, p2, p3, u);
+            Vector3 tangent = CubicTangent(p0, p1, p2, p3, u);
             rotation = Quaternion.LookRotation(tangent.normalized, Vector3.up) *
                 Quaternion.Euler(0f, 0f, Mathf.Sin(u * Mathf.PI) * -12f);
             rotation = Quaternion.Slerp(rotation, Quaternion.LookRotation(new Vector3(0.94f, 0.02f, 0.34f), Vector3.up),
@@ -90,6 +103,20 @@ namespace Liminal
             MarineLife.EvaluateWhalePose(CruiseOffset, out Vector3 cruise, out Quaternion cruiseRotation);
             position = Vector3.Lerp(p3, cruise, join) - Vector3.up * (Mathf.Sin(join * Mathf.PI) * 42f);
             rotation = Quaternion.Slerp(rotation, cruiseRotation, join);
+        }
+
+        static Vector3 Cubic(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float u)
+        {
+            float v = 1f - u;
+            return v * v * v * p0 + 3f * v * v * u * p1 +
+                3f * v * u * u * p2 + u * u * u * p3;
+        }
+
+        static Vector3 CubicTangent(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float u)
+        {
+            float v = 1f - u;
+            return 3f * v * v * (p1 - p0) + 6f * v * u * (p2 - p1) +
+                3f * u * u * (p3 - p2);
         }
 
         void Render(ScriptableRenderContext context, Camera camera)
