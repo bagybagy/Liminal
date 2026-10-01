@@ -10,6 +10,7 @@ namespace Liminal
         public const int MergeSourceCount = 8;
         public const int ParticlesPerCrab = 3200;
         public const int BossPointCount = 16;
+        public const float GiantScale = 7.5f;
         const int MarkerParticleCount = 64;
 
         static readonly Vector2[] Corners = {
@@ -78,34 +79,82 @@ namespace Liminal
         {
             if (index < 8)
             {
-                float angle = (index + 0.5f) * (Mathf.PI * 0.25f);
-                float x = Mathf.Cos(angle) * 22.5f;
-                float z = -5f + Mathf.Sin(angle) * 14.5f;
-                float q = (x * x) / (27f * 27f) + ((z + 5f) * (z + 5f)) / (18f * 18f);
-                float y = 1.6f + 22f * Mathf.Sqrt(Mathf.Max(0f, 1f - q));
-                return new Vector3(x, y + 0.65f, z);
+                return ShellSurface(0.32f + index * 0.095f, (index & 1) == 0 ? 0.45f : 1.15f) * GiantScale;
             }
-
             if (index < 12)
             {
                 int claw = index - 8;
                 float side = (claw & 1) == 0 ? -1f : 1f;
-                float flex = Mathf.Sin((beat + claw * 0.25f) * Mathf.PI) * 0.65f;
-                return new Vector3(side * (30.5f + (claw >= 2 ? 1.1f : 0f)), 4.2f + flex,
-                    19f + (claw >= 2 ? 3.2f : 0f) + flex * 0.55f);
+                float scale = side > 0f ? 1.23f : 0.82f;
+                Vector3 local = claw < 2
+                    ? new Vector3(side * 3.72f, 0.9f, 2.42f)
+                    : new Vector3(side * (3.72f + 0.32f * scale), 1.18f, 2.8f + 0.7f * scale);
+                return (local + ClawFlex(side, beat)) * GiantScale;
             }
-
-            int leg = index - 12;
-            float legSide = (leg & 1) == 0 ? -1f : 1f;
-            float fore = leg < 2 ? 1f : -1f;
-            float sway = Mathf.Sin((beat + leg * 0.25f) * Mathf.PI) * 0.35f;
-            return new Vector3(legSide * 23.5f, 2.7f + Mathf.Abs(sway), fore * 12f + sway);
+            int leg = index == 12 ? 0 : index == 13 ? 3 : index == 14 ? 2 : 5;
+            return LegSurface(leg, 0.52f, GiantFoot(leg, beat)) * GiantScale;
         }
 
         public static Vector3 BossClawOrigin(int side, float beat)
         {
-            float flex = Mathf.Sin((beat + (side > 0 ? 0.25f : 0f)) * Mathf.PI) * 0.6f;
-            return new Vector3(side * 31f, 4.1f + flex, 19f + flex * 0.5f);
+            return (new Vector3(side * 3.72f, 0.94f, 3.5f) + ClawFlex(side, beat)) * GiantScale;
+        }
+
+        // Mirrored in HermitMatter: a growing tube swept around a descending helix,
+        // not a spiral painted on a dome. t=1 is the open, forward-facing aperture.
+        public static Vector3 ShellSurface(float t, float v, float extension = 0f)
+        {
+            float angle = -(1f - t) * Mathf.PI * 2f * 2.65f;
+            float radius = 0.08f + 2.15f * Mathf.Pow(t, 1.25f);
+            float tube = 0.12f + 1.28f * Mathf.Pow(t, 1.35f);
+            float ridge = 0.10f * Mathf.Pow(0.5f + 0.5f * Mathf.Cos(v * 9f + t * 12f), 8f);
+            tube += ridge + extension;
+            float radial = radius + Mathf.Cos(v) * tube;
+            return new Vector3(Mathf.Cos(angle) * radial,
+                9.5f - 6.7f * t + Mathf.Sin(v) * tube * 1.4f,
+                -1.35f + Mathf.Sin(angle) * radial);
+        }
+
+        public static Vector3 LegRoot(int leg)
+        {
+            float side = leg < 3 ? -1f : 1f;
+            float fore = 1f - leg % 3;
+            return new Vector3(side * 1.35f, 1.12f, fore * 1.25f);
+        }
+
+        public static Vector3 RestFoot(int leg)
+        {
+            float side = leg < 3 ? -1f : 1f;
+            float fore = 1f - leg % 3;
+            return new Vector3(side * (4.35f - Mathf.Abs(fore) * 0.2f), 0.08f, fore * 2.65f);
+        }
+
+        public static Vector3 LegSurface(int leg, float t, Vector3 foot)
+        {
+            Vector3 root = LegRoot(leg);
+            Vector3 knee = Vector3.Lerp(root, foot, 0.52f);
+            knee.y = 2.75f + Mathf.Max(0f, foot.y - 0.08f) * 0.42f;
+            return t < 0.52f ? Vector3.Lerp(root, knee, t / 0.52f)
+                : Vector3.Lerp(knee, foot, (t - 0.52f) / 0.48f);
+        }
+
+        public static Vector3 GiantFoot(int leg, float beat)
+        {
+            Vector3 foot = RestFoot(leg);
+            float phase = Mathf.Repeat(beat + leg % 2 * 0.5f, 1f);
+            if (phase >= 0.62f)
+            {
+                float swing = (phase - 0.62f) / 0.38f;
+                foot.y += Mathf.Sin(swing * Mathf.PI) * 0.85f;
+                foot.z += Mathf.Sin(swing * Mathf.PI * 2f) * 0.45f;
+            }
+            return foot;
+        }
+
+        public static Vector3 ClawFlex(float side, float beat)
+        {
+            float flex = Mathf.Sin((beat + (side > 0f ? 0.25f : 0f)) * Mathf.PI) * 0.12f;
+            return new Vector3(0f, flex, flex * 0.5f);
         }
 
         static void SampleCrabPoint(int index, System.Random random, out Vector3 position, out float size,
@@ -121,27 +170,29 @@ namespace Liminal
 
             if (index < 1720)
             {
-                float radial = Mathf.Sqrt((index + r1) / 1720f);
-                float angle = index * 2.39996323f + r2 * 0.12f;
-                position = new Vector3(Mathf.Cos(angle) * 4.05f * radial,
-                    0.52f + 4.35f * Mathf.Sqrt(Mathf.Max(0f, 1f - radial * radial)),
-                    -0.2f + Mathf.Sin(angle) * 3.05f * radial);
-                bool rim = radial > 0.9f;
-                color = rim && r3 < 0.22f
-                    ? new Color(0.72f, 0.44f, 0.13f)
-                    : Color.Lerp(new Color(0.025f, 0.31f, 0.35f), new Color(0.06f, 0.52f, 0.42f), radial * 0.62f);
-                size = 0.035f + r0 * 0.035f;
+                float t = Mathf.Pow((index + r1) / 1720f, 0.62f);
+                float v = index * 2.39996323f;
+                // Reserve dense rings for the raised aperture lip, with no cap.
+                if (index >= 1560)
+                    t = 0.985f + r1 * 0.015f;
+                position = ShellSurface(t, v);
+                leg = t;
+                legT = v;
+                color = Color.Lerp(new Color(0.08f, 0.36f, 0.35f), new Color(0.2f, 0.64f, 0.45f), t);
+                if (index >= 1560)
+                    color = new Color(0.88f, 0.65f, 0.31f);
+                size = 0.065f + r0 * 0.035f;
                 part = 0f;
             }
             else if (index < 1848)
             {
-                float t = (index - 1720 + r1) / 128f;
-                float angle = t * Mathf.PI * 6f;
-                float radius = 0.12f + 1.62f * t;
-                float x = 0.32f + Mathf.Cos(angle) * radius;
-                float z = -0.2f + Mathf.Sin(angle) * radius * 0.72f;
-                float q = (x * x) / (4.05f * 4.05f) + (z * z) / (3.05f * 3.05f);
-                position = new Vector3(x, 0.58f + 4.35f * Mathf.Sqrt(Mathf.Max(0f, 1f - q)), z);
+                int spine = (index - 1720) / 8;
+                float t = 0.32f + spine * 0.042f;
+                float v = 0.55f + (spine % 3) * 0.58f;
+                float extension = ((index - 1720) % 8 + r1) / 8f * (0.3f + 0.65f * t);
+                position = ShellSurface(t, v, extension);
+                leg = t;
+                legT = v;
                 color = Color.Lerp(new Color(0.7f, 0.38f, 0.1f), new Color(1f, 0.72f, 0.25f), r2 * 0.65f);
                 size = 0.055f + r3 * 0.04f;
                 part = 1f;
@@ -150,18 +201,10 @@ namespace Liminal
             {
                 int legIndex = (index - 1848) / 160;
                 float along = ((index - 1848) % 160 + r1) / 160f;
-                float side = legIndex < 3 ? -1f : 1f;
-                int foreIndex = legIndex % 3;
-                float zBase = foreIndex == 0 ? 1.75f : foreIndex == 1 ? 0f : -1.75f;
-                Vector3 root = new Vector3(side * 1.4f, 1.02f, zBase * 0.72f);
-                Vector3 knee = new Vector3(side * 2.85f, 0.58f, zBase + (foreIndex == 0 ? 0.52f : foreIndex == 2 ? -0.48f : 0f));
-                Vector3 foot = new Vector3(side * 4.55f, 0.13f, zBase + (foreIndex == 0 ? 1f : foreIndex == 2 ? -0.92f : 0f));
-                position = along < 0.56f
-                    ? Vector3.Lerp(root, knee, along / 0.56f)
-                    : Vector3.Lerp(knee, foot, (along - 0.56f) / 0.44f);
-                position += new Vector3((r2 - 0.5f) * 0.1f, (r3 - 0.5f) * 0.08f, 0f);
+                position = LegSurface(legIndex, along, RestFoot(legIndex));
+                position += new Vector3((r2 - 0.5f) * 0.17f, (r3 - 0.5f) * 0.14f, 0f);
                 color = Color.Lerp(new Color(0.04f, 0.4f, 0.39f), new Color(0.08f, 0.66f, 0.62f), r0 * 0.7f);
-                size = 0.035f + r3 * 0.032f;
+                size = 0.055f + r3 * 0.035f;
                 part = 2f;
                 leg = legIndex;
                 legT = along;

@@ -16,6 +16,8 @@ namespace Liminal
         public UnityEngine.Object pressureOwner;
         public Color pressureColor;
         public float pressureSpeed, pressureAge, pressureLifetime;
+        public float pressureRadius=.9f;
+        public bool pressureRing;
         public Vector3 previousPlayerPosition;
         public Vector3 position, origin, destination, direction, lateral, vertical;
         public GameObject visual;
@@ -81,6 +83,8 @@ namespace Liminal
         const int MaxLivePressureShots = 24;
         const float PressureShotSpeed = 48f;
         static MaterialPropertyBlock MarkerProperties;
+        Mesh bubbleMesh, bubbleRingMesh;
+        Material bubbleMaterial;
         sealed class Shot
         {
             public LockTarget target;
@@ -245,7 +249,7 @@ namespace Liminal
                         Vector3 relativeStep=relativeEnd-relativeStart;
                         float closest=Mathf.Clamp01(-Vector3.Dot(relativeStart,relativeStep)/
                             Mathf.Max(0.0001f,relativeStep.sqrMagnitude));
-                        if(t.reserved==0 && (relativeStart+relativeStep*closest).sqrMagnitude<=3.6f*3.6f) {
+                        if(t.reserved==0 && PressureContact(t,relativeStart,relativeStep,closest)) {
                             ReceiveDamage();
                             t.hp=0;
                         } else if(t.reserved==0 && t.pressureAge>=t.pressureLifetime) {
@@ -254,7 +258,7 @@ namespace Liminal
                         }
                         t.previousPlayerPosition=flight.Position;
                     } else if(Ended) t.hp=0;
-                    t.visual.transform.localScale=Vector3.one*1.4f;
+                    t.visual.transform.localScale=Vector3.one*(t.pressureRing || t.pressureRadius>.91f?t.pressureRadius:1.4f);
                 } else {
                     float f=Mathf.InverseLerp(t.born,t.deadline,song);
                     t.position=Vector3.Lerp(t.origin,t.destination,f)+Vector3.up*Mathf.Sin(f*Mathf.PI)*3;
@@ -504,7 +508,7 @@ namespace Liminal
         }
 
         public LockTarget RegisterPressureShot(Vector3 origin,Vector3 direction,float song,Color color,
-            UnityEngine.Object owner=null,float speed=PressureShotSpeed)
+            UnityEngine.Object owner=null,float speed=PressureShotSpeed,float radius=.9f,bool bubbleRing=false)
         {
             if(Ended || !world || !flight || direction.sqrMagnitude<0.0001f) return null;
             int live=0;
@@ -521,15 +525,61 @@ namespace Liminal
                 destination=origin+direction*(speed*lifetime),
                 isPressureShot=true,pressureOwner=owner,pressureColor=color,
                 pressureSpeed=speed,pressureLifetime=lifetime,
+                pressureRadius=Mathf.Clamp(radius,.1f,12),pressureRing=bubbleRing,
                 previousPlayerPosition=flight.Position
             };
-            shot.visual=PointCloud.Place("Dolphin pressure shot",world.NodeMesh,world.NodeMaterial,transform);
-            shot.visual.transform.localScale=Vector3.one*1.4f;
+            if(bubbleRing || radius>.91f) {
+                EnsureBubbleGeometry();
+                shot.visual=PointCloud.Place(bubbleRing?"Drifting bubble ring":"Small pressure bubble",
+                    bubbleRing?bubbleRingMesh:bubbleMesh,bubbleMaterial,transform);
+                shot.visual.transform.rotation=Quaternion.LookRotation(direction);
+                shot.visual.transform.localScale=Vector3.one*shot.pressureRadius;
+            } else {
+                shot.visual=PointCloud.Place("Pressure shot",world.NodeMesh,world.NodeMaterial,transform);
+                shot.visual.transform.localScale=Vector3.one*1.4f;
+            }
             SetMarkerTint(shot.visual,color);
             Targets.Add(shot);
             SpawnedPressureShots++;
             if(owner is DolphinEncounter) DolphinPressureShots++;
             return shot;
+        }
+
+        static bool PressureContact(LockTarget target,Vector3 start,Vector3 step,float closest)
+        {
+            float bodyRadius=2.7f;
+            if(!target.pressureRing) return (start+step*closest).sqrMagnitude<=
+                (target.pressureRadius+bodyRadius)*(target.pressureRadius+bodyRadius);
+            float thickness=Mathf.Max(.45f,target.pressureRadius*.16f)+bodyRadius;
+            // A ring has a clear center: sample the short swept segment against its tube, not a filled sphere.
+            for(int i=0;i<=4;i++) {
+                Vector3 relative=start+step*(i*.25f);
+                float axial=Vector3.Dot(relative,target.direction);
+                float radial=Mathf.Sqrt(Mathf.Max(0,relative.sqrMagnitude-axial*axial));
+                float offset=radial-target.pressureRadius;
+                if(axial*axial+offset*offset<=thickness*thickness) return true;
+            }
+            return false;
+        }
+        void EnsureBubbleGeometry()
+        {
+            if(bubbleMaterial) return;
+            bubbleMaterial=new Material(Resources.Load<Shader>("PressureBubble"));
+            var sphere=new PointCloud();var ring=new PointCloud();
+            for(int i=0;i<240;i++) {
+                float a=i*2.39996323f,y=1-2*(i+.5f)/240,r=Mathf.Sqrt(1-y*y);
+                sphere.Add(new Vector3(Mathf.Cos(a)*r,y,Mathf.Sin(a)*r),.047f,Color.white,i/240f);
+                float theta=(i/3)*Mathf.PI*2/80,depth=(i%3-1)*.09f;
+                ring.Add(new Vector3(Mathf.Cos(theta)*(1+depth),Mathf.Sin(theta)*(1+depth),depth),
+                    .04f,Color.white,i/240f);
+            }
+            bubbleMesh=sphere.Build("Pressure bubble matter",4);bubbleRingMesh=ring.Build("Pressure ring matter",4);
+        }
+        void OnDestroy()
+        {
+            if(bubbleMesh) Destroy(bubbleMesh);
+            if(bubbleRingMesh) Destroy(bubbleRingMesh);
+            if(bubbleMaterial) Destroy(bubbleMaterial);
         }
 
         public int LivePressureShots(UnityEngine.Object owner)

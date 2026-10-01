@@ -15,12 +15,12 @@ namespace Liminal
         const float RoomRadiusZ = 410f;
         const float SmallAcquireRange = 105f;
         const float BossAcquireRange = 150f;
-        const float PressureSpeed = 23.5f;
+        const float PressureSpeed = 24f;
         const int MaxOwnedPressureShots = 12;
         const float MergeDuration = 4f;
-        const float RefugeDuration = 4f;
+        const float RefugeDuration = 7f;
 
-        enum FormState { Crawling = 0, Scattered = 1, Merging = 2, Giant = 2, Refuge = 3, Settled = 4 }
+        enum FormState { Crawling = 0, Scattered = 1, Merging = 2, Giant = 2, Refuge = 3 }
 
         sealed class Crab
         {
@@ -32,6 +32,7 @@ namespace Liminal
             public Vector3 position;
             public Vector3 spawnHeading;
             public Vector3 heading;
+            public Vector3 desiredHeading;
             public Color tint;
             public float speed;
             public float scale;
@@ -44,6 +45,13 @@ namespace Liminal
             public int mergeSlot = -1;
             public FormState state;
             public bool defeated;
+            public int reefSourceState;
+            public float reefSourceElapsed;
+            public readonly Vector3[] feet = new Vector3[6];
+            public readonly Vector3[] previousFeet = new Vector3[6];
+            public readonly Vector3[] swingStarts = new Vector3[6];
+            public readonly Vector3[] swingEnds = new Vector3[6];
+            public readonly float[] footPhases = new float[6];
         }
 
         readonly Vector3 roomCenter = new Vector3(-120f, -840f, 2290f);
@@ -58,6 +66,7 @@ namespace Liminal
         ReadOnlyCollection<LockTarget> smallTargetView;
         ReadOnlyCollection<LockTarget> bossTargetView;
         MaterialPropertyBlock properties;
+        int[] footPropertyIds;
         Mesh swarmMesh;
         Mesh markerMesh;
         Material matterMaterial;
@@ -85,6 +94,9 @@ namespace Liminal
         bool complete;
         bool previousRoomActive;
         bool offenseStopped;
+        bool retireTargets;
+        float previousBeat;
+        float reefBeat;
         string status = "DORMANT";
 
         public IReadOnlyList<LockTarget> SmallTargets => smallTargetView ?? (IReadOnlyList<LockTarget>)Array.Empty<LockTarget>();
@@ -101,6 +113,23 @@ namespace Liminal
         public int InitializationCount { get; private set; }
         public bool MergeSettled => mergeStarted && !merging;
         public bool RefugeSettled => complete;
+        public float ReefProgress => refugeProgress;
+        public int ReefParticleGroups => refugeStarted ? crabs.Length : 0;
+        public int SmallBubbleShots { get; private set; }
+        public int GiantBubbleRings { get; private set; }
+        public int PlantedFeet { get; private set; }
+        public float MaxStanceFootDrift { get; private set; }
+        public int RemainingCombatants
+        {
+            get
+            {
+                if (!initialized || refugeStarted) return 0;
+                int count = bossActive ? 1 : 0;
+                for (int i = 0; i < crabs.Length; i++)
+                    if (!crabs[i].defeated) count++;
+                return count;
+            }
+        }
 
         public void Initialize(Encounter combat, ParticleWorld world, Flight flight, MusicTransport music)
         {
@@ -132,6 +161,9 @@ namespace Liminal
             smallTargetView = smallTargets.AsReadOnly();
             bossTargetView = bossTargets.AsReadOnly();
             properties = new MaterialPropertyBlock();
+            footPropertyIds = new int[6];
+            for (int i = 0; i < footPropertyIds.Length; i++)
+                footPropertyIds[i] = Shader.PropertyToID("_Foot" + i);
 
             Shader shader = Resources.Load<Shader>("HermitMatter");
             if (!shader)
@@ -150,6 +182,8 @@ namespace Liminal
             bossRotation = Quaternion.Euler(0f, 180f, 0f);
             matterMaterial.SetVector("_BossRoot", bossPosition);
             matterMaterial.SetVector("_RefugeRoot", bossPosition);
+            matterMaterial.SetVector("_BossRight", bossRotation * Vector3.right);
+            matterMaterial.SetVector("_BossForward", bossRotation * Vector3.forward);
 
             BuildCrabs();
             BuildBossMarkers();
@@ -164,6 +198,8 @@ namespace Liminal
 
             dt = Mathf.Clamp(dt, 0f, 0.1f);
             float beatPosition = (float)AuthoredScore.BeatPosition(song);
+            float beatStep = Mathf.Clamp(beatPosition - previousBeat, 0f, 0.3f);
+            previousBeat = beatPosition;
             matterMaterial.SetFloat("_Song", song);
             matterMaterial.SetFloat("_Beat", beatPosition);
 
@@ -177,9 +213,17 @@ namespace Liminal
                 offenseStopped = true;
             }
 
+            // Cancel reservations outside the hit callback: Encounter is iterating
+            // its scheduled-shot list while delivering that callback.
+            if (retireTargets)
+            {
+                RetireCombatTargets();
+                retireTargets = false;
+            }
+            PlantedFeet = 0;
             for (int i = 0; i < crabs.Length; i++)
                 if (crabs[i].state == FormState.Crawling)
-                    Crawl(crabs[i], dt);
+                    Crawl(crabs[i], dt, beatPosition, beatStep);
 
             if (merging)
             {
@@ -224,6 +268,7 @@ namespace Liminal
                 return;
 
             combat.ClearPressureShots(this);
+            RetireCombatTargets();
             smallDefeated = 0;
             bossHits = 0;
             attackBeat = int.MinValue;
@@ -240,6 +285,13 @@ namespace Liminal
             complete = false;
             previousRoomActive = false;
             offenseStopped = false;
+            retireTargets = false;
+            previousBeat = (float)AuthoredScore.BeatPosition(music.Time);
+            reefBeat = 0f;
+            SmallBubbleShots = 0;
+            GiantBubbleRings = 0;
+            PlantedFeet = 0;
+            MaxStanceFootDrift = 0f;
             fallenOrder.Clear();
             Array.Clear(mergeGroups, 0, mergeGroups.Length);
 
@@ -248,6 +300,7 @@ namespace Liminal
                 Crab crab = crabs[i];
                 crab.position = crab.spawnPosition;
                 crab.heading = crab.spawnHeading;
+                crab.desiredHeading = crab.spawnHeading;
                 crab.deathSong = 0f;
                 crab.deathBeat = 0f;
                 crab.turnCountdown = 0.65f + Mathf.Repeat(crab.turnSeed * 0.73f, 1.35f);
@@ -255,8 +308,11 @@ namespace Liminal
                 crab.mergeSlot = -1;
                 crab.state = FormState.Crawling;
                 crab.defeated = false;
+                crab.reefSourceState = 0;
+                crab.reefSourceElapsed = 0f;
                 crab.root.localScale = Vector3.one * crab.scale;
                 crab.root.SetPositionAndRotation(crab.position, Quaternion.LookRotation(crab.heading, Vector3.up));
+                ResetFeet(crab);
                 crab.visual.SetActive(true);
             }
 
@@ -275,7 +331,10 @@ namespace Liminal
 
             matterMaterial.SetVector("_BossRoot", bossPosition);
             matterMaterial.SetVector("_RefugeRoot", bossPosition);
-            UpdateTargetPositions(0f);
+            matterMaterial.SetFloat("_ReefBeat", 0f);
+            matterMaterial.SetFloat("_Song", (float)music.Time);
+            matterMaterial.SetFloat("_Beat", previousBeat);
+            UpdateTargetPositions(previousBeat);
             UpdateGroupProperties();
             RefreshStatus();
         }
@@ -314,7 +373,7 @@ namespace Liminal
                 float z = roomCenter.z + nz * RoomRadiusZ;
                 Vector3 position = new Vector3(x,
                     HermitGeometry.FloorHeight(roomCenter, new Vector3(RoomRadiusX, RoomRadiusY, RoomRadiusZ), x, z, 0.18f), z);
-                float scale = 0.9f + (float)random.NextDouble() * 0.2f;
+                float scale = 1.65f + (float)random.NextDouble() * 0.25f;
                 float turnSeed = (float)random.NextDouble() * 91.73f;
                 var crab = new Crab {
                     visual = visual,
@@ -324,7 +383,8 @@ namespace Liminal
                     position = position,
                     spawnHeading = heading,
                     heading = heading,
-                    speed = 6f + (float)random.NextDouble() * 6f,
+                    desiredHeading = heading,
+                    speed = 1.6f + (float)random.NextDouble() * 0.35f,
                     scale = scale,
                     gaitOffset = GaitOffset(i),
                     turnSeed = turnSeed,
@@ -368,7 +428,7 @@ namespace Liminal
                 crab.target.acquireRange = SmallAcquireRange;
                 crab.target.hp = 1;
                 crab.target.reserved = 0;
-                crab.target.position = crab.position + Vector3.up * (2.55f * crab.scale);
+                crab.target.position = crab.root.TransformPoint(new Vector3(0f, 1.1f, 1.25f));
                 crab.target.visual = crab.visual;
                 crab.visual.SetActive(true);
                 combat.Locks.Remove(crab.target);
@@ -394,7 +454,7 @@ namespace Liminal
             }
         }
 
-        void Crawl(Crab crab, float dt)
+        void Crawl(Crab crab, float dt, float beat, float beatStep)
         {
             if (dt <= 0f)
                 return;
@@ -405,21 +465,23 @@ namespace Liminal
                 float hash = Mathf.Sin((crab.turnCount + 1) * 7.31f + crab.turnSeed * 2.17f) * 43758.5453f;
                 float fraction = hash - Mathf.Floor(hash);
                 float angle = (fraction - 0.5f) * 190f;
-                crab.heading = Quaternion.AngleAxis(angle, Vector3.up) * crab.heading;
-                crab.heading.y = 0f;
-                crab.heading.Normalize();
+                crab.desiredHeading = Quaternion.AngleAxis(angle, Vector3.up) * crab.heading;
+                crab.desiredHeading.y = 0f;
+                crab.desiredHeading.Normalize();
                 crab.turnCountdown = 0.7f + fraction * 1.55f;
                 crab.turnCount++;
             }
 
-            Vector3 next = crab.position + crab.heading * (crab.speed * dt);
+            crab.heading = Vector3.RotateTowards(crab.heading, crab.desiredHeading, dt * 1.05f, 0f).normalized;
+            Vector3 next = crab.position + crab.heading * (crab.speed * crab.scale * beatStep);
             float nx = (next.x - roomCenter.x) / RoomRadiusX;
             float nz = (next.z - roomCenter.z) / RoomRadiusZ;
             if (nx * nx + nz * nz > 0.36f)
             {
                 Vector3 normal = new Vector3(nx / RoomRadiusX, 0f, nz / RoomRadiusZ).normalized;
                 crab.heading = Vector3.Reflect(crab.heading, normal).normalized;
-                next = crab.position + crab.heading * (crab.speed * dt);
+                crab.desiredHeading = crab.heading;
+                next = crab.position + crab.heading * (crab.speed * crab.scale * beatStep);
                 nx = (next.x - roomCenter.x) / RoomRadiusX;
                 nz = (next.z - roomCenter.z) / RoomRadiusZ;
                 float radius = Mathf.Sqrt(nx * nx + nz * nz);
@@ -436,12 +498,61 @@ namespace Liminal
                 new Vector3(RoomRadiusX, RoomRadiusY, RoomRadiusZ), next.x, next.z, 0.18f);
             crab.position = next;
             crab.root.SetPositionAndRotation(next, Quaternion.LookRotation(crab.heading, Vector3.up));
+            UpdateFeet(crab, beat);
+        }
+
+        void ResetFeet(Crab crab)
+        {
+            for (int leg = 0; leg < 6; leg++)
+            {
+                Vector3 foot = crab.root.TransformPoint(HermitGeometry.RestFoot(leg));
+                foot.y = HermitGeometry.FloorHeight(roomCenter,
+                    new Vector3(RoomRadiusX, RoomRadiusY, RoomRadiusZ), foot.x, foot.z, 0.08f * crab.scale);
+                crab.feet[leg] = crab.swingStarts[leg] = crab.swingEnds[leg] = foot;
+                crab.previousFeet[leg] = foot;
+                crab.footPhases[leg] = -1f;
+            }
+        }
+
+        void UpdateFeet(Crab crab, float beat)
+        {
+            for (int leg = 0; leg < 6; leg++)
+            {
+                float phase = Mathf.Repeat(beat + crab.gaitOffset + leg % 2 * 0.5f, 1f);
+                float oldPhase = crab.footPhases[leg];
+                if (phase >= 0.62f)
+                {
+                    if (oldPhase < 0.62f || phase < oldPhase)
+                    {
+                        crab.swingStarts[leg] = crab.feet[leg];
+                        Vector3 landing = crab.root.TransformPoint(HermitGeometry.RestFoot(leg)) +
+                            crab.heading * (crab.speed * crab.scale * (1f - phase + 0.31f));
+                        landing.y = HermitGeometry.FloorHeight(roomCenter,
+                            new Vector3(RoomRadiusX, RoomRadiusY, RoomRadiusZ), landing.x, landing.z, 0.08f * crab.scale);
+                        crab.swingEnds[leg] = landing;
+                    }
+                    float swing = (phase - 0.62f) / 0.38f;
+                    crab.feet[leg] = Vector3.Lerp(crab.swingStarts[leg], crab.swingEnds[leg],
+                        Mathf.SmoothStep(0f, 1f, swing)) + Vector3.up * (Mathf.Sin(swing * Mathf.PI) * 1.05f * crab.scale);
+                }
+                else
+                {
+                    if (oldPhase >= 0.62f)
+                        crab.feet[leg] = crab.swingEnds[leg];
+                    PlantedFeet++;
+                    if (oldPhase >= 0f && oldPhase < 0.62f && phase >= oldPhase)
+                        MaxStanceFootDrift = Mathf.Max(MaxStanceFootDrift,
+                            Vector3.Distance(crab.feet[leg], crab.previousFeet[leg]));
+                }
+                crab.previousFeet[leg] = crab.feet[leg];
+                crab.footPhases[leg] = phase;
+            }
         }
 
         void OnSmallHit(int index, LockTarget target, float song)
         {
             Crab crab = crabs[index];
-            if (crab.defeated)
+            if (crab.defeated || refugeStarted)
                 return;
 
             crab.defeated = true;
@@ -505,7 +616,7 @@ namespace Liminal
                     continue;
                 support.visual.SetActive(true);
                 support.target.hp = support.target.reserved > 0 ? support.target.reserved : 1;
-                support.target.position = support.position + Vector3.up * (2.55f * support.scale);
+                support.target.position = support.root.TransformPoint(new Vector3(0f, 1.1f, 1.25f));
                 combat.Locks.Remove(support.target);
             }
             RefreshStatus();
@@ -513,6 +624,8 @@ namespace Liminal
 
         void OnBossHit(int index, LockTarget target, float song)
         {
+            if (!bossActive || refugeStarted)
+                return;
             if (bossHits < BossHitGoal)
                 bossHits++;
             world.BurstAt(target.position, song, (index & 1) == 0
@@ -535,28 +648,55 @@ namespace Liminal
             refugeStarted = true;
             refugeStartSong = song;
             refugeProgress = 0f;
+            reefBeat = (float)AuthoredScore.BeatPosition(song);
+            matterMaterial.SetFloat("_ReefBeat", reefBeat);
             merging = false;
             bossActive = false;
             offenseStopped = true;
             combat.ClearPressureShots(this);
-            FreezeSmallTargets();
-
+            retireTargets = true;
             for (int i = 0; i < bossSlots.Length; i++)
             {
                 LockTarget target = bossSlots[i];
-                target.hp = target.reserved;
-                if (target.reserved == 0)
-                {
-                    target.visual.SetActive(false);
-                    combat.Locks.Remove(target);
-                }
+                target.hp = 0;
+                target.visual.SetActive(false);
+                combat.Locks.Remove(target);
             }
-            for (int i = 0; i < mergeGroups.Length; i++)
-                crabs[mergeGroups[i]].state = FormState.Refuge;
             for (int i = 0; i < crabs.Length; i++)
-                if (crabs[i].state == FormState.Crawling)
-                    crabs[i].state = FormState.Settled;
+            {
+                Crab crab = crabs[i];
+                crab.reefSourceState = (int)crab.state;
+                crab.reefSourceElapsed = Mathf.Max(0f, song - crab.deathSong);
+                if (crab.state == FormState.Crawling)
+                    crab.deathBeat = reefBeat;
+                crab.state = FormState.Refuge;
+                crab.target.hp = 0;
+                combat.Locks.Remove(crab.target);
+                crab.visual.SetActive(true);
+            }
+            foreach (LockTarget target in combat.Targets)
+                if (target.isPressureShot && target.pressureOwner == this)
+                {
+                    target.hp = 0;
+                    if (target.visual) target.visual.SetActive(false);
+                }
+            UpdateGroupProperties();
             RefreshStatus();
+        }
+
+        void RetireCombatTargets()
+        {
+            for (int i = 0; i < crabs.Length; i++)
+                combat.ResetDolphinTarget(crabs[i].target);
+            for (int i = 0; i < bossSlots.Length; i++)
+                combat.ResetDolphinTarget(bossSlots[i]);
+            for (int i = combat.Targets.Count - 1; i >= 0; i--)
+            {
+                LockTarget target = combat.Targets[i];
+                if (target.isPressureShot && target.pressureOwner == this)
+                    combat.ResetDolphinTarget(target);
+            }
+            combat.ClearPressureShots(this);
         }
 
         void UpdateTargetPositions(float beat)
@@ -565,7 +705,7 @@ namespace Liminal
             {
                 Crab crab = crabs[i];
                 if (crab.target != null)
-                    crab.target.position = crab.position + crab.root.rotation * Vector3.up * (2.55f * crab.scale);
+                    crab.target.position = crab.root.TransformPoint(new Vector3(0f, 1.1f, 1.25f));
             }
 
             for (int i = 0; i < bossSlots.Length; i++)
@@ -574,7 +714,7 @@ namespace Liminal
                 Vector3 position = bossPosition + bossRotation * HermitGeometry.BossTargetLocalPosition(i, beat);
                 target.position = position;
                 bossMarkers[i].transform.SetPositionAndRotation(position, bossRotation);
-                bool show = (bossActive && target.hp > 0) || (refugeStarted && target.reserved > 0);
+                bool show = bossActive && target.hp > 0;
                 if (bossMarkers[i].activeSelf != show)
                     bossMarkers[i].SetActive(show);
             }
@@ -593,6 +733,11 @@ namespace Liminal
                 properties.SetFloat("_MergeSlot", crab.mergeSlot);
                 properties.SetFloat("_MergeProgress", mergeProgress);
                 properties.SetFloat("_RefugeProgress", refugeProgress);
+                properties.SetFloat("_CrabId", i);
+                properties.SetFloat("_RefugeSourceState", crab.reefSourceState);
+                properties.SetFloat("_RefugeSourceElapsed", crab.reefSourceElapsed);
+                for (int leg = 0; leg < 6; leg++)
+                    properties.SetVector(footPropertyIds[leg], crab.root.InverseTransformPoint(crab.feet[leg]));
                 properties.SetColor("_Tint", crab.tint);
                 properties.SetFloat("_Gain", 1.75f);
                 crab.renderer.SetPropertyBlock(properties);
@@ -638,7 +783,6 @@ namespace Liminal
                 LockTarget target = bossSlots[i];
                 target.hp = 1;
                 target.reserved = 0;
-                target.position = bossPosition + bossRotation * HermitGeometry.BossTargetLocalPosition(i, 0f);
                 bossMarkers[i].SetActive(true);
             }
         }
@@ -666,13 +810,16 @@ namespace Liminal
                 if (crab.state != FormState.Crawling || crab.defeated)
                     continue;
                 Vector3 origin = crab.root.TransformPoint(new Vector3(0f, 0.92f, 3.15f));
+                if (Vector3.Distance(origin, flight.Position) < 12f)
+                    continue;
                 int sequence = smallShotSequence * 3 + fired;
                 Vector3 direction = WeakAim(origin, PressureSpeed);
                 float yaw = ((sequence % 3) - 1) * 7f;
                 float pitch = ((sequence & 1) == 0 ? -1f : 1f) * 2f;
                 direction = ApplySpread(direction, yaw, pitch);
                 if (!RegisterPressure(origin, direction, song,
-                    (sequence & 1) == 0 ? new Color(0.09f, 0.75f, 0.82f) : new Color(0.85f, 0.58f, 0.2f), PressureSpeed))
+                    (sequence & 1) == 0 ? new Color(0.09f, 0.75f, 0.82f) : new Color(0.85f, 0.58f, 0.2f),
+                    PressureSpeed, radius: 1.2f, bubbleRing: false))
                     break;
                 fired++;
             }
@@ -682,38 +829,25 @@ namespace Liminal
         void FireBossPulse(float song)
         {
             int mode = bossPulseSequence++ & 1;
-            FireSupportPulse(song, bossPulseSequence);
-            if (mode == 0)
+            if (mode != 0)
             {
-                int side = (bossPulseSequence & 2) == 0 ? -1 : 1;
-                Vector3 local = HermitGeometry.BossClawOrigin(side, (float)AuthoredScore.BeatPosition(song));
-                Vector3 origin = bossPosition + bossRotation * local;
-                for (int i = 0; i < 3; i++)
-                {
-                    Vector3 direction = WeakAim(origin, PressureSpeed + 1f);
-                    direction = ApplySpread(direction, (i - 1) * 9f, (i - 1) * 2.5f);
-                    if (!RegisterPressure(origin, direction, song,
-                        i == 1 ? new Color(1f, 0.67f, 0.22f) : new Color(0.12f, 0.78f, 0.77f), PressureSpeed + 1f))
-                        return;
-                }
+                FireSupportPulse(song, bossPulseSequence);
+                return;
             }
-            else
-            {
-                Vector3 origin = bossPosition + bossRotation * new Vector3(0f, 8f, 14f);
-                for (int i = 0; i < 5; i++)
-                {
-                    Vector3 direction = WeakAim(origin, PressureSpeed + 1f);
-                    direction = ApplySpread(direction, (i - 2) * 14f, (i % 2 == 0 ? -3f : 3f));
-                    if (!RegisterPressure(origin, direction, song,
-                        (i & 1) == 0 ? new Color(0.1f, 0.74f, 0.79f) : new Color(0.88f, 0.56f, 0.19f), PressureSpeed + 1f))
-                        return;
-                }
-            }
+            int side = (bossPulseSequence & 2) == 0 ? -1 : 1;
+            Vector3 local = HermitGeometry.BossClawOrigin(side, (float)AuthoredScore.BeatPosition(song));
+            Vector3 origin = bossPosition + bossRotation * local;
+            // One hollow ring, not an overlapping fan. No leading the center into
+            // the player's escape path; supports fire on the intervening beat.
+            if (Vector3.Distance(origin, flight.Position) < 28f)
+                return;
+            RegisterPressure(origin, (flight.Position - origin).normalized, song,
+                new Color(0.18f, 0.82f, 0.77f), 17f, radius: 9f, bubbleRing: true);
         }
 
         void FireSupportPulse(float song, int pulse)
         {
-            int shooters = 2 + (pulse & 1);
+            int shooters = 2;
             int fired = 0;
             int start = (pulse * 7) % crabs.Length;
             for (int offset = 0; offset < crabs.Length && fired < shooters; offset++)
@@ -722,24 +856,34 @@ namespace Liminal
                 if (crab.state != FormState.Crawling || crab.defeated || crab.target.hp - crab.target.reserved <= 0)
                     continue;
                 Vector3 origin = crab.root.TransformPoint(new Vector3(0f, 0.92f, 3.15f));
+                if (Vector3.Distance(origin, flight.Position) < 12f)
+                    continue;
                 Vector3 direction = WeakAim(origin, PressureSpeed);
-                float yaw = (fired - (shooters - 1) * 0.5f) * 6.5f;
+                // Leave the giant ring's center open instead of filling it with
+                // simultaneous support shots. The small bubbles flank the lane.
+                float yaw = (fired == 0 ? -1f : 1f) * 16f;
                 float pitch = (fired & 1) == 0 ? -1.5f : 1.5f;
                 direction = ApplySpread(direction, yaw, pitch);
                 Color color = ((pulse + fired) & 1) == 0
                     ? new Color(0.09f, 0.75f, 0.82f)
                     : new Color(0.85f, 0.58f, 0.2f);
-                if (!RegisterPressure(origin, direction, song, color, PressureSpeed))
+                if (!RegisterPressure(origin, direction, song, color, PressureSpeed, radius: 1.2f, bubbleRing: false))
                     break;
                 fired++;
             }
         }
 
-        bool RegisterPressure(Vector3 origin, Vector3 direction, float song, Color color, float speed)
+        bool RegisterPressure(Vector3 origin, Vector3 direction, float song, Color color, float speed,
+            float radius = 1.2f, bool bubbleRing = false)
         {
             if (combat.LivePressureShots(this) >= MaxOwnedPressureShots || !combat.CanRegisterPressureShots(1))
                 return false;
-            return combat.RegisterPressureShot(origin, direction, song, color, this, speed) != null;
+            if (combat.RegisterPressureShot(origin, direction, song, color, owner: this, speed: speed,
+                radius: radius, bubbleRing: bubbleRing) == null)
+                return false;
+            if (bubbleRing) GiantBubbleRings++;
+            else SmallBubbleShots++;
+            return true;
         }
 
         Vector3 WeakAim(Vector3 origin, float speed)
