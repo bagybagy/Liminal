@@ -67,7 +67,7 @@ namespace Liminal
                 Submarines=gameObject.AddComponent<SubmarineEncounter>();Submarines.Initialize(Combat,World,Flight,Music);
                 Tutorial=gameObject.AddComponent<ParticleTutorial>();Tutorial.Initialize(World,Combat,Flight,Music);
                 Tutorial.SetEnabled(!ProofActive && PlayerPrefs.GetInt("particleTutorialCompleted",0)==0);
-                PassageGuide=gameObject.AddComponent<PassageBeacons>();PassageGuide.Initialize();
+                PassageGuide=gameObject.AddComponent<PassageBeacons>();PassageGuide.Initialize(World,Combat);
                 sceneCamera.farClipPlane=2300;
             }
             Brightness=gameObject.AddComponent<DisplayBrightness>();Brightness.Initialize(sceneCamera);
@@ -130,6 +130,7 @@ namespace Liminal
             if(CavernMode) {
                 Marine.ResetLife();World.Caverns.ResetLighting();Horizon.ResetWater();
                 Hermits.ResetEncounter();Submarines.ResetEncounter();Tutorial.ResetTutorial();
+                PassageGuide.ResetShoals();
                 Tutorial.SetEnabled(!ProofActive && PlayerPrefs.GetInt("particleTutorialCompleted",0)==0);
                 Array.Clear(visitedRooms,0,visitedRooms.Length);RoomsVisited=0;CurrentRoom=0;whaleCalled=false;WhaleAwakenedAt=-1;
             }

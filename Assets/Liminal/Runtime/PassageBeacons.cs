@@ -12,32 +12,49 @@ namespace Liminal
         static readonly int GainId = Shader.PropertyToID("_Gain");
         Mesh arcMesh, currentMesh;
         Material arcMaterial, currentMaterial;
+        CorridorShoals shoals;
+        Camera playerCamera;
         bool initialized;
         int particleCount;
 
         public int ParticleCount => particleCount;
         public int PortalCount => CaveLayout.Passages.Length * 2;
+        public int ShoalCount => shoals ? shoals.ShoalCount : 0;
+        public int FishCount => shoals ? shoals.FishCount : 0;
+        public IReadOnlyList<Vector3> ShoalPositions => shoals ? shoals.Positions : System.Array.Empty<Vector3>();
 
-        public void Initialize()
+        public void ResetShoals()
         {
-            if (initialized) return;
-            Shader shader = Resources.Load<Shader>("PassageBeacon");
-            if (!shader) { Debug.LogError("Missing Resources/PassageBeacon shader.", this); return; }
+            if (shoals) shoals.ResetShoals();
+        }
 
-            var arcs = new PointCloud();
-            BuildArcs(arcs);
-            arcMesh = arcs.Build("Passage beacon arcs");
-            currentMesh = BuildCurrents(out int currentCount);
-            Bounds bounds = CaveLayout.WorldBounds;
-            bounds.Expand(160f);
-            arcMesh.bounds = currentMesh.bounds = bounds;
-            arcMaterial = MakeMaterial(shader, false);
-            currentMaterial = MakeMaterial(shader, true);
-            PointCloud.Place("Passage beacon arcs", arcMesh, arcMaterial, transform);
-            PointCloud.Place("Passage currents", currentMesh, currentMaterial, transform);
-            particleCount = arcs.Count + currentCount;
-            initialized = true;
-            Tick(0f);
+        public void Initialize(ParticleWorld world = null, Encounter combat = null)
+        {
+            if (!initialized)
+            {
+                Shader shader = Resources.Load<Shader>("PassageBeacon");
+                if (!shader) { Debug.LogError("Missing Resources/PassageBeacon shader.", this); return; }
+
+                arcMesh = BuildWreaths(out int wreathCount);
+                currentMesh = BuildCurrents(out int currentCount);
+                Bounds bounds = CaveLayout.WorldBounds;
+                bounds.Expand(160f);
+                arcMesh.bounds = currentMesh.bounds = bounds;
+                arcMaterial = MakeMaterial(shader, false);
+                currentMaterial = MakeMaterial(shader, true);
+                PointCloud.Place("Passage beacon wreaths", arcMesh, arcMaterial, transform);
+                PointCloud.Place("Passage currents", currentMesh, currentMaterial, transform);
+                particleCount = wreathCount + currentCount;
+                initialized = true;
+                Tick(0f);
+            }
+
+            if (world)
+            {
+                if (!shoals) shoals = gameObject.AddComponent<CorridorShoals>();
+                shoals.Initialize(world, combat);
+                if (!playerCamera) playerCamera = Camera.main;
+            }
         }
 
         public void Tick(float song)
@@ -46,6 +63,12 @@ namespace Liminal
             float beat = (float)AuthoredScore.BeatPosition(song);
             arcMaterial.SetFloat(BeatId, beat);
             currentMaterial.SetFloat(BeatId, beat);
+            if (shoals)
+            {
+                if (!playerCamera) playerCamera = Camera.main;
+                if (playerCamera) shoals.Tick(song, Time.deltaTime, playerCamera.transform.position, true);
+                else shoals.Tick(song, Time.deltaTime, Vector3.zero, false);
+            }
         }
 
         void OnDestroy()
@@ -65,8 +88,9 @@ namespace Liminal
             return material;
         }
 
-        static void BuildArcs(PointCloud arcs)
+        static Mesh BuildWreaths(out int count)
         {
+            var cloud = new WreathCloud();
             for (int passage = 0; passage < CaveLayout.Passages.Length; passage++)
             for (int end = 0; end < 2; end++)
             {
@@ -76,28 +100,42 @@ namespace Liminal
                 Vector3 right = Vector3.Cross(axis, Vector3.up).normalized;
                 if (right.sqrMagnitude < 0.01f) right = Vector3.Cross(axis, Vector3.right).normalized;
                 Vector3 up = Vector3.Cross(right, axis).normalized;
-                for (int arc = 0; arc < 3; arc++)
+                const float meanRadius = 30f;
+                int samples = Mathf.CeilToInt(2f * Mathf.PI * meanRadius / 1.12f);
+                for (int i = 0; i < samples; i++)
                 {
-                    float radius = 27.5f + arc * 2.25f;
-                    float start = 0.22f + arc * 2.16f + (forward ? passage * 0.13f : 0.57f);
-                    const float sweep = 4.55f;
-                    int samples = Mathf.CeilToInt(radius * sweep / 1.85f);
-                    for (int i = 0; i <= samples; i++)
+                    float angle = i * Mathf.PI * 2f / samples;
+                    float seed = Hash(passage * 991 + end * 173 + i, 53);
+                    float radius = meanRadius + 0.92f * Mathf.Sin(angle * 3f + passage * 0.8f + end) +
+                        0.44f * Mathf.Sin(angle * 7f - passage * 0.61f) + (seed - 0.5f) * 0.26f;
+                    bool pearl = i % 67 == (passage * 13 + end * 7) % 67;
+                    Color tint = pearl ? new Color(0.72f, 0.92f, 0.78f) :
+                        forward ? new Color(0.20f, 0.80f, 0.70f) : new Color(0.16f, 0.65f, 0.62f);
+                    float size = 0.62f + seed * 0.38f;
+                    cloud.Add(mouth, right, up, angle, radius, seed, size, tint * (0.82f + seed * 0.22f));
+                }
+
+                for (int tuft = 0; tuft < 5; tuft++)
+                {
+                    float anchor = (tuft + 0.23f * (passage + end)) * Mathf.PI * 2f / 5f;
+                    float seed = Hash(passage * 71 + end * 19 + tuft, 101);
+                    for (int sample = 0; sample < 9; sample++)
                     {
-                        float t = i / (float)samples;
-                        float angle = start + sweep * t;
-                        float seed = Hash(passage * 97 + end * 29 + arc * 11 + i, 7);
-                        float wobble = 1f + 0.018f * Mathf.Sin(angle * 3f + arc * 1.7f + passage);
-                        Vector3 at = mouth + right * (Mathf.Cos(angle) * radius * wobble) +
-                                     up * (Mathf.Sin(angle) * radius * (1f + 0.012f * Mathf.Sin(angle * 2f))) +
-                                     axis * (0.35f * Mathf.Sin(angle * 2f + arc));
-                        bool gold = forward && i % 19 == (arc * 5 + 3) % 19;
-                        Color tint = gold ? new Color(1f, 0.58f, 0.2f) :
-                            forward ? new Color(0.28f, 0.96f, 0.86f) : new Color(0.19f, 0.62f, 0.56f);
-                        arcs.Add(at, 0f, tint * (0.86f + 0.14f * Hash(i, passage + end)), seed, gold ? 1f : 0f);
+                        float t = sample / 8f;
+                        float angle = anchor + (t - 0.5f) * (0.23f + 0.06f * seed) +
+                            Mathf.Sin(t * Mathf.PI) * 0.055f * Mathf.Sin(seed * 6.283f);
+                        float radius = meanRadius + 0.8f + t * (1.4f + seed * 1.8f) +
+                            0.35f * Mathf.Sin(angle * 5f + seed * 6f);
+                        float fleck = Hash(tuft * 31 + sample, passage * 17 + end);
+                        Color tint = Color.Lerp(new Color(0.14f, 0.66f, 0.61f),
+                            new Color(0.52f, 0.82f, 0.65f), fleck * 0.55f);
+                        cloud.Add(mouth, right, up, angle, radius, seed + t * 0.19f,
+                            0.34f + fleck * 0.30f, tint * (0.46f + 0.20f * (1f - t)));
                     }
                 }
             }
+            count = cloud.Count;
+            return cloud.Build();
         }
 
         static Mesh BuildCurrents(out int count)
@@ -127,6 +165,45 @@ namespace Liminal
         }
 
         static float Hash(int x, int salt) => Mathf.Repeat(Mathf.Sin(x * 127.1f + salt * 311.7f) * 43758.5453f, 1f);
+
+        sealed class WreathCloud
+        {
+            readonly List<Vector3> vertices = new();
+            readonly List<Vector4> uv0 = new(), data = new();
+            readonly List<Vector4>[] frame = { new(), new(), new() };
+            readonly List<Color> colors = new();
+            readonly List<int> triangles = new();
+            public int Count => vertices.Count / 4;
+
+            public void Add(Vector3 center, Vector3 right, Vector3 up, float angle, float radius,
+                float seed, float size, Color tint)
+            {
+                int first = vertices.Count;
+                Vector3 position = center + right * (Mathf.Cos(angle) * radius) + up * (Mathf.Sin(angle) * radius);
+                Vector4 c = new(center.x, center.y, center.z, 0f);
+                Vector4 r = new(right.x, right.y, right.z, 0f);
+                Vector4 u = new(up.x, up.y, up.z, 0f);
+                for (int corner = 0; corner < 4; corner++)
+                {
+                    vertices.Add(position);
+                    uv0.Add(new Vector4(Corners[corner].x, Corners[corner].y, size, seed));
+                    data.Add(new Vector4(angle, radius, seed, Mathf.Clamp01(size)));
+                    colors.Add(tint);
+                    frame[0].Add(c); frame[1].Add(r); frame[2].Add(u);
+                }
+                triangles.Add(first); triangles.Add(first + 1); triangles.Add(first + 2);
+                triangles.Add(first); triangles.Add(first + 2); triangles.Add(first + 3);
+            }
+
+            public Mesh Build()
+            {
+                var mesh = new Mesh { name = "Suspended passage wreaths", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+                mesh.SetVertices(vertices); mesh.SetColors(colors); mesh.SetUVs(0, uv0); mesh.SetUVs(1, data);
+                for (int i = 0; i < frame.Length; i++) mesh.SetUVs(i + 2, frame[i]);
+                mesh.SetTriangles(triangles, 0); mesh.UploadMeshData(true);
+                return mesh;
+            }
+        }
 
         sealed class CurrentCloud
         {

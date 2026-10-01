@@ -80,12 +80,33 @@ Shader "Liminal/Passage Beacon"
                     world += rise * cos(phase * 6.2831853 + input.data.z) * input.data.w * 0.28;
                     brightness = smoothstep(0.0,0.035,phase) * (1.0-smoothstep(0.965,1.0,phase));
                 }
-                else world = TransformObjectToWorld(input.positionOS);
+                else
+                {
+                    float seed = input.data.z;
+                    float beat = _BeatPosition * 6.2831853;
+                    float eddy = _BeatPosition * 0.31 + seed * 6.2831853;
+                    float angle = input.data.x + _BeatPosition * 0.005;
+                    angle += sin(eddy * 0.43 + input.data.x * 2.0) * 0.009;
+                    float ringRadius = input.data.y +
+                        sin(input.data.x * 3.0 + seed * 6.1 + eddy * 0.24) * 0.46 +
+                        sin(input.data.x * 8.0 - eddy * 0.51 + seed * 4.7) * 0.29 +
+                        sin(input.data.x * 14.0 + eddy * 0.37) * 0.12;
+                    float3 center = TransformObjectToWorld(input.path0);
+                    float3 right = normalize(TransformObjectToWorldDir(input.path1));
+                    float3 up = normalize(TransformObjectToWorldDir(input.path2));
+                    float3 axis = normalize(cross(right, up));
+                    world = center + right * (cos(angle) * ringRadius) + up * (sin(angle) * ringRadius);
+                    world += axis * (sin(angle * 3.0 + eddy * 0.67) * 0.39 +
+                        sin(angle * 7.0 - eddy * 0.42 + seed * 8.0) * 0.21);
+                    float breath = 0.5 + 0.5 * sin(beat + seed * 6.2831853);
+                    brightness = 0.70 + 0.20 * breath + 0.10 * (0.5 + 0.5 * sin(angle * 4.0 - eddy));
+                }
 
                 float viewDepth = abs(mul(UNITY_MATRIX_V,float4(world,1.0)).z);
                 float projectionScale = max(0.001,abs(UNITY_MATRIX_P._m11));
                 float worldPerPixel = 2.0 * max(0.01,viewDepth) / (max(1.0,_ScreenParams.y) * projectionScale);
-                float radius = max(input.uv.z,1.3 * worldPerPixel) * (1.0 + 0.18 * saturate(input.data.y));
+                float radiusVariation = _FlowEnabled > 0.5 ? saturate(input.data.y) : saturate(input.data.w);
+                float radius = max(input.uv.z,2.0 * worldPerPixel) * (1.0 + 0.14 * radiusVariation);
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;
                 float3 cameraUp = UNITY_MATRIX_V[1].xyz;
                 world += (cameraRight * input.uv.x + cameraUp * input.uv.y) * radius;

@@ -113,7 +113,7 @@ namespace Liminal
                         float relief = ShellRelief(theta, phi, roomIndex);
                         Vector3 p = room.Center + Vector3.Scale(unit, room.Radius * (1.018f + relief));
                         vertices.Add(p);
-                        colors.Add(Color.Lerp(room.Color, room.Accent, 0.055f) * 0.11f);
+                        colors.Add(Color.Lerp(room.Color, room.Accent, 0.055f) * 0.15f);
                         if (lat < 1 || lat >= latitudes) continue;
                         if (lon == 0) continue;
                     }
@@ -598,6 +598,7 @@ namespace Liminal
             surfaceMaterial.SetFloat(CaveRevealId, reveal);
             surfaceMaterial.SetFloat(CaveSweepId, sweep);
             surfaceMaterial.SetFloat(CaveBindId, bind);
+            surfaceMaterial.SetVector(CavePlayerPositionId, player);
             cavernMatterMaterial.SetFloat(CaveSongId, song);
             cavernMatterMaterial.SetFloat(CaveRevealId, reveal);
             cavernMatterMaterial.SetFloat(CaveSweepId, sweep);
