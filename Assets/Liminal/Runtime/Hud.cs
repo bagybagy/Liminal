@@ -189,21 +189,36 @@ namespace Liminal
         }
         void PausePanel(float w,float h)
         {
-            Fill(new Rect(0,0,w,h),new Color(0.004f,0.009f,0.014f,0.88f));
-            float x=w*0.5f-150,y=Mathf.Max(35,h*0.5f-200);
+            Fill(new Rect(0,0,w,h),new Color(0.004f,0.009f,0.014f,0.08f));
+            Matrix4x4 previous=GUI.matrix;
+            float scale=Mathf.Min(1,w/360,(h-24)/470);
+            GUI.matrix=previous*Matrix4x4.Scale(new Vector3(scale,scale,1));
+            w/=scale;h/=scale;
+            float x=w*0.5f-150,y=(h-442)*.5f;
+            Fill(new Rect(x-20,y-12,340,466),new Color(0.004f,0.009f,0.014f,0.92f));
             Text(new Rect(x,y,300,42),"PAUSED",title,White,TextAnchor.MiddleCenter);
-            if(GUI.Button(new Rect(x,y+70,300,38),"RESUME",button)) Experience.TogglePause();
-            Text(new Rect(x,y+133,110,23),"MUSIC",small,Muted);
-            float volume=GUI.HorizontalSlider(new Rect(x+104,y+138,196,20),Experience.Music.Volume,0,1);
+            if(GUI.Button(new Rect(x,y+58,300,36),"RESUME",button)) Experience.TogglePause();
+            Text(new Rect(x,y+113,100,23),"MUSIC",small,Muted);
+            float volume=GUI.HorizontalSlider(new Rect(x+104,y+118,196,20),Experience.Music.Volume,0,1);
             Experience.Music.SetVolume(volume);
-            bool motion=GUI.Toggle(new Rect(x,y+178,300,26),Experience.ReducedMotion,"  REDUCED MOTION");
+            var brightness=Experience.Brightness;
+            Text(new Rect(x,y+153,140,23),"BRIGHTNESS",small,Muted);
+            Text(new Rect(x+140,y+153,160,23),brightness.Offset==0?"ORIGINAL":brightness.Offset.ToString("+0.0;-0.0")+" EV",
+                small,Cyan,TextAnchor.UpperRight);
+            bool enabled=GUI.enabled;GUI.enabled=enabled && brightness.Available;
+            float offset=GUI.HorizontalSlider(new Rect(x,y+185,196,20),brightness.Offset,DisplayBrightness.MinOffset,DisplayBrightness.MaxOffset);
+            brightness.SetOffset(offset);
+            if(GUI.Button(new Rect(x+208,y+173,92,32),"DEFAULT",button)) brightness.SetOffset(0);
+            GUI.enabled=enabled;
+            bool motion=GUI.Toggle(new Rect(x,y+230,300,26),Experience.ReducedMotion,"  REDUCED MOTION");
             Experience.SetReducedMotion(motion);
             if(Experience.CavernMode) {
-                if(GUI.Button(new Rect(x,y+222,194,36),"PARTICLE TUTORIAL",button)) Experience.ReplayTutorial();
-                if(GUI.Button(new Rect(x+202,y+222,98,36),"SKIP",button)) Experience.SkipTutorial();
+                if(GUI.Button(new Rect(x,y+274,194,36),"PARTICLE TUTORIAL",button)) Experience.ReplayTutorial();
+                if(GUI.Button(new Rect(x+202,y+274,98,36),"SKIP",button)) Experience.SkipTutorial();
             }
-            if(GUI.Button(new Rect(x,y+275,300,36),"RESTART",button)) Experience.Restart();
-            if(GUI.Button(new Rect(x,y+325,300,36),"EXIT",button)) Experience.Quit();
+            if(GUI.Button(new Rect(x,y+330,300,36),"RESTART",button)) Experience.Restart();
+            if(GUI.Button(new Rect(x,y+386,300,36),"EXIT",button)) Experience.Quit();
+            GUI.matrix=previous;
         }
         void Results(float w,float h)
         {

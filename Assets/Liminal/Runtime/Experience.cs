@@ -24,6 +24,7 @@ namespace Liminal
         public SubmarineEncounter Submarines { get; private set; }
         public ParticleTutorial Tutorial { get; private set; }
         public PassageBeacons PassageGuide { get; private set; }
+        public DisplayBrightness Brightness { get; private set; }
         public bool CavernMode { get; private set; }
         public int CurrentRoom { get; private set; }
         public int RoomsVisited { get; private set; }
@@ -69,6 +70,7 @@ namespace Liminal
                 PassageGuide=gameObject.AddComponent<PassageBeacons>();PassageGuide.Initialize();
                 sceneCamera.farClipPlane=2300;
             }
+            Brightness=gameObject.AddComponent<DisplayBrightness>();Brightness.Initialize(sceneCamera);
             var hud=gameObject.AddComponent<Hud>();hud.Experience=this;
             SetReducedMotion(PlayerPrefs.GetInt("reducedMotion",0)==1);
             Ready=true;
@@ -141,7 +143,12 @@ namespace Liminal
             if(Music.Paused) TogglePause();
         }
         public void SkipTutorial() { if(Tutorial) Tutorial.SetEnabled(false); }
-        void SaveSettings() { PlayerPrefs.SetFloat("volume",Music.Volume);PlayerPrefs.SetInt("reducedMotion",ReducedMotion?1:0);PlayerPrefs.Save(); }
+        void SaveSettings()
+        {
+            PlayerPrefs.SetFloat("volume",Music.Volume);PlayerPrefs.SetInt("reducedMotion",ReducedMotion?1:0);
+            Brightness.Save();PlayerPrefs.Save();
+        }
+        void OnApplicationQuit() { if(Ready && !ProofActive) SaveSettings(); }
         void OnApplicationFocus(bool focused) { if(Ready&&!ProofActive&&!focused&&!Music.Paused&&!Combat.Ended) TogglePause(); }
         void OnDestroy() { Cursor.lockState=CursorLockMode.None;Cursor.visible=true;AudioListener.pause=false; }
     }

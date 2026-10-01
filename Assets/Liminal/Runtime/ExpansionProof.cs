@@ -45,6 +45,9 @@ namespace Liminal
         IEnumerator Start()
         {
             yield return null;
+            if(Array.IndexOf(Environment.GetCommandLineArgs(),"--brightness-only")>=0) {
+                yield return InspectBrightness();yield break;
+            }
             if(Array.IndexOf(Environment.GetCommandLineArgs(),"--navigation-only")>=0) {
                 yield return InspectNavigation();yield break;
             }
@@ -132,6 +135,66 @@ namespace Liminal
             report.restartClean &= experience.Tutorial.StepIndex == 0 && !experience.Tutorial.Complete;
             Require(report.restartClean, "Restart must restore new stages and replayable tutorial without duplicate targets");
             Finish();
+        }
+
+        IEnumerator InspectBrightness()
+        {
+            report.mode="brightness";
+            var brightness=experience.Brightness;
+            Require(brightness.Available,"Camera must have a runtime brightness profile");
+            if(!brightness.Available) {Finish();yield break;}
+            string key=DisplayBrightness.PreferenceKey;
+            bool hadSetting=PlayerPrefs.HasKey(key);
+            float saved=PlayerPrefs.GetFloat(key,0),original=brightness.Offset;
+            try {
+                experience.Flight.SetPose(CaveLayout.Spawn,Quaternion.LookRotation(CaveLayout.Rooms[0].Center-CaveLayout.Spawn));
+                if(!experience.Music.Paused) experience.TogglePause();
+                brightness.SetOffset(0);
+                yield return null;
+                Require(Mathf.Abs(brightness.AppliedExposure-brightness.BaseExposure)<.0001f,"Default must retain authored exposure exactly");
+                var baseline=Render(experience.sceneCamera,1600,900,true);
+                report.originalLuminance=MeanLuminance(baseline);
+                File.WriteAllBytes(Path.Combine(directory,"brightness-original.png"),baseline.EncodeToPNG());
+                Destroy(baseline);
+                brightness.SetOffset(1.5f);
+                yield return null;
+                Require(experience.Music.Paused && Mathf.Abs(brightness.AppliedExposure-brightness.BaseExposure-1.5f)<.0001f,
+                    "Brightness must update immediately while paused");
+                var brighter=Render(experience.sceneCamera,1600,900,true);
+                report.brightLuminance=MeanLuminance(brighter);
+                File.WriteAllBytes(Path.Combine(directory,"brightness-plus-1.5.png"),brighter.EncodeToPNG());
+                Destroy(brighter);
+                Require(report.originalLuminance>.001f && report.brightLuminance>report.originalLuminance*1.2f,
+                    "SDR render must brighten visibly, not just change a stored value");
+                foreach(var volume in FindObjectsByType<Volume>(FindObjectsSortMode.None)) {
+                    if(volume.sharedProfile && volume.sharedProfile.TryGet<ColorAdjustments>(out var color))
+                        Require(Mathf.Abs(color.postExposure.value-brightness.BaseExposure)<.0001f,"Authored shared profile must remain unmodified");
+                }
+                brightness.Save();PlayerPrefs.Save();brightness.SetOffset(0);brightness.Reload();
+                Require(Mathf.Abs(brightness.Offset-1.5f)<.0001f,"Saved brightness must reload for the next launch");
+                brightness.SetOffset(-99);Require(brightness.Offset==DisplayBrightness.MinOffset,"Lower slider bound must clamp");
+                brightness.SetOffset(99);Require(brightness.Offset==DisplayBrightness.MaxOffset,"Upper slider bound must clamp");
+                brightness.SetOffset(0);
+                yield return null;
+                var restored=Render(experience.sceneCamera,1600,900,true);
+                report.restoredLuminance=MeanLuminance(restored);Destroy(restored);
+                Require(Mathf.Abs(report.restoredLuminance-report.originalLuminance)<report.originalLuminance*.05f+.0005f,
+                    "DEFAULT must restore the original visible look");
+                brightness.SetOffset(1.5f);experience.Restart();
+                Require(Mathf.Abs(brightness.Offset-1.5f)<.0001f,"Restart must preserve the selected display brightness");
+            } finally {
+                brightness.SetOffset(original);
+                if(hadSetting) PlayerPrefs.SetFloat(key,saved);else PlayerPrefs.DeleteKey(key);
+                PlayerPrefs.Save();
+            }
+            Finish();
+        }
+        static float MeanLuminance(Texture2D image)
+        {
+            double sum=0;
+            var pixels=image.GetPixels32();
+            foreach(var c in pixels) sum+=(.2126*c.r+.7152*c.g+.0722*c.b)/255;
+            return (float)(sum/pixels.Length);
         }
 
         IEnumerator InspectNavigation()
@@ -292,10 +355,12 @@ namespace Liminal
             foreach (var target in experience.Combat.Targets)
                 if (target.isPressureShot) target.previousPlayerPosition = position;
         }
-        Texture2D Render(Camera camera, int width, int height)
+        Texture2D Render(Camera camera, int width, int height, bool fullPipeline=false)
         {
             var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32); rt.Create();
-            RenderPipeline.SubmitRenderRequest(camera, new UniversalRenderPipeline.SingleCameraRequest { destination = rt });
+            // SingleCameraRequest skips URP's volume-stack update; exposure proof needs the normal pipeline.
+            if(fullPipeline) RenderPipeline.SubmitRenderRequest(camera,new RenderPipeline.StandardRequest { destination=rt });
+            else RenderPipeline.SubmitRenderRequest(camera, new UniversalRenderPipeline.SingleCameraRequest { destination = rt });
             var previous = RenderTexture.active; RenderTexture.active = rt;
             var pixels = new Texture2D(width, height, TextureFormat.RGB24, false);
             pixels.ReadPixels(new Rect(0, 0, width, height), 0, 0); pixels.Apply();
@@ -358,6 +423,7 @@ namespace Liminal
             public int tutorialActions, tutorialNotes, hermitParticles, hermitHits, submarineParticles, submarineHits;
             public int completedPhases, pressureShots, interceptions, damageTaken, hits, notes, haloNear, haloFar;
             public float hermitMerge;
+            public float originalLuminance,brightLuminance,restoredLuminance;
             public double gridError;
             public float[] visibleFractions;
             public string gpu;
