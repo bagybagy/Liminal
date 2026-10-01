@@ -1,0 +1,22 @@
+{
+    "passed": true,
+    "ballisticRings": true,
+    "vrMovement": true,
+    "vrDesktopFallback": false,
+    "graphEdges": 7,
+    "corridorFish": 147,
+    "hermitHits": 48,
+    "submarineHits": 160,
+    "hits": 448,
+    "notes": 448,
+    "endingVariants": 8,
+    "spearHits": 24,
+    "inheritedRings": 1,
+    "inheritedCurtains": 7,
+    "musicTransitions": 5,
+    "creditParticles": 445,
+    "creditCycles": 8,
+    "gridError": 0.0,
+    "playbackPhaseError": 0.021351473922919696,
+    "errors": []
+}
