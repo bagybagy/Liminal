@@ -8,6 +8,7 @@ namespace Liminal
     {
         public AudioClip soundtrack;
         public bool LoopSoundtrack;
+        public bool EnableStageMusic;
         const float MusicLevel = 0.83f;
         const int VoiceCount = 64;
         const double CrossfadeBars = 2;
@@ -22,10 +23,10 @@ namespace Liminal
         int activeMusicSource, scheduledMusicSource = -1, fadeOutMusicSource = -1;
         int pendingTheme = -1;
         double fadeStartSong, fadeEndSong;
-        bool stageMusicAvailable, crossfading, initialized;
+        bool stageMusicAvailable, crossfading, initialized, playbackStarted;
 
         public bool Paused { get; private set; }
-        public double Time => Math.Max(0, AudioSettings.dspTime - origin);
+        public double Time => playbackStarted ? Math.Max(0, AudioSettings.dspTime - origin) : 0;
         public double DspOrigin => origin;
         public float Volume { get; private set; } = 0.8f;
         public int ScheduledNotes { get; private set; }
@@ -33,6 +34,8 @@ namespace Liminal
         public double MaxPlaybackPhaseError { get; private set; }
         public int DroppedNotes { get; private set; }
         public int ThemeCount => AuthoredScore.ThemeCount;
+        public bool StageMusicEnabled => stageMusicAvailable;
+        public AudioClip ActiveSoundtrack => musicSources[activeMusicSource] ? musicSources[activeMusicSource].clip : null;
         public int CurrentTheme { get; private set; } = -1;
         public int PendingTheme => pendingTheme;
         public int TransitionCount { get; private set; }
@@ -40,7 +43,7 @@ namespace Liminal
         public double LastTransitionTime { get; private set; } = -1;
         public double NextTransitionTime => pendingTheme >= 0 ? ScheduledBoundary : -1;
 
-        public void Initialize()
+        public void Initialize(bool deferPlayback = false)
         {
             if (!soundtrack) throw new InvalidOperationException("Missing soundtrack.");
             if (soundtrack.frequency != AuthoredScore.Data.sampleRate || soundtrack.samples != AuthoredScore.Data.sampleCount)
@@ -51,7 +54,7 @@ namespace Liminal
                 musicSources[i].playOnAwake = false;
                 musicSources[i].spatialBlend = 0;
             }
-            stageMusicAvailable = LoopSoundtrack && LoadStageMusic();
+            stageMusicAvailable = EnableStageMusic && LoopSoundtrack && LoadStageMusic();
             CacheHarmony(AuthoredScore.Data);
             if (stageMusicAvailable)
                 for (int i = 0; i < themeClips.Length; i++) CacheHarmony(AuthoredScore.ThemeData(i));
@@ -66,7 +69,7 @@ namespace Liminal
             whaleTone = MakeWhaleCall();
             SetVolume(PlayerPrefs.GetFloat("volume", 0.8f));
             initialized = true;
-            Restart();
+            if (!deferPlayback) Restart();
         }
 
         bool LoadStageMusic()
@@ -110,6 +113,7 @@ namespace Liminal
             for (int i = 0; i < voices.Length; i++) { voices[i].Stop(); voiceEnds[i] = 0; }
 
             origin = AudioSettings.dspTime + 0.3;
+            playbackStarted = true;
             activeMusicSource = 0;
             scheduledMusicSource = fadeOutMusicSource = -1;
             pendingTheme = -1;
@@ -134,7 +138,7 @@ namespace Liminal
 
         public void RequestTheme(int room, bool ending = false)
         {
-            if (!initialized || !stageMusicAvailable || !LoopSoundtrack) return;
+            if (!initialized || !playbackStarted || !stageMusicAvailable || !LoopSoundtrack) return;
             AdvanceThemeState();
             int target;
             if (ending) target = AuthoredScore.ThemeCount - 1;
@@ -231,6 +235,7 @@ namespace Liminal
 
         public bool ScheduleNote(int index, double songTime, float pan, float strength = 1)
         {
+            if (!playbackStarted) return false;
             int midi = AuthoredScore.Note(index % 8, songTime);
             if (!notes.TryGetValue(midi, out AudioClip note)) {
                 note = Synthesize(midi, 1.8f, false);
@@ -246,7 +251,7 @@ namespace Liminal
 
         void Update()
         {
-            if (!initialized || Paused) return;
+            if (!initialized || !playbackStarted || Paused) return;
             AdvanceThemeState();
             var source = musicSources[activeMusicSource];
             if (!source || !source.isPlaying || AudioSettings.dspTime <= origin + .1) return;

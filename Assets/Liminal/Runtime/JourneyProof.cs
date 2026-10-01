@@ -70,7 +70,9 @@ namespace Liminal
             Check(report.corridorFish==7*3*7,"Every route must retain three schools of seven fish");
             game.Restart();game.Tutorial.SetEnabled(false);
             yield return new WaitForSecondsRealtime(.4f);
-            Check(game.Music.ThemeCount==6 && game.Music.CurrentTheme==0,"All six authored stage themes must load");
+            Check(game.Music.ThemeCount==6 && (game.Music.StageMusicEnabled ? game.Music.CurrentTheme==0 :
+                game.Music.CurrentTheme==-1 && game.Music.ActiveSoundtrack==game.soundtrack),
+                "Music must respect the opt-in stage-theme policy");
             game.Music.RequestTheme(1);
             Frame(Anatomy.Focus((float)game.Music.Time)+new Vector3(25,20,-45),Anatomy.Focus((float)game.Music.Time));
             yield return null;
@@ -150,9 +152,12 @@ namespace Liminal
             yield return InspectFinaleVariants();
             report.musicTransitions=game.Music.TransitionCount;
             report.playbackPhaseError=game.Music.MaxPlaybackPhaseError;
-            Check(game.Music.CurrentTheme==5&&report.musicTransitions>=5,"Each room and ending must switch themes on the shared clock");
-            Check(Math.Abs(game.Music.LastTransitionTime/(16*Score.BeatSeconds)-Math.Round(game.Music.LastTransitionTime/(16*Score.BeatSeconds)))<.00001,
-                "Theme changes must start on a four-bar boundary");
+            if(game.Music.StageMusicEnabled) {
+                Check(game.Music.CurrentTheme==5&&report.musicTransitions>=5,"Each room and ending must switch themes on the shared clock");
+                Check(Math.Abs(game.Music.LastTransitionTime/(16*Score.BeatSeconds)-Math.Round(game.Music.LastTransitionTime/(16*Score.BeatSeconds)))<.00001,
+                    "Theme changes must start on a four-bar boundary");
+            } else Check(game.Music.CurrentTheme==-1&&report.musicTransitions==0&&game.Music.ActiveSoundtrack==game.soundtrack,
+                "Every room and the ending must keep the original soundtrack playing");
             double frozen=game.Music.Time;game.Music.SetPaused(true);
             yield return new WaitForSecondsRealtime(.25f);
             Check(Math.Abs(game.Music.Time-frozen)<.003,"Pause must freeze the DSP music clock");game.Music.SetPaused(false);
