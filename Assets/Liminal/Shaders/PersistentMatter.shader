@@ -139,6 +139,13 @@ Shader "Liminal/Persistent Matter"
                     stretch = 1.0;
                     silhouette = 1.0;
                 }
+                bool city = seed.traits.y > 2.5 && particle.identityState.z > 2.5 && particle.identityState.z < 3.5;
+                if (city) {
+                    size = max(particle.colorSize.w * 0.7, pixelWorld * 1.0);
+                    stretch = 1.0;
+                    silhouette = 0.48;
+                    sparkle = contour = 0.0;
+                }
                 float3 world = position + across * uv.x * size + along * uv.y * size * stretch;
                 float impact = saturate(particle.velocityEnergy.w);
                 float energy = 1.0 + impact * 2.3;
@@ -152,7 +159,11 @@ Shader "Liminal/Persistent Matter"
                     pearl = lerp(pearl, energizedAnchor, hitState * 0.82);
                     energy += hitState * 1.6;
                 }
-                if (particle.identityState.z > 2.5 && particle.identityState.z < 3.5)
+                if (city) {
+                    pearl = particle.colorSize.rgb;
+                    energy = 1.0;
+                }
+                else if (particle.identityState.z > 2.5 && particle.identityState.z < 3.5)
                     pearl = lerp(pearl, float3(0.38,0.95,0.78),0.28) * 1.6;
                 float afterglow = saturate(particle.identityState.w);
                 if (isWhale) afterglow = 0.0;

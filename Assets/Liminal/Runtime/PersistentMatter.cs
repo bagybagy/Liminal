@@ -12,13 +12,15 @@ namespace Liminal
         public const int WhaleTargetsPerRing = 4;
         public const int WhalePatchCount = WhaleRingCount * WhaleTargetsPerRing;
         MatterGroup[] groupData;
+        MatterSeed[] seedData;
+        int[] whaleSeedIndices = Array.Empty<int>();
         GraphicsBuffer seeds, groups, particles, whalePatchBuffer, alternateForms, birthMatrices, groupVelocities, surfaceFrames;
         Matrix4x4[] birthData;
         Vector4[] groupVelocityData;
         ComputeShader simulation;
         Material drawMaterial;
         int initializeKernel, simulateKernel;
-        bool initialized, disposed;
+        bool initialized, disposed, whaleDestinationsSet;
         float previousSong = float.NaN;
         Vector3 currentCenter, currentVelocity, playerPosition, playerVelocity;
         Vector3 whaleVelocity;
@@ -52,14 +54,17 @@ namespace Liminal
             birthData = new Matrix4x4[groupCount];
             groupVelocityData = new Vector4[groupCount];
             for (int i = 0; i < groupData.Length; i++) groupData[i].localToWorld = Matrix4x4.identity;
-            var seedData = new MatterSeed[ParticleCount];
+            seedData = new MatterSeed[ParticleCount];
+            var whaleSeeds = new List<int>();
             for (int i = 0; i < ParticleCount; i++)
             {
                 seedData[i] = matterSeeds[i];
                 int group = Mathf.RoundToInt(seedData[i].traits.x);
                 if (group < 0 || group >= groupCount)
                     throw new ArgumentOutOfRangeException(nameof(matterSeeds), "Every seed group must be inside groupCount.");
+                if (seedData[i].traits.y > 2.5f) whaleSeeds.Add(i);
             }
+            whaleSeedIndices = whaleSeeds.ToArray();
 
             simulation = UnityEngine.Object.Instantiate(compute);
             simulation.name = compute.name + " (Persistent Matter)";
@@ -185,6 +190,24 @@ namespace Liminal
             if (whalePatchBuffer != null) whalePatchBuffer.SetData(whalePatches);
         }
 
+        public void SetWhaleDestinations(Func<int, Vector3> sampler)
+        {
+            if (!Ready) throw new InvalidOperationException("Persistent matter must be initialized before whale destinations are set.");
+            if (sampler == null) throw new ArgumentNullException(nameof(sampler));
+            if (whaleDestinationsSet) return;
+
+            for (int i = 0; i < whaleSeedIndices.Length; i++)
+            {
+                int particleId = whaleSeedIndices[i];
+                MatterSeed seed = seedData[particleId];
+                Vector3 destination = sampler(particleId);
+                seed.destination = new Vector4(destination.x, destination.y, destination.z, seed.destination.w);
+                seedData[particleId] = seed;
+            }
+            seeds.SetData(seedData);
+            whaleDestinationsSet = true;
+        }
+
         public void Tick(float song, float dt)
         {
             if (!Ready) return;
@@ -264,6 +287,8 @@ namespace Liminal
             alternateForms?.Dispose(); birthMatrices?.Dispose(); groupVelocities?.Dispose();
             surfaceFrames?.Dispose();
             seeds = null; groups = null; particles = null; whalePatchBuffer = null;
+            seedData = null;
+            whaleSeedIndices = Array.Empty<int>();
             if (simulation) UnityEngine.Object.Destroy(simulation);
             if (drawMaterial) UnityEngine.Object.Destroy(drawMaterial);
         }
