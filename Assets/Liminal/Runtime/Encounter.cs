@@ -443,6 +443,11 @@ namespace Liminal
             if(school) dolphinSchools.Remove(school);
         }
 
+        public void UnregisterEnvironment(LockTarget target)
+        {
+            if(target!=null && target.kind==TargetKind.Environment) UnregisterDolphinTarget(target);
+        }
+
         internal void UnregisterDolphinTarget(LockTarget target)
         {
             if(target==null) return;

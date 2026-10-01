@@ -62,6 +62,15 @@ namespace Liminal
             int end = beat + 1 < Data.beats.Length ? Data.beats[beat + 1] : Data.sampleCount;
             return Mathf.Exp(-(float)((sample - Data.beats[beat]) / (end - Data.beats[beat])) * decay);
         }
+        public static double BeatPosition(double song)
+        {
+            double sample = Math.Max(0, song) * Data.sampleRate;
+            long loop = (long)Math.Floor(sample / Data.sampleCount);
+            double local = LocalSample(song);
+            int beat = Previous(Data.beats, local);
+            int end = beat + 1 < Data.beats.Length ? Data.beats[beat + 1] : Data.sampleCount;
+            return loop * Data.beats.Length + beat + (local - Data.beats[beat]) / Math.Max(1, end - Data.beats[beat]);
+        }
         public static int Note(int index, double song)
         {
             double sample = LocalSample(song);
