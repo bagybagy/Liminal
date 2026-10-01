@@ -1,0 +1,57 @@
+{
+  "title": "Tidal Bloom / audition 01",
+  "bpm": 124,
+  "bars": 96,
+  "duration": 185.806462585034,
+  "clippedSamples": 0,
+  "peak": 0.6722193956375122,
+  "rms": 0.13111380404461057,
+  "referenceRms": 0.13111380404379952,
+  "relativeRmsDb": 5.372846912631677e-11,
+  "sections": [
+    {
+      "bar": 0,
+      "name": "Arrival",
+      "seconds": 0
+    },
+    {
+      "bar": 8,
+      "name": "First bloom",
+      "seconds": 15.483870967741936
+    },
+    {
+      "bar": 24,
+      "name": "Current",
+      "seconds": 46.45161290322581
+    },
+    {
+      "bar": 40,
+      "name": "Suspension",
+      "seconds": 77.41935483870968
+    },
+    {
+      "bar": 48,
+      "name": "Rising",
+      "seconds": 92.90322580645162
+    },
+    {
+      "bar": 56,
+      "name": "Full bloom",
+      "seconds": 108.38709677419355
+    },
+    {
+      "bar": 80,
+      "name": "Return",
+      "seconds": 154.83870967741936
+    },
+    {
+      "bar": 88,
+      "name": "Afterimage",
+      "seconds": 170.32258064516128
+    }
+  ],
+  "referenceSha256": "78848712a5da5c6e54fdad7bec30f1f2f0b9b12b2532c53f7458b52635015ad9",
+  "sourceSha256": "2a228851f9cde7e22e2bb915c81ca847b57cde38c71bdefb10862b79ec78c383",
+  "method": "Authored Node.js procedural synthesis. No external music generation model.",
+  "status": "Audition candidate; musical quality requires listener review."
+}
