@@ -46,17 +46,15 @@ namespace Liminal
             }
             material.name = "Hit halo material";
 
-            var vertices = new Vector3[4];
-            var uv = new[] {
-                new Vector4(-1,-1,0,0), new Vector4(-1,1,0,0),
-                new Vector4(1,1,0,0), new Vector4(1,-1,0,0)
-            };
-            quadMesh = new Mesh { name = "Hit halo billboard" };
-            quadMesh.vertices = vertices;
-            quadMesh.SetUVs(0, new System.Collections.Generic.List<Vector4>(uv));
-            quadMesh.SetTriangles(new[] { 0, 1, 2, 0, 2, 3 }, 0);
-            quadMesh.bounds = new Bounds(Vector3.zero, Vector3.one * 2048f);
-            quadMesh.UploadMeshData(true);
+            var cloud=new PointCloud();
+            for(int i=0;i<384;i++) {
+                float seed=Mathf.Repeat(i*.61803399f,1);
+                float angle=i*2.39996323f;
+                float band=i<240?0:i<352?.4f:.8f;
+                cloud.Add(new Vector3(Mathf.Cos(angle),Mathf.Sin(angle),0),
+                    .014f+seed*.012f,Color.white,seed,band);
+            }
+            quadMesh=cloud.Build("Hit halo / 384 drifting grains",2048);
 
             for (int i = 0; i < slots.Length; i++) {
                 var visual = new GameObject("Hit halo " + i);

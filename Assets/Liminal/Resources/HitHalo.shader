@@ -2,10 +2,10 @@ Shader "Liminal/Hit Halo"
 {
     Properties
     {
-        _HitData ("Hit Position And Time", Vector) = (0,0,0,-1)
-        _HitColor ("Hit Color And Strength", Vector) = (1,1,1,1)
-        _HitSong ("Song Time", Float) = 0
-        _HitReduced ("Reduced Motion", Float) = 0
+        _HitData("Hit Position And Time",Vector)=(0,0,0,-1)
+        _HitColor("Hit Color And Strength",Vector)=(1,1,1,1)
+        _HitSong("Song Time",Float)=0
+        _HitReduced("Reduced Motion",Float)=0
     }
     SubShader
     {
@@ -21,103 +21,49 @@ Shader "Liminal/Hit Halo"
             #pragma fragment Frag
             #pragma target 4.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-
             CBUFFER_START(UnityPerMaterial)
-            float4 _HitData;
-            float4 _HitColor;
-            float _HitSong;
-            float _HitReduced;
+            float4 _HitData,_HitColor;
+            float _HitSong,_HitReduced;
             CBUFFER_END
-
-            struct Input
+            struct Input { float3 positionOS:POSITION;float4 uv:TEXCOORD0;float2 data:TEXCOORD1; };
+            struct Varyings { float4 positionCS:SV_POSITION;float2 uv:TEXCOORD0;float3 glow:COLOR;float active:TEXCOORD1; };
+            Varyings Vert(Input v)
             {
-                float3 positionOS : POSITION;
-                float4 uv : TEXCOORD0;
-            };
-            struct Varyings
-            {
-                float4 positionCS : SV_POSITION;
-                float2 uv : TEXCOORD0;
-                float elapsed : TEXCOORD1;
-                float life : TEXCOORD2;
-                float active : TEXCOORD3;
-                float phase : TEXCOORD4;
-                float strength : TEXCOORD5;
-                float3 palette : COLOR;
-                float viewDepth : TEXCOORD6;
-            };
-
-            Varyings Vert(Input input)
-            {
-                Varyings output;
-                float strength = max(0.0, _HitColor.a);
-                float duration = lerp(0.55, 0.85, saturate((strength - 0.35) / 1.65));
-                float elapsed = _HitSong - _HitData.w;
-                float active = step(0.0, elapsed) * step(elapsed, duration);
-                float3 center = _HitData.xyz;
-                float viewDepth = max(0.01, -TransformWorldToView(center).z);
-                float pixelRadius = lerp(clamp(_ScreenParams.y * 0.055, 44.0, 90.0),
-                    clamp(_ScreenParams.y * 0.09, 64.0, 112.0), saturate((strength - 0.35) / 1.65));
-                float radiusWorld = pixelRadius * 2.0 * viewDepth /
-                    (max(abs(UNITY_MATRIX_P[1][1]), 0.01) * max(_ScreenParams.y, 1.0));
-                float3 cameraRight = UNITY_MATRIX_V[0].xyz;
-                float3 cameraUp = UNITY_MATRIX_V[1].xyz;
-                float3 world = center + (cameraRight * input.uv.x + cameraUp * input.uv.y) * radiusWorld;
-
-                float3 incoming = max(_HitColor.rgb, 0.0);
-                float tintLevel = max(max(incoming.r, incoming.g), incoming.b);
-                float3 tintHue = incoming / max(tintLevel, 0.0001);
-                float warm = saturate((max(tintHue.r - tintHue.b, (tintHue.r - tintHue.g) * 0.55) - 0.04) * 1.7);
-                float cyan = saturate((tintHue.g - tintHue.r) * 1.1);
-                float3 electricHue = lerp(float3(0.035, 0.22, 1.0), float3(0.015, 0.76, 1.0), cyan);
-                float intensity = lerp(0.78, 1.08, saturate(strength / 2.0));
-
-                output.positionCS = TransformWorldToHClip(world);
-                output.uv = input.uv.xy;
-                output.elapsed = elapsed;
-                output.life = saturate(elapsed / duration);
-                output.active = active;
-                output.phase = frac(sin(dot(center, float3(12.9898, 78.233, 37.719))) * 43758.5453) * 6.2831853;
-                output.strength = strength;
-                output.palette = lerp(electricHue, tintHue, warm) * intensity;
-                output.viewDepth = viewDepth;
-                return output;
+                Varyings o;
+                float strength=max(0,_HitColor.a),seed=v.data.x;
+                float elapsed=_HitSong-_HitData.w;
+                float duration=lerp(.55,.85,saturate((strength-.35)/1.65));
+                float life=saturate(elapsed/duration);
+                float depth=max(.01,-TransformWorldToView(_HitData.xyz).z);
+                float pixelRadius=lerp(clamp(_ScreenParams.y*.055,44,90),clamp(_ScreenParams.y*.09,64,112),saturate((strength-.35)/1.65));
+                float pixelWorld=2*depth/(max(abs(UNITY_MATRIX_P[1][1]),.01)*max(_ScreenParams.y,1));
+                float outer=lerp(.22,.97*lerp(1,.72,_HitReduced),smoothstep(0,.96,life));
+                float inner=lerp(.11,.74*lerp(1,.72,_HitReduced),saturate((life-.08)/.92));
+                float radius=v.data.y<.2?outer:inner;
+                if(v.data.y>.7) radius=lerp(.18,.95,life)*(.7+.3*seed);
+                radius+=(seed-.5)*(.026+life*.032);
+                float angle=atan2(v.positionOS.y,v.positionOS.x)+elapsed*(seed-.5)*lerp(.75,.2,_HitReduced);
+                float2 offset=float2(cos(angle),sin(angle))*radius*pixelRadius;
+                float size=max(1.05,v.uv.z*pixelRadius)*(1-.42*life);
+                float3 world=_HitData.xyz+(UNITY_MATRIX_V[0].xyz*(offset.x+v.uv.x*size)+
+                    UNITY_MATRIX_V[1].xyz*(offset.y+v.uv.y*size))*pixelWorld;
+                o.positionCS=TransformWorldToHClip(world);o.uv=v.uv.xy;
+                o.active=step(0,elapsed)*step(elapsed,duration);
+                float3 incoming=max(_HitColor.rgb,0);
+                float3 hue=incoming/max(max(incoming.r,incoming.g),max(incoming.b,.0001));
+                float warm=saturate((max(hue.r-hue.b,(hue.r-hue.g)*.55)-.04)*1.7);
+                float cyan=saturate((hue.g-hue.r)*1.1);
+                float3 blue=lerp(float3(.035,.22,1),float3(.015,.76,1),cyan);
+                float fade=1-smoothstep(.68,1,life);
+                float scintillation=.7+.6*pow(saturate(sin(seed*37+elapsed*13)),8);
+                o.glow=lerp(blue,hue,warm)*fade*scintillation*2.2*max(.7,exp(-depth*.0006));
+                return o;
             }
-
-            half4 Frag(Varyings input) : SV_Target
+            half4 Frag(Varyings i):SV_Target
             {
-                clip(input.active - 0.5);
-                float radiusSquared = dot(input.uv, input.uv);
-                clip(1.0 - radiusSquared);
-                float radius = sqrt(radiusSquared);
-                float life = input.life;
-                float fade = 1.0 - smoothstep(0.78, 1.0, life);
-                float expansion = lerp(1.0, 0.72, _HitReduced);
-
-                float outerRadius = lerp(0.22, 0.97 * expansion, smoothstep(0.0, 0.96, life));
-                float innerRadius = lerp(0.11, 0.74 * expansion, saturate((life - 0.08) / 0.92));
-                float outerDistance = (radius - outerRadius) / 0.026;
-                float innerDistance = (radius - innerRadius) / 0.031;
-                float angle = atan2(input.uv.y, input.uv.x);
-                float arc = 0.72 + 0.28 * saturate(0.5 + 0.5 * sin(angle * 7.0 + input.phase + life * 5.0));
-                float outerRing = exp(-outerDistance * outerDistance) * arc * 1.25;
-                float innerRing = exp(-innerDistance * innerDistance) * 0.82;
-
-                float glintRadius = lerp(0.92, 0.28, smoothstep(0.04, 0.88, life));
-                float glintOffset = sin(angle * 5.0 + input.phase) * 0.022;
-                float glintDistance = (radius - glintRadius - glintOffset) / 0.034;
-                float glintAngles = pow(saturate(0.5 + 0.5 * cos(angle * 7.0 + input.phase + life * 2.4)), 15.0);
-                float glints = exp(-glintDistance * glintDistance) * glintAngles *
-                    (1.0 - smoothstep(0.66, 0.94, life)) * lerp(1.0, 0.4, _HitReduced);
-
-                float disc = exp(-radiusSquared * 9.0) * (0.68 * exp(-input.elapsed * 5.2) + 0.16 * fade);
-                float impact = exp(-radiusSquared * 4.0) * exp(-input.elapsed * 17.0) * 0.32;
-                float whiteCore = exp(-radiusSquared * 520.0) *
-                    (1.0 - smoothstep(0.0, 0.08, input.elapsed)) * 0.9;
-                float intensity = lerp(1.0, 0.76, _HitReduced) * lerp(0.78, 1.15, saturate(input.strength / 2.0));
-                float distanceFade = max(0.7, exp(-input.viewDepth * 0.0006));
-                float3 color = input.palette * (disc + impact + outerRing + innerRing + glints) + whiteCore;
-                return half4(color * fade * intensity * distanceFade, 1.0);
+                clip(i.active-.5);
+                float r2=dot(i.uv,i.uv);clip(1-r2);
+                return half4(i.glow*(exp(-r2*5)+.14*exp(-r2*2)),1);
             }
             ENDHLSL
         }
