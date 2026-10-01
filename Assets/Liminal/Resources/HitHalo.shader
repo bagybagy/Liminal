@@ -56,7 +56,8 @@ Shader "Liminal/Hit Halo"
                 float active = step(0.0, elapsed) * step(elapsed, duration);
                 float3 center = _HitData.xyz;
                 float viewDepth = max(0.01, -TransformWorldToView(center).z);
-                float pixelRadius = lerp(28.0, 70.0, saturate((strength - 0.35) / 1.65));
+                float pixelRadius = lerp(clamp(_ScreenParams.y * 0.055, 44.0, 90.0),
+                    clamp(_ScreenParams.y * 0.09, 64.0, 112.0), saturate((strength - 0.35) / 1.65));
                 float radiusWorld = pixelRadius * 2.0 * viewDepth /
                     (max(abs(UNITY_MATRIX_P[1][1]), 0.01) * max(_ScreenParams.y, 1.0));
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;
@@ -114,7 +115,7 @@ Shader "Liminal/Hit Halo"
                 float whiteCore = exp(-radiusSquared * 520.0) *
                     (1.0 - smoothstep(0.0, 0.08, input.elapsed)) * 0.9;
                 float intensity = lerp(1.0, 0.76, _HitReduced) * lerp(0.78, 1.15, saturate(input.strength / 2.0));
-                float distanceFade = exp(-input.viewDepth * 0.0018);
+                float distanceFade = max(0.7, exp(-input.viewDepth * 0.0006));
                 float3 color = input.palette * (disc + impact + outerRing + innerRing + glints) + whiteCore;
                 return half4(color * fade * intensity * distanceFade, 1.0);
             }

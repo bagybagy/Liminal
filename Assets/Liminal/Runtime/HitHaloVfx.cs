@@ -55,7 +55,7 @@ namespace Liminal
             quadMesh.vertices = vertices;
             quadMesh.SetUVs(0, new System.Collections.Generic.List<Vector4>(uv));
             quadMesh.SetTriangles(new[] { 0, 1, 2, 0, 2, 3 }, 0);
-            quadMesh.bounds = new Bounds(Vector3.zero, Vector3.one * 512f);
+            quadMesh.bounds = new Bounds(Vector3.zero, Vector3.one * 2048f);
             quadMesh.UploadMeshData(true);
 
             for (int i = 0; i < slots.Length; i++) {
