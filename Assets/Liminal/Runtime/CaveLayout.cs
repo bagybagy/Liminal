@@ -203,9 +203,9 @@ namespace Liminal
             if(RoomDistance(room,position)<=1f) {
                 int passage=DefaultForwardPassage[room];
                 if(passage<0) return false;
-                bool forward=DefaultPassageDirection[room];
-                GetPortal(passage,forward,out waypoint,out _);
-                destination=Destination(passage,forward);
+                bool defaultDirection=DefaultPassageDirection[room];
+                GetPortal(passage,defaultDirection,out waypoint,out _);
+                destination=Destination(passage,defaultDirection);
                 return true;
             }
 

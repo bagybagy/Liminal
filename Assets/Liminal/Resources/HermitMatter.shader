@@ -65,7 +65,9 @@ Shader "Liminal/Hermit Matter"
             };
 
             static const float TAU = 6.28318530718;
-            static const float GIANT_SCALE = 7.5;
+            static const float GIANT_SCALE = 11.25;
+            static const float REEF_SCALE = 2.5;
+            static const float REEF_FISH_COUNT = 16.0;
 
             float Hash(float value, float salt)
             {
@@ -218,22 +220,29 @@ Shader "Liminal/Hermit Matter"
                     part = 2.0;
                     accent = d;
                 }
-                else if (selector < 0.62)
+                else if (selector < 0.66)
                 {
-                    // Six thick open barrel vaults joined into the reef base.
-                    float module = floor(a * 6.0);
-                    float angle = module * (TAU / 6.0);
-                    float arch = b * PI;
-                    float r = 6.0 + (c - 0.5) * 1.4;
-                    float depth = 15.0 + (d - 0.5) * 10.0;
-                    float tangent = cos(arch) * r;
-                    p = float3(cos(angle) * depth - sin(angle) * tangent,
-                        2.4 + sin(arch) * r * 1.65,
-                        sin(angle) * depth + cos(angle) * tangent);
+                    // One dominant shell whorl sweeps from a broad foot into an open arch.
+                    float t = b;
+                    float angle = -PI * 0.72 + t * TAU * 1.42;
+                    float radius = 7.0 + 28.0 * t;
+                    float angleRate = TAU * 1.42;
+                    float height = 4.0 + sin(t * PI) * 28.0 + t * 3.0;
+                    float heightRate = 28.0 * PI * cos(t * PI) + 3.0;
+                    float3 tangent = normalize(float3(
+                        28.0 * cos(angle) - radius * angleRate * sin(angle),
+                        heightRate,
+                        28.0 * sin(angle) + radius * angleRate * cos(angle)));
+                    float3 side = normalize(float3(-tangent.z, 0.0, tangent.x));
+                    float3 normal = normalize(cross(tangent, side));
+                    float tube = (2.7 + (1.0 - t) * 1.4) * sqrt(d);
+                    float crossAngle = c * TAU;
+                    float3 center = float3(cos(angle) * radius, height, sin(angle) * radius);
+                    p = center + (side * cos(crossAngle) + normal * sin(crossAngle)) * tube;
                     part = 0.0;
-                    accent = b;
+                    accent = t;
                 }
-                else if (selector < 0.84)
+                else if (selector < 0.82)
                 {
                     // Tubular coral crowns with stable branch shapes and volume.
                     float branch = floor(a * 14.0);
@@ -255,10 +264,25 @@ Shader "Liminal/Hermit Matter"
                     // The giant shell becomes the central shelter and ties the
                     // original marine silhouette into the artificial refuge.
                     p = ShellSurface(pow(a, 0.62), b * TAU) * 3.0;
-                    part = 0.0;
+                    part = 3.0;
                     accent = a;
                 }
                 return p;
+            }
+
+            float3 ShoalPoint(float3 local, float fishId, float song)
+            {
+                float seed = Hash(fishId, 51.0);
+                float phase = fishId * (TAU / REEF_FISH_COUNT) + seed * TAU +
+                    song * (0.12 + Hash(fishId, 52.0) * 0.08);
+                float radius = 47.0 + Hash(fishId, 53.0) * 22.0;
+                float height = 13.0 + Hash(fishId, 54.0) * 18.0 +
+                    sin(song * 0.21 + fishId * 1.71) * 2.2;
+                float fishScale = 1.0 + Hash(fishId, 55.0) * 0.55;
+                float3 radial = float3(cos(phase), 0.0, sin(phase));
+                float3 tangent = float3(-sin(phase), 0.0, cos(phase));
+                return radial * (radius + local.x * fishScale) +
+                    float3(0.0, height + local.y * fishScale, 0.0) + tangent * (local.z * fishScale);
             }
 
             float3 GiantColor(float part, float accent)
@@ -279,10 +303,13 @@ Shader "Liminal/Hermit Matter"
             float3 RefugeColor(float part, float accent, float id)
             {
                 if (part < 0.5)
-                    return lerp(float3(0.08, 0.54, 0.51), float3(0.88, 0.67, 0.33), Hash(id, 32.0) * 0.65);
+                    return lerp(float3(0.08, 0.66, 0.61), float3(0.96, 0.72, 0.34),
+                        saturate(accent * 0.55 + Hash(id, 32.0) * 0.35));
                 if (part < 1.5)
-                    return lerp(float3(0.17, 0.47, 0.43), float3(0.82, 0.35, 0.48), accent * 0.75);
-                return lerp(float3(0.025, 0.27, 0.31), float3(0.16, 0.51, 0.43), accent);
+                    return lerp(float3(0.18, 0.54, 0.5), float3(0.96, 0.39, 0.43), accent * 0.78);
+                if (part < 2.5)
+                    return lerp(float3(0.035, 0.34, 0.37), float3(0.18, 0.58, 0.49), accent);
+                return lerp(float3(0.86, 0.62, 0.31), float3(1.0, 0.85, 0.54), Hash(id, 32.0) * 0.7);
             }
 
             Varyings Vert(Input input)
@@ -331,7 +358,7 @@ Shader "Liminal/Hermit Matter"
                             source = ScatteredPoint(source, id, input.data.z, _RefugeSourceElapsed);
                     }
                     float refugePart, refugeAccent;
-                    float3 refuge = _RefugeRoot.xyz + RefugePoint(id, refugePart, refugeAccent);
+                    float3 refuge = _RefugeRoot.xyz + RefugePoint(id, refugePart, refugeAccent) * REEF_SCALE;
                     float delay = Hash(_CrabId, 41.0) * 0.10;
                     float blend = smoothstep(0.16 + delay, 1.0, _RefugeProgress);
                     float disperse = smoothstep(0.0, 0.18, _RefugeProgress);
@@ -341,6 +368,12 @@ Shader "Liminal/Hermit Matter"
                         + stream * (sin(blend * PI) * 8.0);
                     matterScale = lerp(sourceScale, 2.4, blend);
                     color = lerp(sourceColor, RefugeColor(refugePart, refugeAccent, id), blend);
+                }
+                else if (_State < 4.5)
+                {
+                    id = input.data.y * 32.0 + input.data.x;
+                    world = TransformObjectToWorld(ShoalPoint(input.positionOS.xyz, input.data.y, _Song));
+                    color = input.color.rgb * (0.92 + 0.08 * sin(_Song * 2.1 + input.data.z * TAU));
                 }
                 else
                     world = TransformObjectToWorld(input.positionOS.xyz);

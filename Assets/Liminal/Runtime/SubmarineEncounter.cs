@@ -143,7 +143,7 @@ namespace Liminal
             if (matterObject && matterObject.activeSelf != roomActive)
                 matterObject.SetActive(roomActive);
 
-            if (SpearCharging && (combat.Ended || beatPosition - spearChargeBeat > 4.5f))
+            if (SpearCharging && (combat.Ended || combat.Peaceful || beatPosition - spearChargeBeat > 4.5f))
                 ClearSpearPattern();
             UpdateGeometry(song, dt, beatPosition);
             UpdateTargetPoses(beatPosition);
@@ -161,7 +161,7 @@ namespace Liminal
             }
 
             ProcessBeats(Mathf.FloorToInt(beatPosition), song);
-            if (!Transitioning && !Complete && !closing)
+            if (!Transitioning && !Complete && !closing && !combat.Peaceful)
                 EvaluateRearm();
 
             UpdateTargetPoses(beatPosition);
@@ -459,7 +459,7 @@ namespace Liminal
             for (int i = 0; i < pool.Length; i++)
             {
                 TargetSlot slot = pool[i];
-                bool visible = roomIsActive && activePhase && slot.target != null && slot.target.hp > 0 &&
+                bool visible = roomIsActive && !combat.Peaceful && activePhase && slot.target != null && slot.target.hp > 0 &&
                     (!closing || slot.target.reserved > 0);
                 if (slot.visual && slot.visual.activeSelf != visible)
                     slot.visual.SetActive(visible);
@@ -490,7 +490,7 @@ namespace Liminal
 
         void ProcessBeat(int beat, float song)
         {
-            if (!roomIsActive || Transitioning || Complete || closing || combat.Ended) return;
+            if (!roomIsActive || Transitioning || Complete || closing || combat.Ended || combat.Peaceful) return;
             int position = beat % 8;
             if (Phase == SubmarinePhase)
             {

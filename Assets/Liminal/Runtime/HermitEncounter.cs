@@ -8,7 +8,8 @@ namespace Liminal
 {
     public sealed class HermitEncounter : MonoBehaviour
     {
-        const int BossHitGoal = 32;
+        public const int SmallHitsPerCrab = 4;
+        public const int BossHitGoal = 48;
         const int EarlyRearmPointCount = 3;
         const float RoomRadiusX = 380f;
         const float RoomRadiusY = 160f;
@@ -27,7 +28,7 @@ namespace Liminal
             public GameObject visual;
             public Transform root;
             public Renderer renderer;
-            public LockTarget target;
+            public readonly LockTarget[] targets = new LockTarget[SmallHitsPerCrab];
             public Vector3 spawnPosition;
             public Vector3 position;
             public Vector3 spawnHeading;
@@ -45,6 +46,8 @@ namespace Liminal
             public int mergeSlot = -1;
             public FormState state;
             public bool defeated;
+            public int hitMask;
+            public int hitsTaken;
             public int reefSourceState;
             public float reefSourceElapsed;
             public readonly Vector3[] feet = new Vector3[6];
@@ -54,7 +57,7 @@ namespace Liminal
             public readonly float[] footPhases = new float[6];
         }
 
-        readonly Vector3 roomCenter = new Vector3(-120f, -840f, 2290f);
+        Vector3 roomCenter => CaveLayout.Rooms[3].Center;
         Crab[] crabs;
         int[] mergeGroups;
         GameObject[] bossMarkers;
@@ -69,7 +72,10 @@ namespace Liminal
         int[] footPropertyIds;
         Mesh swarmMesh;
         Mesh markerMesh;
+        Mesh shoalMesh;
         Material matterMaterial;
+        GameObject shoalObject;
+        Renderer shoalRenderer;
         Encounter combat;
         ParticleWorld world;
         Flight flight;
@@ -106,7 +112,8 @@ namespace Liminal
         public int SmallDefeated => smallDefeated;
         public int BossHits => bossHits;
         public int ParticleCount => HermitGeometry.SwarmSize * HermitGeometry.ParticlesPerCrab;
-        public float Progress => Mathf.Clamp01((Mathf.Min(smallDefeated, HermitGeometry.MergeSourceCount) + bossHits) / 40f);
+        public float Progress => Mathf.Clamp01((Mathf.Min(smallDefeated, HermitGeometry.MergeSourceCount) + bossHits) /
+            (float)(HermitGeometry.MergeSourceCount + BossHitGoal));
         public float MergeProgress => mergeProgress;
         public string Status => status;
         public Vector3 BossPosition => bossPosition;
@@ -115,6 +122,10 @@ namespace Liminal
         public bool RefugeSettled => complete;
         public float ReefProgress => refugeProgress;
         public int ReefParticleGroups => refugeStarted ? crabs.Length : 0;
+        public int ReefParticleCount => refugeStarted ? ParticleCount : 0;
+        public float ReefScale => HermitGeometry.ReefScale;
+        public int ReefFishCount => HermitGeometry.ReefFishCount;
+        public bool ReefFishActive => complete && shoalObject && shoalObject.activeSelf;
         public int SmallBubbleShots { get; private set; }
         public int GiantBubbleRings { get; private set; }
         public int PlantedFeet { get; private set; }
@@ -156,7 +167,7 @@ namespace Liminal
             bossRenderers = new Renderer[HermitGeometry.BossPointCount];
             bossSlots = new LockTarget[HermitGeometry.BossPointCount];
             fallenOrder = new List<int>(HermitGeometry.SwarmSize);
-            smallTargets = new List<LockTarget>(HermitGeometry.SwarmSize);
+            smallTargets = new List<LockTarget>(HermitGeometry.SwarmSize * SmallHitsPerCrab);
             bossTargets = new List<LockTarget>(HermitGeometry.BossPointCount);
             smallTargetView = smallTargets.AsReadOnly();
             bossTargetView = bossTargets.AsReadOnly();
@@ -174,6 +185,7 @@ namespace Liminal
             matterMaterial.SetColor("_Tint", Color.white);
             swarmMesh = HermitGeometry.BuildSwarmMesh();
             markerMesh = HermitGeometry.BuildMarkerMesh();
+            shoalMesh = HermitGeometry.BuildReefShoalMesh();
 
             Vector3 center = roomCenter;
             bossPosition = new Vector3(center.x,
@@ -187,6 +199,7 @@ namespace Liminal
 
             BuildCrabs();
             BuildBossMarkers();
+            BuildReefShoal();
             initialized = true;
             ResetEncounter();
         }
@@ -238,12 +251,16 @@ namespace Liminal
                 if (refugeProgress >= 1f)
                 {
                     complete = true;
+                    if (shoalObject)
+                        shoalObject.SetActive(true);
                     RefreshStatus();
                 }
             }
 
+            SuppressPeacefulTargets();
             UpdateTargetPositions(beatPosition);
             UpdateGroupProperties();
+            UpdateShoalProperties(song, beatPosition);
             CheckBossRearm();
 
             int beat = Mathf.FloorToInt(beatPosition);
@@ -252,7 +269,7 @@ namespace Liminal
             else if (beat != attackBeat)
             {
                 attackBeat = beat;
-                if (roomActive && !combat.Ended && !complete && !refugeStarted)
+                if (roomActive && !combat.Ended && !combat.Peaceful && !complete && !refugeStarted)
                 {
                     if (!mergeStarted && (beat & 1) == 0)
                         FireSmallPulse(song, beat);
@@ -283,6 +300,8 @@ namespace Liminal
             bossActive = false;
             refugeStarted = false;
             complete = false;
+            if (shoalObject)
+                shoalObject.SetActive(false);
             previousRoomActive = false;
             offenseStopped = false;
             retireTargets = false;
@@ -308,6 +327,8 @@ namespace Liminal
                 crab.mergeSlot = -1;
                 crab.state = FormState.Crawling;
                 crab.defeated = false;
+                crab.hitMask = 0;
+                crab.hitsTaken = 0;
                 crab.reefSourceState = 0;
                 crab.reefSourceElapsed = 0f;
                 crab.root.localScale = Vector3.one * crab.scale;
@@ -336,6 +357,7 @@ namespace Liminal
             matterMaterial.SetFloat("_Beat", previousBeat);
             UpdateTargetPositions(previousBeat);
             UpdateGroupProperties();
+            UpdateShoalProperties((float)music.Time, previousBeat);
             RefreshStatus();
         }
 
@@ -416,23 +438,42 @@ namespace Liminal
             }
         }
 
+        void BuildReefShoal()
+        {
+            shoalObject = new GameObject("Hermit reef shoaling fish");
+            shoalObject.transform.SetParent(transform, false);
+            shoalObject.transform.SetPositionAndRotation(bossPosition, Quaternion.identity);
+            shoalObject.AddComponent<MeshFilter>().sharedMesh = shoalMesh;
+            shoalRenderer = shoalObject.AddComponent<MeshRenderer>();
+            shoalRenderer.sharedMaterial = matterMaterial;
+            shoalRenderer.shadowCastingMode = ShadowCastingMode.Off;
+            shoalRenderer.receiveShadows = false;
+            shoalObject.SetActive(false);
+        }
+
         void EnsureEnvironmentTargets()
         {
             smallTargets.Clear();
             for (int i = 0; i < crabs.Length; i++)
             {
-                int index = i;
                 Crab crab = crabs[i];
-                if (crab.target == null || !combat.Targets.Contains(crab.target))
-                    crab.target = combat.RegisterEnvironment(crab.visual, (target, song) => OnSmallHit(index, target, song));
-                crab.target.acquireRange = SmallAcquireRange;
-                crab.target.hp = 1;
-                crab.target.reserved = 0;
-                crab.target.position = crab.root.TransformPoint(new Vector3(0f, 1.1f, 1.25f));
-                crab.target.visual = crab.visual;
+                for (int point = 0; point < crab.targets.Length; point++)
+                {
+                    int crabIndex = i;
+                    int pointIndex = point;
+                    LockTarget target = crab.targets[point];
+                    if (target == null || !combat.Targets.Contains(target))
+                        target = crab.targets[point] = combat.RegisterEnvironment(crab.visual,
+                            (hitTarget, song) => OnSmallHit(crabIndex, pointIndex, hitTarget, song));
+                    target.acquireRange = SmallAcquireRange;
+                    target.hp = 1;
+                    target.reserved = 0;
+                    target.position = crab.root.TransformPoint(HermitGeometry.SmallTargetLocalPosition(point));
+                    target.visual = crab.visual;
+                    combat.Locks.Remove(target);
+                    smallTargets.Add(target);
+                }
                 crab.visual.SetActive(true);
-                combat.Locks.Remove(crab.target);
-                smallTargets.Add(crab.target);
             }
 
             bossTargets.Clear();
@@ -549,10 +590,19 @@ namespace Liminal
             }
         }
 
-        void OnSmallHit(int index, LockTarget target, float song)
+        void OnSmallHit(int index, int pointIndex, LockTarget target, float song)
         {
             Crab crab = crabs[index];
-            if (crab.defeated || refugeStarted)
+            if (crab.defeated || refugeStarted || pointIndex < 0 || pointIndex >= SmallHitsPerCrab)
+                return;
+            int pointMask = 1 << pointIndex;
+            if ((crab.hitMask & pointMask) != 0)
+                return;
+
+            crab.hitMask |= pointMask;
+            crab.hitsTaken++;
+            world.BurstAt(target.position, song, new Color(0.18f, 0.83f, 0.76f), 0.8f);
+            if (crab.hitsTaken < SmallHitsPerCrab)
                 return;
 
             crab.defeated = true;
@@ -561,7 +611,6 @@ namespace Liminal
             crab.deathBeat = (float)AuthoredScore.BeatPosition(song);
             smallDefeated++;
             fallenOrder.Add(index);
-            world.BurstAt(target.position, song, new Color(0.18f, 0.83f, 0.76f), 0.8f);
 
             if (smallDefeated == HermitGeometry.MergeSourceCount && !mergeStarted)
                 BeginMerge(song);
@@ -615,9 +664,14 @@ namespace Liminal
                 if (support.defeated)
                     continue;
                 support.visual.SetActive(true);
-                support.target.hp = support.target.reserved > 0 ? support.target.reserved : 1;
-                support.target.position = support.root.TransformPoint(new Vector3(0f, 1.1f, 1.25f));
-                combat.Locks.Remove(support.target);
+                for (int point = 0; point < support.targets.Length; point++)
+                {
+                    LockTarget target = support.targets[point];
+                    if (target.hp > 0 || target.reserved > 0)
+                        target.hp = target.reserved > 0 ? target.reserved : 1;
+                    target.position = support.root.TransformPoint(HermitGeometry.SmallTargetLocalPosition(point));
+                    combat.Locks.Remove(target);
+                }
             }
             RefreshStatus();
         }
@@ -670,8 +724,11 @@ namespace Liminal
                 if (crab.state == FormState.Crawling)
                     crab.deathBeat = reefBeat;
                 crab.state = FormState.Refuge;
-                crab.target.hp = 0;
-                combat.Locks.Remove(crab.target);
+                for (int point = 0; point < crab.targets.Length; point++)
+                {
+                    crab.targets[point].hp = 0;
+                    combat.Locks.Remove(crab.targets[point]);
+                }
                 crab.visual.SetActive(true);
             }
             foreach (LockTarget target in combat.Targets)
@@ -687,7 +744,8 @@ namespace Liminal
         void RetireCombatTargets()
         {
             for (int i = 0; i < crabs.Length; i++)
-                combat.ResetDolphinTarget(crabs[i].target);
+                for (int point = 0; point < crabs[i].targets.Length; point++)
+                    combat.ResetDolphinTarget(crabs[i].targets[point]);
             for (int i = 0; i < bossSlots.Length; i++)
                 combat.ResetDolphinTarget(bossSlots[i]);
             for (int i = combat.Targets.Count - 1; i >= 0; i--)
@@ -704,8 +762,9 @@ namespace Liminal
             for (int i = 0; i < crabs.Length; i++)
             {
                 Crab crab = crabs[i];
-                if (crab.target != null)
-                    crab.target.position = crab.root.TransformPoint(new Vector3(0f, 1.1f, 1.25f));
+                for (int point = 0; point < crab.targets.Length; point++)
+                    if (crab.targets[point] != null)
+                        crab.targets[point].position = crab.root.TransformPoint(HermitGeometry.SmallTargetLocalPosition(point));
             }
 
             for (int i = 0; i < bossSlots.Length; i++)
@@ -714,9 +773,30 @@ namespace Liminal
                 Vector3 position = bossPosition + bossRotation * HermitGeometry.BossTargetLocalPosition(i, beat);
                 target.position = position;
                 bossMarkers[i].transform.SetPositionAndRotation(position, bossRotation);
-                bool show = bossActive && target.hp > 0;
+                bool show = bossActive && !combat.Peaceful && target.hp > 0;
                 if (bossMarkers[i].activeSelf != show)
                     bossMarkers[i].SetActive(show);
+            }
+        }
+
+        void SuppressPeacefulTargets()
+        {
+            if (!combat.Peaceful)
+                return;
+            for (int i = 0; i < crabs.Length; i++)
+                for (int point = 0; point < crabs[i].targets.Length; point++)
+                {
+                    LockTarget target = crabs[i].targets[point];
+                    if (target == null)
+                        continue;
+                    target.hp = target.reserved;
+                    combat.Locks.Remove(target);
+                }
+            for (int i = 0; i < bossSlots.Length; i++)
+            {
+                LockTarget target = bossSlots[i];
+                target.hp = target.reserved;
+                combat.Locks.Remove(target);
             }
         }
 
@@ -758,9 +838,22 @@ namespace Liminal
             }
         }
 
+        void UpdateShoalProperties(float song, float beat)
+        {
+            if (!shoalRenderer)
+                return;
+            properties.Clear();
+            properties.SetFloat("_State", 4f);
+            properties.SetFloat("_Song", song);
+            properties.SetFloat("_Beat", beat);
+            properties.SetColor("_Tint", Color.white);
+            properties.SetFloat("_Gain", 1.75f);
+            shoalRenderer.SetPropertyBlock(properties);
+        }
+
         void CheckBossRearm()
         {
-            if (!bossActive || refugeStarted || bossHits >= BossHitGoal)
+            if (!bossActive || refugeStarted || combat.Peaceful || bossHits >= BossHitGoal)
                 return;
 
             int unreservedPoints = 0;
@@ -791,11 +884,14 @@ namespace Liminal
         {
             for (int i = 0; i < crabs.Length; i++)
             {
-                LockTarget target = crabs[i].target;
-                if (target == null)
-                    continue;
-                target.hp = target.reserved;
-                combat.Locks.Remove(target);
+                for (int point = 0; point < crabs[i].targets.Length; point++)
+                {
+                    LockTarget target = crabs[i].targets[point];
+                    if (target == null)
+                        continue;
+                    target.hp = target.reserved;
+                    combat.Locks.Remove(target);
+                }
             }
         }
 
@@ -837,12 +933,15 @@ namespace Liminal
             int side = (bossPulseSequence & 2) == 0 ? -1 : 1;
             Vector3 local = HermitGeometry.BossClawOrigin(side, (float)AuthoredScore.BeatPosition(song));
             Vector3 origin = bossPosition + bossRotation * local;
-            // One hollow ring, not an overlapping fan. No leading the center into
-            // the player's escape path; supports fire on the intervening beat.
+            // One hollow ring follows a fixed, launch-time arc over the predicted player position.
             if (Vector3.Distance(origin, flight.Position) < 28f)
                 return;
-            RegisterPressure(origin, (flight.Position - origin).normalized, song,
-                new Color(0.18f, 0.82f, 0.77f), 17f, radius: 9f, bubbleRing: true);
+            const float duration = 5f;
+            Vector3 aimPoint = flight.Position + flight.Velocity * (duration * 0.35f);
+            BuildBallisticArc(origin, aimPoint, duration, out Vector3 velocity, out Vector3 acceleration);
+            RegisterPressure(origin, velocity.normalized, song,
+                new Color(0.18f, 0.82f, 0.77f), velocity.magnitude, radius: 9f, bubbleRing: true,
+                acceleration: acceleration, lifetimeOverride: duration);
         }
 
         void FireSupportPulse(float song, int pulse)
@@ -853,7 +952,7 @@ namespace Liminal
             for (int offset = 0; offset < crabs.Length && fired < shooters; offset++)
             {
                 Crab crab = crabs[(start + offset) % crabs.Length];
-                if (crab.state != FormState.Crawling || crab.defeated || crab.target.hp - crab.target.reserved <= 0)
+                if (crab.state != FormState.Crawling || crab.defeated || !HasUnreservedSmallTarget(crab))
                     continue;
                 Vector3 origin = crab.root.TransformPoint(new Vector3(0f, 0.92f, 3.15f));
                 if (Vector3.Distance(origin, flight.Position) < 12f)
@@ -873,13 +972,37 @@ namespace Liminal
             }
         }
 
-        bool RegisterPressure(Vector3 origin, Vector3 direction, float song, Color color, float speed,
-            float radius = 1.2f, bool bubbleRing = false)
+        static bool HasUnreservedSmallTarget(Crab crab)
         {
-            if (combat.LivePressureShots(this) >= MaxOwnedPressureShots || !combat.CanRegisterPressureShots(1))
+            for (int i = 0; i < crab.targets.Length; i++)
+                if (crab.targets[i] != null && crab.targets[i].hp - crab.targets[i].reserved > 0)
+                    return true;
+            return false;
+        }
+
+        static void BuildBallisticArc(Vector3 origin, Vector3 target, float duration,
+            out Vector3 initialVelocity, out Vector3 acceleration)
+        {
+            float apexY = Mathf.Max(target.y + 27f, origin.y + 0.01f);
+            float launchRise = apexY - origin.y;
+            float landingRise = apexY - target.y;
+            float timeToApex = duration / (1f + Mathf.Sqrt(landingRise / launchRise));
+            float verticalAcceleration = -2f * launchRise / (timeToApex * timeToApex);
+            Vector3 horizontalVelocity = new Vector3(target.x - origin.x, 0f, target.z - origin.z) / duration;
+            initialVelocity = horizontalVelocity + Vector3.up * (-verticalAcceleration * timeToApex);
+            acceleration = Vector3.up * verticalAcceleration;
+        }
+
+        bool RegisterPressure(Vector3 origin, Vector3 direction, float song, Color color, float speed,
+            float radius = 1.2f, bool bubbleRing = false, Vector3? acceleration = null,
+            float? lifetimeOverride = null)
+        {
+            if (combat.Peaceful || combat.LivePressureShots(this) >= MaxOwnedPressureShots ||
+                !combat.CanRegisterPressureShots(1))
                 return false;
             if (combat.RegisterPressureShot(origin, direction, song, color, owner: this, speed: speed,
-                radius: radius, bubbleRing: bubbleRing) == null)
+                radius: radius, bubbleRing: bubbleRing, acceleration: acceleration,
+                lifetimeOverride: lifetimeOverride) == null)
                 return false;
             if (bubbleRing) GiantBubbleRings++;
             else SmallBubbleShots++;
@@ -942,12 +1065,19 @@ namespace Liminal
             if (crabs != null)
                 foreach (Crab crab in crabs)
                 {
-                    if (crab == null || !crab.visual)
+                    if (crab == null)
                         continue;
-                    bool registered = combat && crab.target != null && combat.Targets.Contains(crab.target);
-                    if (registered)
-                        combat.UnregisterEnvironment(crab.target);
-                    else
+                    bool visualReleased = false;
+                    for (int point = 0; point < crab.targets.Length; point++)
+                    {
+                        LockTarget target = crab.targets[point];
+                        if (!combat || target == null || !combat.Targets.Contains(target))
+                            continue;
+                        target.visual = visualReleased ? null : crab.visual;
+                        combat.UnregisterEnvironment(target);
+                        visualReleased = true;
+                    }
+                    if (!visualReleased && crab.visual)
                         Destroy(crab.visual);
                 }
             if (bossMarkers != null)
@@ -966,6 +1096,10 @@ namespace Liminal
                 Destroy(swarmMesh);
             if (markerMesh)
                 Destroy(markerMesh);
+            if (shoalObject)
+                Destroy(shoalObject);
+            if (shoalMesh)
+                Destroy(shoalMesh);
             if (matterMaterial)
                 Destroy(matterMaterial);
         }

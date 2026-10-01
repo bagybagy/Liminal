@@ -10,7 +10,10 @@ namespace Liminal
         public const int MergeSourceCount = 8;
         public const int ParticlesPerCrab = 3200;
         public const int BossPointCount = 16;
-        public const float GiantScale = 7.5f;
+        public const float GiantScale = 11.25f;
+        public const float ReefScale = 2.5f;
+        public const int ReefFishCount = 16;
+        const int ReefFishPoints = 32;
         const int MarkerParticleCount = 64;
 
         static readonly Vector2[] Corners = {
@@ -36,8 +39,68 @@ namespace Liminal
                     new Vector4(i, part, seed, 0f), new Vector4(leg, legT, 0f, 0f));
             }
 
+            // Refuge points are GPU-positioned around one shared root, far from some crab transforms.
             return BuildMesh("Hermit crab matter", vertices, colors, uv0, uv1, uv2, triangles,
-                new Bounds(Vector3.zero, Vector3.one * 1200f));
+                new Bounds(Vector3.zero, Vector3.one * 1400f));
+        }
+
+        public static Mesh BuildReefShoalMesh()
+        {
+            int particleCount = ReefFishCount * ReefFishPoints;
+            var vertices = new List<Vector3>(particleCount * 4);
+            var colors = new List<Color>(particleCount * 4);
+            var uv0 = new List<Vector4>(particleCount * 4);
+            var uv1 = new List<Vector4>(particleCount * 4);
+            var uv2 = new List<Vector4>(particleCount * 4);
+            var triangles = new List<int>(particleCount * 6);
+            var random = new System.Random(613249);
+            Color[] palette = {
+                new Color(0.1f, 0.88f, 0.82f), new Color(0.23f, 0.68f, 1f),
+                new Color(1f, 0.68f, 0.31f), new Color(0.72f, 0.94f, 0.48f)
+            };
+
+            for (int fish = 0; fish < ReefFishCount; fish++)
+            {
+                Color body = palette[fish % palette.Length];
+                for (int point = 0; point < ReefFishPoints; point++)
+                {
+                    float r0 = (float)random.NextDouble();
+                    float r1 = (float)random.NextDouble();
+                    float r2 = (float)random.NextDouble();
+                    float r3 = (float)random.NextDouble();
+                    Vector3 position;
+                    Color color;
+                    float size;
+                    if (point < 24)
+                    {
+                        position = Vector3.Scale(RandomSphere(r1, r2, r3), new Vector3(0.55f, 0.32f, 0.92f));
+                        color = Color.Lerp(body, Color.white, r0 * 0.24f);
+                        size = 0.12f + r0 * 0.07f;
+                    }
+                    else if (point < 30)
+                    {
+                        int tailPoint = point - 24;
+                        float side = tailPoint < 3 ? -1f : 1f;
+                        float t = (tailPoint % 3 + r1) / 3f;
+                        position = new Vector3(side * t * 0.45f, side * t * 0.12f, -0.78f - t * 0.62f);
+                        color = Color.Lerp(body, new Color(1f, 0.76f, 0.39f), 0.38f);
+                        size = 0.13f + r0 * 0.05f;
+                    }
+                    else
+                    {
+                        float side = point == 30 ? -1f : 1f;
+                        position = new Vector3(side * 0.2f, 0.11f, 0.62f);
+                        color = new Color(1f, 0.9f, 0.63f);
+                        size = 0.13f;
+                    }
+
+                    AddPoint(vertices, colors, uv0, uv1, uv2, triangles, position, size, color,
+                        new Vector4(point, fish, r0, 0f), Vector4.zero);
+                }
+            }
+
+            return BuildMesh("Reef shoaling fish", vertices, colors, uv0, uv1, uv2, triangles,
+                new Bounds(Vector3.zero, new Vector3(200f, 100f, 200f)));
         }
 
         public static Mesh BuildMarkerMesh()
@@ -93,6 +156,17 @@ namespace Liminal
             }
             int leg = index == 12 ? 0 : index == 13 ? 3 : index == 14 ? 2 : 5;
             return LegSurface(leg, 0.52f, GiantFoot(leg, beat)) * GiantScale;
+        }
+
+        public static Vector3 SmallTargetLocalPosition(int index)
+        {
+            switch (index)
+            {
+                case 0: return ShellSurface(0.88f, 0f);
+                case 1: return ShellSurface(0.88f, Mathf.PI * 0.5f);
+                case 2: return ShellSurface(0.88f, Mathf.PI);
+                default: return ShellSurface(0.88f, Mathf.PI * 1.5f);
+            }
         }
 
         public static Vector3 BossClawOrigin(int side, float beat)
