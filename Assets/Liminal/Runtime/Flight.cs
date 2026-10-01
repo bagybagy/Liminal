@@ -10,6 +10,8 @@ namespace Liminal
         const float Acceleration = CruiseSpeed / 0.7f;
         const float BoostAcceleration = BoostSpeed / 0.7f;
         const float CoastDamping = 3.53f;
+        const float VrAccelerationTime = 0.7f;
+        const float VrBrakingTime = 0.35f;
         const float ArenaSoftStart = 300f;
         const float ArenaRadius = 350f;
 
@@ -17,10 +19,13 @@ namespace Liminal
         public Vector3 Position => transform.position;
         public Vector3 Velocity => velocity;
         public float Speed => velocity.magnitude;
-        public Vector3 Emitter => Position;
+        public Vector3 Emitter => vrEnabled && View != null ? View.transform.position : Position;
         public Vector2 AimScreenPosition => new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
         public bool IsCursorCaptured => ownsCursorLock;
+        public bool VrEnabled => vrEnabled;
         public bool ReducedMotion;
+        public float VrCruiseMetersPerSecond = 20f;
+        public float VrBoostMetersPerSecond = 40f;
 
         Vector3 velocity;
         Vector3 cameraVelocity;
@@ -31,6 +36,14 @@ namespace Liminal
         float bank;
         bool ownsCursorLock;
         bool ignoreLookDelta;
+        bool vrEnabled;
+        float vrYawOffset;
+        float vrBrakeSpeed;
+        Transform previousCameraParent;
+        Vector3 previousCameraLocalPosition;
+        Quaternion previousCameraLocalRotation;
+        Vector3 previousCameraLocalScale;
+        bool avatarWasActive;
         ParticleWorld world;
         GameObject avatar;
 
@@ -88,12 +101,27 @@ namespace Liminal
             Vector3 forward = playerRotation * Vector3.forward;
             yaw = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
             pitch = Mathf.Asin(Mathf.Clamp(forward.y, -1f, 1f)) * Mathf.Rad2Deg;
-            transform.SetPositionAndRotation(position, playerRotation);
-            SnapRig();
+            if (vrEnabled)
+            {
+                transform.SetPositionAndRotation(position, Quaternion.Euler(0f, yaw + vrYawOffset, 0f));
+                if (avatar != null)
+                    avatar.SetActive(false);
+            }
+            else
+            {
+                transform.SetPositionAndRotation(position, playerRotation);
+                SnapRig();
+            }
         }
 
         public void SuspendInput()
         {
+            if (vrEnabled)
+            {
+                ownsCursorLock = false;
+                ignoreLookDelta = true;
+                return;
+            }
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
             ownsCursorLock = false;
@@ -102,6 +130,9 @@ namespace Liminal
 
         public void Tick(float song, float dt, bool controls)
         {
+            if (vrEnabled)
+                return;
+
             Vector3 localMove = Vector3.zero;
             Vector2 lookDelta = Vector2.zero;
             bool boost = false;
@@ -179,6 +210,119 @@ namespace Liminal
                 nextPosition = CaveLayout.Constrain(nextPosition, ref velocity);
             transform.position = nextPosition;
             UpdateRig(song, dt, yawRate);
+        }
+
+        public void EnableVr(bool enabled)
+        {
+            if (vrEnabled == enabled)
+                return;
+
+            if (enabled)
+            {
+                if (View == null)
+                    return;
+
+                previousCameraParent = View.transform.parent;
+                previousCameraLocalPosition = View.transform.localPosition;
+                previousCameraLocalRotation = View.transform.localRotation;
+                previousCameraLocalScale = View.transform.localScale;
+                avatarWasActive = avatar != null && avatar.activeSelf;
+                vrEnabled = true;
+                vrYawOffset = 0f;
+                velocity = Vector3.zero;
+                cameraVelocity = Vector3.zero;
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+                ownsCursorLock = false;
+                ignoreLookDelta = true;
+                transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+                View.transform.SetParent(transform, false);
+                View.transform.localPosition = Vector3.zero;
+                View.transform.localRotation = Quaternion.identity;
+                View.transform.localScale = Vector3.one;
+                if (avatar != null)
+                    avatar.SetActive(false);
+                return;
+            }
+
+            vrEnabled = false;
+            vrYawOffset = 0f;
+            velocity = Vector3.zero;
+            cameraVelocity = Vector3.zero;
+            transform.rotation = playerRotation;
+            if (View != null)
+            {
+                View.transform.SetParent(previousCameraParent, false);
+                View.transform.localPosition = previousCameraLocalPosition;
+                View.transform.localRotation = previousCameraLocalRotation;
+                View.transform.localScale = previousCameraLocalScale;
+            }
+            if (avatar != null)
+                avatar.SetActive(avatarWasActive);
+            SnapRig();
+        }
+
+        public void SetVrHeadPose(Vector3 localPosition, Quaternion localRotation)
+        {
+            if (!vrEnabled || View == null)
+                return;
+
+            View.transform.localPosition = localPosition;
+            View.transform.localRotation = localRotation;
+        }
+
+        public void RotateVrYaw(float degrees)
+        {
+            if (!vrEnabled)
+                return;
+
+            vrYawOffset = Mathf.DeltaAngle(0f, vrYawOffset + degrees);
+            transform.rotation = Quaternion.Euler(0f, yaw + vrYawOffset, 0f);
+        }
+
+        public void ResetVrYaw()
+        {
+            if (!vrEnabled)
+                return;
+
+            vrYawOffset = 0f;
+            transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+        }
+
+        public void StepVr(float dt, Vector3 headForward, float throttle, bool boost)
+        {
+            if (!vrEnabled)
+                return;
+
+            dt = Mathf.Max(0f, dt);
+            throttle = Mathf.Clamp(throttle, -1f, 1f);
+            headForward = headForward.sqrMagnitude > 0.0001f ? headForward.normalized : transform.forward;
+
+            if (Mathf.Abs(throttle) > 0.04f)
+            {
+                vrBrakeSpeed = 0f;
+                float cruiseSpeed = Mathf.Max(1f, VrCruiseMetersPerSecond);
+                float targetSpeed = boost ? Mathf.Max(cruiseSpeed, VrBoostMetersPerSecond) : cruiseSpeed;
+                Vector3 targetVelocity = headForward * (throttle * targetSpeed);
+                velocity = Vector3.MoveTowards(velocity, targetVelocity,
+                    targetSpeed / VrAccelerationTime * dt);
+            }
+            else if (dt > 0f)
+            {
+                if (vrBrakeSpeed <= 0f)
+                    vrBrakeSpeed = Mathf.Max(Mathf.Max(1f, VrCruiseMetersPerSecond), velocity.magnitude) / VrBrakingTime;
+                velocity = Vector3.MoveTowards(velocity, Vector3.zero, vrBrakeSpeed * dt);
+                if (velocity.sqrMagnitude < .0001f) vrBrakeSpeed = 0f;
+            }
+
+            if (world == null || world.Caverns == null)
+                ApplyArenaBoundary(dt);
+            Vector3 nextPosition = transform.position + velocity * dt;
+            if (world != null && world.Caverns != null)
+                nextPosition = CaveLayout.Constrain(nextPosition, ref velocity);
+            transform.position = nextPosition;
+            if (avatar != null && avatar.activeSelf)
+                avatar.SetActive(false);
         }
 
         void ApplyArenaBoundary(float dt)
@@ -268,13 +412,15 @@ namespace Liminal
 
         void OnDestroy()
         {
+            if (vrEnabled)
+                EnableVr(false);
             SuspendInput();
             DestroyAvatar();
         }
 
         void OnApplicationFocus(bool focused)
         {
-            if (!focused) SuspendInput();
+            if (!focused && !vrEnabled) SuspendInput();
         }
     }
 }

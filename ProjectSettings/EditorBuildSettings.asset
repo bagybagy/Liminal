@@ -8,5 +8,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Liminal/Production/AbyssalChoir.unity
     guid: a6e8256cf2866044f800436dec3a890d
-  m_configObjects: {}
+  m_configObjects:
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: d2613072a8b61f64cbb0c8f642e9ee20, type: 2}
+    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 33ca1e80f79a7d740a208474f24adfa9, type: 2}
   m_UseUCBPForAssetBundles: 0

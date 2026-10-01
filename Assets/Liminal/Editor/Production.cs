@@ -112,6 +112,7 @@ namespace Liminal.Editor
         public static void BuildCurrent()
         {
             AssetDatabase.Refresh();
+            PcVrSetup.Configure();
             Directory.CreateDirectory("Builds/Windows");
             var report=BuildPipeline.BuildPlayer(new BuildPlayerOptions {
                 scenes=new[]{Generated+"/AbyssalChoir.unity"},
