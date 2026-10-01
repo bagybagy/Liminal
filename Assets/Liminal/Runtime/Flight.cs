@@ -12,6 +12,7 @@ namespace Liminal
         const float CoastDamping = 3.53f;
         const float VrAccelerationTime = 0.7f;
         const float VrBrakingTime = 0.35f;
+        const float VrYawDegreesPerSecond = 60f;
         const float ArenaSoftStart = 300f;
         const float ArenaRadius = 350f;
 
@@ -297,13 +298,45 @@ namespace Liminal
             dt = Mathf.Max(0f, dt);
             throttle = Mathf.Clamp(throttle, -1f, 1f);
             headForward = headForward.sqrMagnitude > 0.0001f ? headForward.normalized : transform.forward;
+            StepVrMovement(dt, headForward * throttle, boost);
+        }
 
-            if (Mathf.Abs(throttle) > 0.04f)
+        public void StepVr(float dt, Vector2 moveAxis, float vertical, float yawInput, bool boost)
+        {
+            if (!vrEnabled)
+                return;
+
+            dt = Mathf.Max(0f, dt);
+            moveAxis = Vector2.ClampMagnitude(moveAxis, 1f);
+            vertical = Mathf.Clamp(vertical, -1f, 1f);
+            yawInput = Mathf.Clamp(yawInput, -1f, 1f);
+            if (yawInput != 0f)
+                RotateVrYaw(yawInput * VrYawDegreesPerSecond * dt);
+
+            Vector3 headForward = View != null ? View.transform.forward : transform.forward;
+            headForward = headForward.sqrMagnitude > 0.0001f ? headForward.normalized : transform.forward;
+            Vector3 strafeRight = View != null
+                ? Vector3.ProjectOnPlane(View.transform.right, Vector3.up)
+                : Vector3.zero;
+            if (strafeRight.sqrMagnitude <= 0.0001f)
+                strafeRight = Vector3.ProjectOnPlane(transform.right, Vector3.up);
+            strafeRight.Normalize();
+
+            Vector3 direction = strafeRight * moveAxis.x + headForward * moveAxis.y + Vector3.up * vertical;
+            direction = Vector3.ClampMagnitude(direction, 1f);
+            StepVrMovement(dt, direction, boost);
+        }
+
+        void StepVrMovement(float dt, Vector3 direction, bool boost)
+        {
+            direction = Vector3.ClampMagnitude(direction, 1f);
+
+            if (direction.sqrMagnitude > 0.0016f)
             {
                 vrBrakeSpeed = 0f;
                 float cruiseSpeed = Mathf.Max(1f, VrCruiseMetersPerSecond);
                 float targetSpeed = boost ? Mathf.Max(cruiseSpeed, VrBoostMetersPerSecond) : cruiseSpeed;
-                Vector3 targetVelocity = headForward * (throttle * targetSpeed);
+                Vector3 targetVelocity = direction * targetSpeed;
                 velocity = Vector3.MoveTowards(velocity, targetVelocity,
                     targetSpeed / VrAccelerationTime * dt);
             }

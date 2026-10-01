@@ -24,7 +24,6 @@ namespace Liminal
         bool lockWasHeld;
         bool overdriveWasDown;
         bool pauseWasDown;
-        bool snapTurnArmed = true;
         bool tutorialWasEnabled;
         bool previousRunInBackground;
         bool changedRunInBackground;
@@ -42,7 +41,6 @@ namespace Liminal
         public bool PausePressed { get; private set; }
         public Vector2 MenuAxis { get; private set; }
         public bool MenuConfirmPressed { get; private set; }
-        public bool SnapTurnEnabled = true;
 
         public void Initialize(Experience owner)
         {
@@ -129,23 +127,11 @@ namespace Liminal
             OverdrivePressed = activeControls && overdriveDown && !overdriveWasDown;
             overdriveWasDown = overdriveDown;
 
-            if (activeControls && SnapTurnEnabled)
-            {
-                if (snapTurnArmed && Mathf.Abs(rightAxis.x) >= 0.72f)
-                {
-                    flight.RotateVrYaw(Mathf.Sign(rightAxis.x) * 45f);
-                    snapTurnArmed = false;
-                }
-                else if (!snapTurnArmed && Mathf.Abs(rightAxis.x) <= 0.35f)
-                {
-                    snapTurnArmed = true;
-                }
-            }
-
             if (hasPose && !paused && experience.Music != null)
             {
-                Vector3 forward = flight.View != null ? flight.View.transform.forward : flight.transform.forward;
-                flight.StepVr(dt, forward, activeControls ? leftAxis.y : 0f,
+                flight.StepVr(dt, activeControls ? leftAxis : Vector2.zero,
+                    activeControls ? rightAxis.y : 0f,
+                    activeControls ? rightAxis.x : 0f,
                     activeControls && leftGrip >= 0.55f);
             }
 
@@ -331,6 +317,8 @@ namespace Liminal
             if (worldHud != null)
                 worldHud.SetVrActive(true);
             Status = "PCVR active via OpenXR.";
+            if (experience.Music != null && experience.Music.Paused)
+                experience.TogglePause();
         }
 
         IEnumerator DisableRoutine()
@@ -492,7 +480,6 @@ namespace Liminal
             lockWasHeld = false;
             overdriveWasDown = false;
             pauseWasDown = false;
-            snapTurnArmed = true;
             LockHeld = LockReleased = OverdrivePressed = PausePressed = MenuConfirmPressed = false;
             MenuAxis = Vector2.zero;
         }

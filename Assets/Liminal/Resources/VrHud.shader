@@ -58,7 +58,8 @@ Shader "Liminal/VR HUD"
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 half4 textureColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
-                return textureColor * input.color;
+                // LegacyRuntime's glyph atlas stores coverage in alpha, not its RGB channels.
+                return half4(input.color.rgb, textureColor.a * input.color.a);
             }
             ENDHLSL
         }

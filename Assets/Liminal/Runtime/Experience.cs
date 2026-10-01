@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
 namespace Liminal
@@ -6,6 +7,8 @@ namespace Liminal
     public sealed class Experience : MonoBehaviour
     {
         public AudioClip soundtrack;
+        [Tooltip("Opt in only after replacement stage themes have been approved. Otherwise the main soundtrack plays throughout.")]
+        public bool enableStageMusic;
         public Material particles,ribbons;
         public Material advectedParticles,membrane;
         public Material cavernSurface,marineLight;
@@ -47,12 +50,13 @@ namespace Liminal
             bool cavernProof=Array.IndexOf(args,"--verify-caverns")>=0;
             bool expansionProof=Array.IndexOf(args,"--verify-expansion")>=0;
             bool journeyProof=Array.IndexOf(args,"--verify-journey")>=0;
+            bool feedbackProof=Array.IndexOf(args,"--verify-player-feedback")>=0;
             bool capturePV=false;
 #if UNITY_EDITOR
             legacyProof|=UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false);
             capturePV=UnityEditor.EditorPrefs.GetBool("Liminal.CavernPV",false);
 #endif
-            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||capturePV;
+            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||capturePV;
             CavernMode=!legacyProof && Array.IndexOf(args,"--legacy-arena")<0;
             Cursor.visible=ProofActive;
             World=gameObject.AddComponent<ParticleWorld>();
@@ -60,7 +64,8 @@ namespace Liminal
             World.cavernSurface=cavernSurface;World.marineLight=marineLight;
             World.matterSimulation=matterSimulation;World.matterLight=matterLight;
             World.advectedParticles=advectedParticles;World.membrane=membrane;World.particleSimulation=particleSimulation;World.Initialize(CavernMode);
-            Music=gameObject.AddComponent<MusicTransport>();Music.soundtrack=soundtrack;Music.LoopSoundtrack=CavernMode;Music.Initialize();
+            Music=gameObject.AddComponent<MusicTransport>();Music.soundtrack=soundtrack;Music.LoopSoundtrack=CavernMode;
+            Music.EnableStageMusic=CavernMode && enableStageMusic;Music.Initialize(true);
             var pilot=new GameObject("Traveler rig");pilot.transform.SetParent(transform,false);
             Flight=pilot.AddComponent<Flight>();Flight.Initialize(World,sceneCamera);
             Combat=gameObject.AddComponent<Encounter>();Combat.ExplorationMode=CavernMode;Combat.Initialize(Music,World,Flight);
@@ -78,17 +83,24 @@ namespace Liminal
             Brightness=gameObject.AddComponent<DisplayBrightness>();Brightness.Initialize(sceneCamera);
             var hud=gameObject.AddComponent<Hud>();hud.Experience=this;
             SetReducedMotion(PlayerPrefs.GetInt("reducedMotion",0)==1);
-            Ready=true;
             Vr=gameObject.AddComponent<PcVrSession>();Vr.Initialize(this);
             if(legacyProof) gameObject.AddComponent<RuntimeProof>().Initialize(this);
             if(cavernProof) gameObject.AddComponent<CavernProof>().Initialize(this);
             if(expansionProof) gameObject.AddComponent<ExpansionProof>().Initialize(this);
             if(journeyProof) gameObject.AddComponent<JourneyProof>().Initialize(this);
+            if(feedbackProof) gameObject.AddComponent<PlayerFeedbackProof>().Initialize(this);
             if(capturePV) gameObject.AddComponent<PvDirector>().Initialize(this);
 #if UNITY_EDITOR
             if(UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false))
                 gameObject.AddComponent<EditorTrailerRecorder>();
 #endif
+        }
+        IEnumerator Start()
+        {
+            // Finish the first frame before scheduling audio; expensive setup must not consume its DSP lead time.
+            yield return null;
+            Music.Restart();
+            Ready=true;
             Debug.Log("LIMINAL_READY particles="+World.ParticleCount+" soundtrack="+soundtrack.length);
         }
         void Update()

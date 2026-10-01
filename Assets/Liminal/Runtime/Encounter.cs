@@ -61,6 +61,8 @@ namespace Liminal
         public float DamageFlash { get; private set; }
         public float LastHitTime { get; private set; } = -10;
         public const float LockRange = 105f;
+        // The accepted gaze ellipse is 70% of full horizontal and vertical FOV, centered on the camera's forward axis.
+        public const float VrLockFieldOfViewFraction = 0.7f;
         public float LockRadiusPixels => Mathf.Clamp(Screen.height * 0.09f, 64f, 110f);
         public int Section { get; private set; }
         public int MaxLocks { get; private set; }
@@ -326,6 +328,16 @@ namespace Liminal
         }
         public void AcquireAt(Vector2 mouse)
         {
+            if(flight.VrEnabled) {
+                LockTarget gazeBest=null; float gazeDistance=float.PositiveInfinity;
+                foreach(var t in Targets) {
+                    if(!CanAcquire(t) || !TryGetVrGazeScore(t.position,out float score)) continue;
+                    if(score<gazeDistance) {gazeDistance=score;gazeBest=t;}
+                }
+                if(gazeBest!=null) Acquire(gazeBest);
+                return;
+            }
+
             LockTarget best=null; float distance=LockRadiusPixels;
             foreach(var t in Targets) {
                 if(!CanAcquire(t)) continue;
@@ -338,12 +350,80 @@ namespace Liminal
         public bool CanAcquire(LockTarget target)
         {
             if(Ended || Peaceful || target==null || !target.Available || Locks.Count>=8 || Locks.Contains(target)) return false;
-            if(Vector3.Distance(flight.Position,target.position)>target.acquireRange) return false;
+            bool vr=flight.VrEnabled;
+            if(vr && target.reserved>0) return false;
+            Vector3 origin=vr?flight.Emitter:flight.Position;
+            if(Vector3.Distance(origin,target.position)>(vr?EffectiveAcquireRange(target):target.acquireRange)) return false;
+            if(vr) {
+                if(ExplorationMode && !CaveLayout.LineOfSight(origin,target.position)) return false;
+                return TryGetVrGazeScore(target.position,out _);
+            }
             if(ExplorationMode && !CaveLayout.LineOfSight(flight.Position,target.position)) return false;
             Vector3 projected=flight.View.WorldToViewportPoint(target.position);
             return projected.z>=flight.View.nearClipPlane && projected.z<=flight.View.farClipPlane &&
                 projected.x>=0 && projected.x<=1 && projected.y>=0 && projected.y<=1;
         }
+
+        public float EffectiveAcquireRange(LockTarget target)
+        {
+            if(target==null) return 0f;
+            return target.acquireRange*(flight!=null && flight.VrEnabled?2f:1f);
+        }
+
+        public bool TryGetVrGazeScore(Vector3 targetPosition,out float score)
+        {
+            score=float.PositiveInfinity;
+            Camera view=flight!=null?flight.View:null;
+            if(flight==null || !flight.VrEnabled || !view) return false;
+
+            Vector3 local=view.transform.InverseTransformPoint(targetPosition);
+            if(local.z<view.nearClipPlane || local.z>view.farClipPlane) return false;
+            float yaw=Mathf.Atan2(local.x,local.z)*Mathf.Rad2Deg;
+            float pitch=Mathf.Atan2(local.y,local.z)*Mathf.Rad2Deg;
+            if(!TryGetVrLockHalfFov(view,out float halfHorizontal,out float halfVertical)) return false;
+
+            float horizontalLimit=halfHorizontal*VrLockFieldOfViewFraction;
+            float verticalLimit=halfVertical*VrLockFieldOfViewFraction;
+            float x=yaw/horizontalLimit,y=pitch/verticalLimit;
+            if(x*x+y*y>1f) return false;
+            score=yaw*yaw+pitch*pitch;
+            return true;
+        }
+
+        static bool TryGetVrLockHalfFov(Camera view,out float horizontal,out float vertical)
+        {
+            if(view.stereoEnabled) {
+                bool hasLeft=TryGetProjectionFov(view.GetStereoProjectionMatrix(Camera.StereoscopicEye.Left),
+                    out float leftHorizontal,out float leftVertical);
+                bool hasRight=TryGetProjectionFov(view.GetStereoProjectionMatrix(Camera.StereoscopicEye.Right),
+                    out float rightHorizontal,out float rightVertical);
+                if(hasLeft || hasRight) {
+                    horizontal=(hasLeft && hasRight?Mathf.Min(leftHorizontal,rightHorizontal):
+                        hasLeft?leftHorizontal:rightHorizontal)*0.5f;
+                    vertical=(hasLeft && hasRight?Mathf.Min(leftVertical,rightVertical):
+                        hasLeft?leftVertical:rightVertical)*0.5f;
+                    return horizontal>0f && vertical>0f;
+                }
+            }
+
+            vertical=Mathf.Clamp(view.fieldOfView,0.01f,179f)*0.5f;
+            horizontal=Mathf.Atan(Mathf.Tan(vertical*Mathf.Deg2Rad)*Mathf.Max(0.01f,view.aspect))*Mathf.Rad2Deg;
+            return horizontal>0f && vertical>0f;
+        }
+
+        static bool TryGetProjectionFov(Matrix4x4 projection,out float horizontal,out float vertical)
+        {
+            horizontal=vertical=0f;
+            if(Mathf.Abs(projection.m00)<0.0001f || Mathf.Abs(projection.m11)<0.0001f) return false;
+            float left=Mathf.Atan((-1f+projection.m02)/projection.m00)*Mathf.Rad2Deg;
+            float right=Mathf.Atan((1f+projection.m02)/projection.m00)*Mathf.Rad2Deg;
+            float bottom=Mathf.Atan((-1f+projection.m12)/projection.m11)*Mathf.Rad2Deg;
+            float top=Mathf.Atan((1f+projection.m12)/projection.m11)*Mathf.Rad2Deg;
+            horizontal=Mathf.Abs(right-left);
+            vertical=Mathf.Abs(top-bottom);
+            return horizontal>0f && vertical>0f;
+        }
+
         public bool Acquire(LockTarget target)
         {
             if(!CanAcquire(target)) return false;

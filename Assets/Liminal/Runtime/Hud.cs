@@ -22,7 +22,7 @@ namespace Liminal
         public void OnGUI()
         {
             if(!Experience || !Experience.Ready) return;
-            if(Experience.Vr && Experience.Vr.Enabled) return;
+            if((Experience.Vr && Experience.Vr.Enabled) || (Experience.Flight && Experience.Flight.VrEnabled)) return;
             Setup();
             var e=Experience.Combat; var music=Experience.Music;
             float w=Screen.width,h=Screen.height,t=(float)music.Time;

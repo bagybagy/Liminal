@@ -10,8 +10,10 @@ namespace Liminal
         const float OnboardingSeconds = 24f;
         const float MinimumTargetRadius = 0.13f;
         const float TargetRadiusRadians = 0.038f;
+        public const float LockRingAngularWidthDegrees = 0.16f;
 
         readonly LineRenderer[] lockRings = new LineRenderer[8];
+        readonly TextMesh[] lockLabels = new TextMesh[8];
         Experience experience;
         PcVrSession session;
         Transform hudRoot;
@@ -29,6 +31,10 @@ namespace Liminal
         float nextBrightnessStepAt;
         int selectedMenuItem;
         bool active;
+        bool wasPaused;
+        public bool PauseMenuVisible => active && pauseTitle != null && pauseTitle.gameObject.activeInHierarchy;
+        public int VisibleLocks { get; private set; }
+        public static float LockRingWidth(float distance) => Mathf.Max(.012f, distance * Mathf.Tan(LockRingAngularWidthDegrees * Mathf.Deg2Rad));
 
         public void Initialize(Experience owner, PcVrSession vrSession)
         {
@@ -81,6 +87,10 @@ namespace Liminal
                 lockRings[i] = CreateLine("Lock ring " + (i + 1), RingSegments + 1, 0.018f);
                 lockRings[i].startColor = lockRings[i].endColor = new Color(0.3f, 1f, 0.88f, 0.92f);
                 lockRings[i].enabled = false;
+                CreateText("Lock number " + (i + 1), Vector3.zero, .04f, out lockLabels[i]);
+                lockLabels[i].text = (i + 1).ToString();
+                lockLabels[i].color = Color.white;
+                lockLabels[i].gameObject.SetActive(false);
             }
             hudRoot.gameObject.SetActive(false);
         }
@@ -92,6 +102,9 @@ namespace Liminal
 
             active = value;
             hudRoot.gameObject.SetActive(value);
+            wasPaused = false;
+            pauseTitle.gameObject.SetActive(false);
+            pauseItems.gameObject.SetActive(false);
             if (!value)
                 return;
 
@@ -119,9 +132,16 @@ namespace Liminal
                 return;
 
             bool paused = experience.Music != null && experience.Music.Paused;
+            if (paused != wasPaused)
+            {
+                PositionPanel(paused ? 2f : 1.65f, paused ? 0f : -.12f);
+                wasPaused = paused;
+            }
+            stageText.gameObject.SetActive(!paused);
             UpdateReadouts(song);
             UpdateReticle();
-            UpdateLockRings();
+            reticle.enabled = !paused;
+            UpdateLockRings(paused);
             UpdateOnboarding(paused);
             UpdatePauseMenu(paused);
         }
@@ -136,9 +156,13 @@ namespace Liminal
                 stageText.text = stage + "\nLIFE " + experience.Combat.Life.ToString("00") +
                     "   CHARGE " + Mathf.RoundToInt(experience.Combat.Charge * 100f).ToString("00") +
                     "%   LOCKS " + experience.Combat.Locks.Count + "/8";
+                FitText(stageText, 1.1f, .12f);
             }
             if (statusText != null)
+            {
                 statusText.text = session != null ? session.Status : "PCVR";
+                FitText(statusText, 1.5f, .045f);
+            }
         }
 
         void UpdateOnboarding(bool paused)
@@ -149,9 +173,11 @@ namespace Liminal
                 onboardingText.gameObject.SetActive(show);
                 if (show)
                 {
-                    onboardingText.text = "PCVR FLIGHT\nLEFT STICK UP/DOWN: FLY ALONG YOUR GAZE\n" +
+                    onboardingText.text = "PCVR FLIGHT\nLEFT STICK: FORWARD / BACK / STRAFE\n" +
+                        "RIGHT STICK: TURN / RISE / DESCEND\n" +
                         "LEFT GRIP: BOOST   RIGHT TRIGGER: HOLD TO LOCK, RELEASE TO FIRE\n" +
                         "X / A: OVERDRIVE   MENU: PAUSE";
+                    FitText(onboardingText, 1.85f, .28f);
                 }
             }
             if (statusText != null)
@@ -169,12 +195,13 @@ namespace Liminal
             SetCircle(reticle, view.position + view.forward * distance, view.right, view.up, radius, 36);
         }
 
-        void UpdateLockRings()
+        void UpdateLockRings(bool paused)
         {
             if (experience.Combat == null || experience.Flight.View == null)
                 return;
 
-            int count = Mathf.Min(lockRings.Length, experience.Combat.Locks.Count);
+            int count = paused ? 0 : Mathf.Min(lockRings.Length, experience.Combat.Locks.Count);
+            VisibleLocks = count;
             Transform view = experience.Flight.View.transform;
             for (int i = 0; i < lockRings.Length; i++)
             {
@@ -182,6 +209,7 @@ namespace Liminal
                 if (i >= count || experience.Combat.Locks[i] == null)
                 {
                     ring.enabled = false;
+                    lockLabels[i].gameObject.SetActive(false);
                     continue;
                 }
 
@@ -190,12 +218,26 @@ namespace Liminal
                 float distance = Mathf.Max(0.1f, offset.magnitude);
                 float radius = Mathf.Max(MinimumTargetRadius, distance * Mathf.Tan(TargetRadiusRadians));
                 SetCircle(ring, target.position, view.right, view.up, radius, RingSegments);
+                ring.widthMultiplier = LockRingWidth(distance);
                 Color color = target.kind == TargetKind.Threat || target.kind == TargetKind.Ray
                     ? new Color(1f, 0.58f, 0.26f, 0.96f)
                     : new Color(0.3f, 1f, 0.88f, 0.96f);
                 ring.startColor = ring.endColor = color;
                 ring.enabled = true;
+                TextMesh label = lockLabels[i];
+                label.transform.SetPositionAndRotation(target.position + view.right * radius * .95f + view.up * radius * .78f, view.rotation);
+                FitText(label, distance * Mathf.Tan(1.1f * Mathf.Deg2Rad), distance * Mathf.Tan(.85f * Mathf.Deg2Rad));
+                label.gameObject.SetActive(true);
             }
+        }
+
+        void PositionPanel(float distance, float height)
+        {
+            Transform view = experience.Flight.View.transform;
+            Vector3 forward = view.forward;
+            Vector3 up = Mathf.Abs(Vector3.Dot(forward, Vector3.up)) > .98f ? view.up : Vector3.up;
+            Quaternion facing = Quaternion.LookRotation(forward, up);
+            hudRoot.SetPositionAndRotation(view.position + forward * distance + Vector3.up * height, facing);
         }
 
         void UpdatePauseMenu(bool paused)
@@ -240,6 +282,9 @@ namespace Liminal
             for (int i = 0; i < labels.Length; i++)
                 menu += (i == selectedMenuItem ? "> " : "  ") + labels[i] + (i + 1 < labels.Length ? "\n" : "");
             pauseItems.text = menu;
+            FitText(pauseItems, 1.8f, .38f);
+            pauseTitle.text = "PAUSED";
+            FitText(pauseTitle, 1.2f, .09f);
 
             if (session != null && session.MenuConfirmPressed)
                 ConfirmMenuSelection();
@@ -273,7 +318,7 @@ namespace Liminal
             text.anchor = TextAnchor.MiddleCenter;
             text.alignment = TextAlignment.Center;
             text.fontSize = 64;
-            text.characterSize = characterSize;
+            text.characterSize = Mathf.Min(characterSize, .01f);
             text.richText = false;
             if (font != null)
                 text.font = font;
@@ -283,6 +328,14 @@ namespace Liminal
                 renderer.sharedMaterial = textMaterial;
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
+        }
+
+        static void FitText(TextMesh text, float width, float height)
+        {
+            Vector3 size = text.GetComponent<MeshRenderer>().localBounds.size;
+            if (size.x <= .00001f || size.y <= .00001f) return;
+            float scale = Mathf.Min(width / size.x, height / size.y);
+            text.transform.localScale = Vector3.one * scale;
         }
 
         LineRenderer CreateLine(string objectName, int points, float width)
