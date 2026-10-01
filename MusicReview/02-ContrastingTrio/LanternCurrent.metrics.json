@@ -1,0 +1,105 @@
+{
+  "title": "Lantern Current",
+  "character": "Warm broken-beat soul: electric keys, expressive reed, syncopated round bass.",
+  "bpm": 124,
+  "timeSignature": [
+    4,
+    4
+  ],
+  "bars": 80,
+  "frames": 6828387,
+  "durationSeconds": 154.8387074829932,
+  "samplePeak": 0.757354736328125,
+  "rms": 0.13420161556550905,
+  "clippedSamples": 0,
+  "stereoCorrelation": 0.9914239220327569,
+  "sideToMidDb": -23.658504985190586,
+  "integratedLufs": -16.2,
+  "truePeakDbtp": -2.41,
+  "loudnessRangeLu": 5.5,
+  "normalization": "linear",
+  "mp3": {
+    "integratedLufs": -16.2,
+    "truePeakDbtp": -2.4,
+    "sha256": "d8f7f84ff8da043f5876b70e734576ca7311fe202f0c1e046f67f31df1d4e59b"
+  },
+  "sourceSha256": "9ea8ae7d98706fba23cd3575a8ae7332945cff682e5103e5eb99ffbced704c80",
+  "rawMetrics": {
+    "peak": 0.8199999928474426,
+    "rms": 0.14530180812112356,
+    "clippedSamples": 0
+  },
+  "seed": 10262101,
+  "sections": [
+    {
+      "bar": 0,
+      "name": "Keys and bass invitation",
+      "seconds": 0,
+      "sample": 0
+    },
+    {
+      "bar": 4,
+      "name": "Broken-beat enters",
+      "seconds": 7.741935483870968,
+      "sample": 341419
+    },
+    {
+      "bar": 8,
+      "name": "Reed theme",
+      "seconds": 15.483870967741936,
+      "sample": 682839
+    },
+    {
+      "bar": 24,
+      "name": "Two-voice conversation",
+      "seconds": 46.45161290322581,
+      "sample": 2048516
+    },
+    {
+      "bar": 32,
+      "name": "Bass and keys pocket",
+      "seconds": 61.935483870967744,
+      "sample": 2731355
+    },
+    {
+      "bar": 40,
+      "name": "Harmonic bridge",
+      "seconds": 77.41935483870968,
+      "sample": 3414194
+    },
+    {
+      "bar": 48,
+      "name": "Open-water refrain",
+      "seconds": 92.90322580645162,
+      "sample": 4097032
+    },
+    {
+      "bar": 64,
+      "name": "Close-up reprise",
+      "seconds": 123.87096774193549,
+      "sample": 5462710
+    },
+    {
+      "bar": 72,
+      "name": "Warm resolution",
+      "seconds": 139.35483870967744,
+      "sample": 6145548
+    }
+  ],
+  "instruments": [
+    "keys",
+    "bass",
+    "rim",
+    "kick",
+    "hat",
+    "reed",
+    "brush",
+    "shaker",
+    "pluck"
+  ],
+  "recordedSamples": {},
+  "method": "New authored scores; Node.js synthesis and CC0 sample playback; FFmpeg two-pass mastering.",
+  "authoring": "Codex in the current session. Sample preparation delegated to GPT-6 Luna.",
+  "externalMusicGenerationModel": null,
+  "status": "Audition only. Musical quality requires listener review; not installed in the game."
+}

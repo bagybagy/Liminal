@@ -1,0 +1,78 @@
+{
+  "instruments": {
+    "horn": [
+      {
+        "file": "horn-57.wav",
+        "midi": 57,
+        "loopStart": null,
+        "loopEnd": null
+      },
+      {
+        "file": "horn-60.wav",
+        "midi": 60,
+        "loopStart": null,
+        "loopEnd": null
+      },
+      {
+        "file": "horn-74.wav",
+        "midi": 74,
+        "loopStart": null,
+        "loopEnd": null
+      }
+    ],
+    "cello": [
+      {
+        "file": "cello-40.wav",
+        "midi": 40,
+        "loopStart": null,
+        "loopEnd": null
+      },
+      {
+        "file": "cello-47.wav",
+        "midi": 47,
+        "loopStart": null,
+        "loopEnd": null
+      },
+      {
+        "file": "cello-53.wav",
+        "midi": 53,
+        "loopStart": null,
+        "loopEnd": null
+      },
+      {
+        "file": "cello-60.wav",
+        "midi": 60,
+        "loopStart": null,
+        "loopEnd": null
+      }
+    ],
+    "flute": [
+      {
+        "file": "flute-64.wav",
+        "midi": 64,
+        "loopStart": null,
+        "loopEnd": null
+      },
+      {
+        "file": "flute-69.wav",
+        "midi": 69,
+        "loopStart": null,
+        "loopEnd": null
+      },
+      {
+        "file": "flute-72.wav",
+        "midi": 72,
+        "loopStart": null,
+        "loopEnd": null
+      },
+      {
+        "file": "flute-76.wav",
+        "midi": 76,
+        "loopStart": null,
+        "loopEnd": null
+      }
+    ]
+  },
+  "source": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891",
+  "license": "CC0-1.0"
+}

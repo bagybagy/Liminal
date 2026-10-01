@@ -1,0 +1,98 @@
+{
+  "title": "Scarlet Vector",
+  "character": "Melodic electro engine: analogue brass, square bass, tom machinery, straight pulse.",
+  "bpm": 124,
+  "timeSignature": [
+    4,
+    4
+  ],
+  "bars": 96,
+  "frames": 8194065,
+  "durationSeconds": 185.806462585034,
+  "samplePeak": 0.705169677734375,
+  "rms": 0.1410118401407272,
+  "clippedSamples": 0,
+  "stereoCorrelation": 0.9988772762729289,
+  "sideToMidDb": -32.502844643911,
+  "integratedLufs": -16.2,
+  "truePeakDbtp": -2.59,
+  "loudnessRangeLu": 3.4,
+  "normalization": "linear",
+  "mp3": {
+    "integratedLufs": -16.21,
+    "truePeakDbtp": -2.57,
+    "sha256": "2f208b0785ed261526dfb83f8ed48c2e6f8ff83d278704e35db9095e38beeb38"
+  },
+  "sourceSha256": "65dcf16d05c112ce96b7013d3fdbe899e02777eef5523d1cbaf688dddfdf85f0",
+  "rawMetrics": {
+    "peak": 0.8199999928474426,
+    "rms": 0.16397166448940922,
+    "clippedSamples": 0
+  },
+  "seed": 10262102,
+  "sections": [
+    {
+      "bar": 0,
+      "name": "Motor ignition",
+      "seconds": 0,
+      "sample": 0
+    },
+    {
+      "bar": 8,
+      "name": "Brass insignia",
+      "seconds": 15.483870967741936,
+      "sample": 682839
+    },
+    {
+      "bar": 24,
+      "name": "Interlocking machinery",
+      "seconds": 46.45161290322581,
+      "sample": 2048516
+    },
+    {
+      "bar": 40,
+      "name": "Suspended engine",
+      "seconds": 77.41935483870968,
+      "sample": 3414194
+    },
+    {
+      "bar": 48,
+      "name": "Acceleration",
+      "seconds": 92.90322580645162,
+      "sample": 4097032
+    },
+    {
+      "bar": 64,
+      "name": "Full power",
+      "seconds": 123.87096774193549,
+      "sample": 5462710
+    },
+    {
+      "bar": 80,
+      "name": "Bright release",
+      "seconds": 154.83870967741936,
+      "sample": 6828387
+    },
+    {
+      "bar": 88,
+      "name": "Engine cooling",
+      "seconds": 170.32258064516128,
+      "sample": 7511226
+    }
+  ],
+  "instruments": [
+    "bass",
+    "brass",
+    "kick",
+    "hat",
+    "snare",
+    "tom",
+    "metal",
+    "pluck"
+  ],
+  "recordedSamples": {},
+  "method": "New authored scores; Node.js synthesis and CC0 sample playback; FFmpeg two-pass mastering.",
+  "authoring": "Codex in the current session. Sample preparation delegated to GPT-6 Luna.",
+  "externalMusicGenerationModel": null,
+  "status": "Audition only. Musical quality requires listener review; not installed in the game."
+}

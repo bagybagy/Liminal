@@ -1,0 +1,111 @@
+{
+  "title": "Horizon Canticle",
+  "character": "Broad half-time ocean hymn: recorded cello and horn, ensemble strings, flute replies.",
+  "bpm": 124,
+  "timeSignature": [
+    4,
+    4
+  ],
+  "bars": 88,
+  "frames": 7511226,
+  "durationSeconds": 170.3225850340136,
+  "samplePeak": 0.7125244140625,
+  "rms": 0.12239472878249759,
+  "clippedSamples": 0,
+  "stereoCorrelation": 0.9653841551776572,
+  "sideToMidDb": -17.438758448156605,
+  "integratedLufs": -16.2,
+  "truePeakDbtp": -2.94,
+  "loudnessRangeLu": 8.9,
+  "normalization": "linear",
+  "mp3": {
+    "integratedLufs": -16.2,
+    "truePeakDbtp": -2.95,
+    "sha256": "55e4bc09a7ffd8e4ffc7e99d57bd298d9e7b4c40dd17f5356252512924f6ad27"
+  },
+  "sourceSha256": "ad44a8d635a10f707338abf7987b8d364f150fa4426aa691879cde9809931fe1",
+  "rawMetrics": {
+    "peak": 0.8199999928474426,
+    "rms": 0.14085619606240987,
+    "clippedSamples": 0
+  },
+  "seed": 10262103,
+  "sections": [
+    {
+      "bar": 0,
+      "name": "Solo cello breath",
+      "seconds": 0,
+      "sample": 0
+    },
+    {
+      "bar": 4,
+      "name": "Horn answers",
+      "seconds": 7.741935483870968,
+      "sample": 341419
+    },
+    {
+      "bar": 8,
+      "name": "Wide horizon",
+      "seconds": 15.483870967741936,
+      "sample": 682839
+    },
+    {
+      "bar": 24,
+      "name": "Flute and cello dialogue",
+      "seconds": 46.45161290322581,
+      "sample": 2048516
+    },
+    {
+      "bar": 40,
+      "name": "Surface light",
+      "seconds": 77.41935483870968,
+      "sample": 3414194
+    },
+    {
+      "bar": 56,
+      "name": "Great ascent",
+      "seconds": 108.38709677419355,
+      "sample": 4779871
+    },
+    {
+      "bar": 72,
+      "name": "Distant shore",
+      "seconds": 139.35483870967744,
+      "sample": 6145548
+    },
+    {
+      "bar": 80,
+      "name": "Last breath",
+      "seconds": 154.83870967741936,
+      "sample": 6828387
+    }
+  ],
+  "instruments": [
+    "cello",
+    "strings",
+    "bass",
+    "horn",
+    "heart",
+    "shaker",
+    "brush",
+    "tom",
+    "flute",
+    "ride",
+    "choir"
+  ],
+  "recordedSamples": {
+    "cello-47.wav": 84,
+    "cello-53.wav": 43,
+    "cello-60.wav": 12,
+    "horn-60.wav": 64,
+    "horn-74.wav": 24,
+    "flute-69.wav": 18,
+    "flute-64.wav": 9,
+    "flute-72.wav": 7,
+    "cello-40.wav": 5
+  },
+  "method": "New authored scores; Node.js synthesis and CC0 sample playback; FFmpeg two-pass mastering.",
+  "authoring": "Codex in the current session. Sample preparation delegated to GPT-6 Luna.",
+  "externalMusicGenerationModel": null,
+  "status": "Audition only. Musical quality requires listener review; not installed in the game."
+}
