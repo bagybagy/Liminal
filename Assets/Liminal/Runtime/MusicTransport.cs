@@ -8,12 +8,22 @@ namespace Liminal
     {
         public AudioClip soundtrack;
         public bool LoopSoundtrack;
-        AudioSource music;
-        readonly AudioSource[] voices = new AudioSource[64];
-        readonly double[] voiceEnds = new double[64];
+        const float MusicLevel = 0.83f;
+        const int VoiceCount = 64;
+        const double CrossfadeBars = 2;
+
+        readonly AudioSource[] musicSources = new AudioSource[2];
+        readonly AudioClip[] themeClips = new AudioClip[6];
+        readonly AudioSource[] voices = new AudioSource[VoiceCount];
+        readonly double[] voiceEnds = new double[VoiceCount];
         readonly Dictionary<int, AudioClip> notes = new();
-        AudioClip impact, lockTone,whaleTone;
+        AudioClip impact, lockTone, whaleTone;
         double origin;
+        int activeMusicSource, scheduledMusicSource = -1, fadeOutMusicSource = -1;
+        int pendingTheme = -1;
+        double fadeStartSong, fadeEndSong;
+        bool stageMusicAvailable, crossfading, initialized;
+
         public bool Paused { get; private set; }
         public double Time => Math.Max(0, AudioSettings.dspTime - origin);
         public double DspOrigin => origin;
@@ -22,48 +32,211 @@ namespace Liminal
         public double MaxGridError { get; private set; }
         public double MaxPlaybackPhaseError { get; private set; }
         public int DroppedNotes { get; private set; }
+        public int ThemeCount => AuthoredScore.ThemeCount;
+        public int CurrentTheme { get; private set; } = -1;
+        public int PendingTheme => pendingTheme;
+        public int TransitionCount { get; private set; }
+        public double ScheduledBoundary { get; private set; } = -1;
+        public double LastTransitionTime { get; private set; } = -1;
+        public double NextTransitionTime => pendingTheme >= 0 ? ScheduledBoundary : -1;
 
         public void Initialize()
         {
-            music = gameObject.AddComponent<AudioSource>();
-            music.clip = soundtrack;
-            music.playOnAwake = false;
-            music.loop = LoopSoundtrack;
-            music.volume = 0.83f;
+            if (!soundtrack) throw new InvalidOperationException("Missing soundtrack.");
+            if (soundtrack.frequency != AuthoredScore.Data.sampleRate || soundtrack.samples != AuthoredScore.Data.sampleCount)
+                throw new InvalidOperationException("Audio samples do not match the authored timeline.");
+
+            for (int i = 0; i < musicSources.Length; i++) {
+                musicSources[i] = gameObject.AddComponent<AudioSource>();
+                musicSources[i].playOnAwake = false;
+                musicSources[i].spatialBlend = 0;
+            }
+            stageMusicAvailable = LoopSoundtrack && LoadStageMusic();
+            CacheHarmony(AuthoredScore.Data);
+            if (stageMusicAvailable)
+                for (int i = 0; i < themeClips.Length; i++) CacheHarmony(AuthoredScore.ThemeData(i));
+
             for (int i = 0; i < voices.Length; i++) {
                 voices[i] = gameObject.AddComponent<AudioSource>();
                 voices[i].playOnAwake = false;
+                voices[i].spatialBlend = 0;
             }
-            if (soundtrack.frequency != AuthoredScore.Data.sampleRate || soundtrack.samples != AuthoredScore.Data.sampleCount)
-                throw new InvalidOperationException("Audio samples do not match the authored timeline.");
-            foreach (var chord in AuthoredScore.Data.harmony)
-                for (int i = 0; i < 8; i++) {
-                    int midi = chord.notes[i % chord.notes.Length] + 12 + 12 * (i / chord.notes.Length);
-                    if (!notes.ContainsKey(midi)) notes.Add(midi, Synthesize(midi, 1.8f, false));
-                }
             impact = Synthesize(38, 0.4f, true);
             lockTone = Synthesize(98, 0.1f, false);
             whaleTone = MakeWhaleCall();
             SetVolume(PlayerPrefs.GetFloat("volume", 0.8f));
+            initialized = true;
             Restart();
+        }
+
+        bool LoadStageMusic()
+        {
+            try {
+                for (int i = 0; i < themeClips.Length; i++) {
+                    themeClips[i] = Resources.Load<AudioClip>(AuthoredScore.ThemeResourcePath(i));
+                    if (!themeClips[i]) throw new InvalidOperationException("Missing stage audio: " + AuthoredScore.ThemeNames[i]);
+                    var timeline = AuthoredScore.ThemeData(i);
+                    if (themeClips[i].frequency != timeline.sampleRate || themeClips[i].samples != timeline.sampleCount)
+                        throw new InvalidOperationException("Stage audio samples do not match timeline: " + AuthoredScore.ThemeNames[i]);
+                }
+                return true;
+            }
+            catch (Exception exception) {
+                Debug.LogWarning("Stage music unavailable; using the original soundtrack. " + exception.Message);
+                return false;
+            }
+        }
+
+        void CacheHarmony(AuthoredScore.Timeline timeline)
+        {
+            foreach (var chord in timeline.harmony) {
+                if (chord.notes == null || chord.notes.Length == 0) continue;
+                for (int i = 0; i < 8; i++) {
+                    int midi = chord.notes[i % chord.notes.Length] + 12 + 12 * (i / chord.notes.Length);
+                    if (!notes.ContainsKey(midi)) notes.Add(midi, Synthesize(midi, 1.8f, false));
+                }
+            }
         }
 
         public void Restart()
         {
             SetPaused(false);
-            music.Stop();
+            for (int i = 0; i < musicSources.Length; i++) {
+                if (!musicSources[i]) continue;
+                musicSources[i].Stop();
+                musicSources[i].clip = null;
+                musicSources[i].volume = 0;
+            }
             for (int i = 0; i < voices.Length; i++) { voices[i].Stop(); voiceEnds[i] = 0; }
+
             origin = AudioSettings.dspTime + 0.3;
+            activeMusicSource = 0;
+            scheduledMusicSource = fadeOutMusicSource = -1;
+            pendingTheme = -1;
+            fadeStartSong = fadeEndSong = 0;
+            crossfading = false;
+            ScheduledBoundary = -1;
+            LastTransitionTime = -1;
+            CurrentTheme = stageMusicAvailable ? 0 : -1;
+            TransitionCount = 0;
+            AuthoredScore.ResetThemeSchedule(CurrentTheme);
+
+            var source = musicSources[activeMusicSource];
+            source.clip = stageMusicAvailable ? themeClips[0] : soundtrack;
+            source.loop = LoopSoundtrack;
+            source.volume = MusicLevel;
+            source.PlayScheduled(origin);
             ScheduledNotes = 0;
             MaxGridError = 0;
             MaxPlaybackPhaseError = 0;
             DroppedNotes = 0;
-            music.PlayScheduled(origin);
+        }
+
+        public void RequestTheme(int room, bool ending = false)
+        {
+            if (!initialized || !stageMusicAvailable || !LoopSoundtrack) return;
+            AdvanceThemeState();
+            int target;
+            if (ending) target = AuthoredScore.ThemeCount - 1;
+            else {
+                if (room < 0 || room >= AuthoredScore.ThemeCount - 1) return;
+                target = room;
+            }
+
+            if (pendingTheme == target) return;
+            if (target == CurrentTheme) {
+                CancelPendingTheme();
+                return;
+            }
+
+            CancelPendingTheme();
+            pendingTheme = target;
+            double earliest = crossfading ? Math.Max(Time, fadeEndSong) : Time;
+            ScheduledBoundary = AuthoredScore.NextFourBarBoundary(earliest, SchedulingLead());
+            AuthoredScore.QueueThemeTransition(target, ScheduledBoundary);
+            if (!crossfading) SchedulePendingClip();
+        }
+
+        void CancelPendingTheme()
+        {
+            if (pendingTheme < 0) return;
+            if (scheduledMusicSource >= 0) {
+                musicSources[scheduledMusicSource].Stop();
+                musicSources[scheduledMusicSource].clip = null;
+                musicSources[scheduledMusicSource].volume = 0;
+                scheduledMusicSource = -1;
+            }
+            AuthoredScore.CancelThemeTransitionsFrom(ScheduledBoundary);
+            pendingTheme = -1;
+            ScheduledBoundary = crossfading ? fadeStartSong : -1;
+        }
+
+        void SchedulePendingClip()
+        {
+            if (pendingTheme < 0 || crossfading || scheduledMusicSource >= 0) return;
+            double lead = SchedulingLead();
+            if (ScheduledBoundary <= Time + lead) {
+                AuthoredScore.CancelThemeTransitionsFrom(ScheduledBoundary);
+                ScheduledBoundary = AuthoredScore.NextFourBarBoundary(Time, lead);
+                AuthoredScore.QueueThemeTransition(pendingTheme, ScheduledBoundary);
+            }
+            scheduledMusicSource = 1 - activeMusicSource;
+            var incoming = musicSources[scheduledMusicSource];
+            incoming.Stop();
+            incoming.clip = themeClips[pendingTheme];
+            incoming.loop = true;
+            incoming.volume = 0;
+            incoming.PlayScheduled(origin + ScheduledBoundary);
+        }
+
+        double SchedulingLead()
+        {
+            AudioSettings.GetDSPBufferSize(out int bufferLength, out int bufferCount);
+            int sampleRate = Math.Max(1, AudioSettings.outputSampleRate);
+            return Math.Max(0.12, (double)bufferLength * bufferCount / sampleRate);
+        }
+
+        void AdvanceThemeState()
+        {
+            if (Paused || !stageMusicAvailable) return;
+            double songTime = Time;
+            if (scheduledMusicSource >= 0 && pendingTheme >= 0 && songTime + 1e-9 >= ScheduledBoundary) {
+                fadeOutMusicSource = activeMusicSource;
+                activeMusicSource = scheduledMusicSource;
+                CurrentTheme = pendingTheme;
+                pendingTheme = -1;
+                scheduledMusicSource = -1;
+                fadeStartSong = ScheduledBoundary;
+                fadeEndSong = fadeStartSong + CrossfadeBars * 4 * Score.BeatSeconds;
+                crossfading = true;
+                TransitionCount++;
+                LastTransitionTime = fadeStartSong;
+            }
+
+            if (crossfading) {
+                float progress = Mathf.Clamp01((float)((songTime - fadeStartSong) / Math.Max(0.001, fadeEndSong - fadeStartSong)));
+                musicSources[fadeOutMusicSource].volume = MusicLevel * (1 - progress);
+                musicSources[activeMusicSource].volume = MusicLevel * progress;
+                if (progress >= 1) {
+                    musicSources[fadeOutMusicSource].Stop();
+                    musicSources[fadeOutMusicSource].clip = null;
+                    musicSources[fadeOutMusicSource].volume = 0;
+                    fadeOutMusicSource = -1;
+                    crossfading = false;
+                }
+            }
+
+            if (!crossfading && pendingTheme >= 0 && scheduledMusicSource < 0) SchedulePendingClip();
         }
 
         public bool ScheduleNote(int index, double songTime, float pan, float strength = 1)
         {
-            if (!Play(notes[AuthoredScore.Note(index % 8, songTime)], origin + songTime, pan, 0.62f * strength)) {
+            int midi = AuthoredScore.Note(index % 8, songTime);
+            if (!notes.TryGetValue(midi, out AudioClip note)) {
+                note = Synthesize(midi, 1.8f, false);
+                notes.Add(midi, note);
+            }
+            if (!Play(note, origin + songTime, pan, 0.62f * strength)) {
                 DroppedNotes++; return false;
             }
             MaxGridError = Math.Max(MaxGridError, AuthoredScore.GridError(songTime));
@@ -73,21 +246,28 @@ namespace Liminal
 
         void Update()
         {
-            if (!music || !music.isPlaying || Paused || AudioSettings.dspTime <= origin + .1) return;
-            double expected = LoopSoundtrack ? Time % AuthoredScore.Duration : Time;
-            double error = Math.Abs(music.timeSamples / (double)soundtrack.frequency - expected);
-            if (LoopSoundtrack) error = Math.Min(error, AuthoredScore.Duration - error);
-            MaxPlaybackPhaseError = Math.Max(MaxPlaybackPhaseError, Math.Abs(error));
+            if (!initialized || Paused) return;
+            AdvanceThemeState();
+            var source = musicSources[activeMusicSource];
+            if (!source || !source.isPlaying || AudioSettings.dspTime <= origin + .1) return;
+            var timeline = AuthoredScore.TimelineAt(Time);
+            double expected = AuthoredScore.ThemeAt(Time) >= 0
+                ? AuthoredScore.LocalSampleAt(Time) / (double)timeline.sampleRate
+                : LoopSoundtrack ? Time % AuthoredScore.Duration : Time;
+            double actual = source.timeSamples / (double)source.clip.frequency;
+            double error = Math.Abs(actual - expected);
+            if (source.loop) error = Math.Min(error, Math.Abs(timeline.sampleCount / (double)timeline.sampleRate - error));
+            MaxPlaybackPhaseError = Math.Max(MaxPlaybackPhaseError, error);
         }
 
         public void LockSound() => Play(lockTone, AudioSettings.dspTime + 0.01, 0, 0.06f);
         public void DamageSound() => Play(impact, AudioSettings.dspTime + 0.01, 0, 0.6f);
-        public void WhaleCall() => Play(whaleTone,origin+Score.NextEighth(Time,.15),0,.7f);
+        public void WhaleCall() => Play(whaleTone, origin + Score.NextEighth(Time, .15), 0, .7f);
 
         bool Play(AudioClip clip, double dspTime, float pan, float volume)
         {
             int voice = -1;
-            for (int i = 0; i < voices.Length; i++) if (voiceEnds[i] < AudioSettings.dspTime) { voice = i; break; }
+            for (int i = 0; i < voices.Length; i++) if (voiceEnds[i] <= AudioSettings.dspTime) { voice = i; break; }
             if (voice < 0 || dspTime < AudioSettings.dspTime) return false;
             var source = voices[voice];
             source.clip = clip;
@@ -100,21 +280,32 @@ namespace Liminal
 
         public void SetPaused(bool value) { Paused = value; AudioListener.pause = value; }
         public void SetVolume(float value) { Volume = Mathf.Clamp01(value); AudioListener.volume = Volume; }
-        void OnDestroy() { AudioListener.pause = false; foreach (var clip in notes.Values) if (clip) Destroy(clip); if (impact) Destroy(impact); if (lockTone) Destroy(lockTone); if(whaleTone) Destroy(whaleTone); }
+
+        void OnDestroy()
+        {
+            AudioListener.pause = false;
+            foreach (var clip in notes.Values) if (clip) Destroy(clip);
+            if (impact) Destroy(impact);
+            if (lockTone) Destroy(lockTone);
+            if (whaleTone) Destroy(whaleTone);
+        }
 
         static AudioClip MakeWhaleCall()
         {
-            const int rate=44100,frames=rate*7;
-            var samples=new float[frames*2];
-            double phase=0;
-            for(int i=0;i<frames;i++) {
-                double t=i/(double)rate;
-                phase+=2*Math.PI*(73.416+2.1*Math.Sin(t*.75))/rate;
-                double envelope=Math.Min(t/.65,1)*Math.Exp(-t*.35)*Math.Min((7-t)/1.5,1);
-                float v=(float)((Math.Sin(phase)*.32+Math.Sin(phase*2)*.12+Math.Sin(phase*3)*.04)*envelope);
-                samples[i*2]=v;samples[i*2+1]=v;
+            const int rate = 44100, frames = rate * 7;
+            var samples = new float[frames * 2];
+            double phase = 0;
+            for (int i = 0; i < frames; i++) {
+                double t = i / (double)rate;
+                phase += 2 * Math.PI * (73.416 + 2.1 * Math.Sin(t * .75)) / rate;
+                double envelope = Math.Min(t / .65, 1) * Math.Exp(-t * .35) * Math.Min((7 - t) / 1.5, 1);
+                float v = (float)((Math.Sin(phase) * .32 + Math.Sin(phase * 2) * .12 + Math.Sin(phase * 3) * .04) * envelope);
+                samples[i * 2] = v;
+                samples[i * 2 + 1] = v;
             }
-            var clip=AudioClip.Create("Horizon song",frames,2,rate,false);clip.SetData(samples,0);return clip;
+            var clip = AudioClip.Create("Horizon song", frames, 2, rate, false);
+            clip.SetData(samples, 0);
+            return clip;
         }
 
         static AudioClip Synthesize(int midi, float length, bool low)
