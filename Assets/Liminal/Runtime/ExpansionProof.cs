@@ -45,6 +45,8 @@ namespace Liminal
         IEnumerator Start()
         {
             yield return null;
+            bool review=Array.IndexOf(Environment.GetCommandLineArgs(),"--review-only")>=0;
+            if(review) report.mode="visual-review";
             if(Array.IndexOf(Environment.GetCommandLineArgs(),"--brightness-only")>=0) {
                 yield return InspectBrightness();yield break;
             }
@@ -55,8 +57,9 @@ namespace Liminal
             Require(report.connectedRooms, "All five chambers must have traversable open passages");
             experience.Restart();
             yield return new WaitForSecondsRealtime(.4f);
-            yield return InspectTutorial();
+            if(!review) yield return InspectTutorial();
             experience.Tutorial.SetEnabled(false);
+            if(review) yield return InspectReviewedNavigation();
 
             var hermits = experience.Hermits;
             report.hermitParticles = hermits.ParticleCount;
@@ -64,12 +67,21 @@ namespace Liminal
             Frame(CaveLayout.Rooms[3].Center + Vector3.down * 95, new Vector3(0, 30, -120));
             yield return new WaitForSecondsRealtime(1f);
             Capture("02-hermit-swarm.png");
+            if(review) {
+                Frame(hermits.SmallTargets[0].position,new Vector3(13,9,-21));
+                yield return new WaitForSecondsRealtime(.35f);Capture("hermit-close-stance.png");
+                yield return new WaitForSecondsRealtime(.3f);Capture("hermit-close-step.png");
+            }
             yield return HitBatch(hermits.SmallTargets, 8);
             Require(hermits.SmallDefeated == 8 && hermits.Merging, "One third of the swarm must trigger particle coalescence");
             yield return new WaitForSecondsRealtime(4.5f);
             report.hermitMerge = hermits.MergeProgress;
             Require(hermits.MergeProgress > .99f && hermits.BossTargets.Count == 16, "Persistent crab matter must form a sixteen-point giant");
             Frame(hermits.BossPosition, new Vector3(60, 45, -100));
+            if(review) {
+                yield return new WaitForSecondsRealtime(2f);
+                Capture("hermit-bubble-rings.png");
+            }
             Capture("03-giant-hermit.png");
             float deadline = Time.realtimeSinceStartup + 35;
             while (!hermits.Complete && !experience.Combat.Ended && Time.realtimeSinceStartup < deadline) {
@@ -82,8 +94,16 @@ namespace Liminal
             Require(hermits.ParticleCount == report.hermitParticles && hermits.InitializationCount == hermitInitializations,
                 "Hermit state changes must retain their original particle pool");
             Frame(hermits.BossPosition, new Vector3(60, 45, -100));
-            yield return new WaitForSecondsRealtime(2f);
+            yield return new WaitForSecondsRealtime(review?8f:2f);
             Capture("04-shell-refuge.png");
+            if(review) {
+                report.reefGroups=hermits.ReefParticleGroups;report.reefProgress=hermits.ReefProgress;
+                report.smallBubbles=hermits.SmallBubbleShots;report.giantRings=hermits.GiantBubbleRings;
+                report.stanceDrift=hermits.MaxStanceFootDrift;
+                Require(hermits.RemainingCombatants==0 && report.reefGroups==24 && report.reefProgress>.95f,
+                    "All surviving and scattered crab particles must join the same completed reef");
+                Require(report.smallBubbles>0 && report.giantRings>0,"Small bubbles and giant hollow rings must both be emitted");
+            }
 
             var submarines = experience.Submarines;
             report.submarineParticles = submarines.ParticleCount;
@@ -93,6 +113,15 @@ namespace Liminal
             for (int phase = 0; phase < 3; phase++) {
                 Require(submarines.Phase == phase, "Submarine phases must preserve their authored order");
                 Frame(submarines.Focus, new Vector3(100, 60, -160));
+                if(review && phase==2) {
+                    deadline=Time.realtimeSinceStartup+12f;
+                    while(submarines.SpearShots==0 && Time.realtimeSinceStartup<deadline)
+                        yield return null;
+                    yield return new WaitForSecondsRealtime(0.35f);
+                    Capture("poseidon-spear-curtain.png");
+                    report.spearShots=submarines.SpearShots;
+                    Require(report.spearShots>0,"Mechanical guardian must launch interceptable spear-tip curtains");
+                }
                 Capture("05-submarine-phase-" + phase + ".png");
                 deadline = Time.realtimeSinceStartup + 45;
                 while (submarines.Phase == phase && !experience.Combat.Ended && Time.realtimeSinceStartup < deadline) {
@@ -102,6 +131,7 @@ namespace Liminal
                 while (submarines.Transitioning && Time.realtimeSinceStartup < deadline) yield return null;
             }
             report.submarineHits = submarines.TotalHits;
+            report.spearShots = submarines.SpearShots;
             report.completedPhases = submarines.CompletedPhases;
             report.submarineComplete = submarines.Complete;
             Require(submarines.Complete && submarines.TotalHits == 160 && submarines.CompletedPhases == 3,
@@ -135,6 +165,38 @@ namespace Liminal
             report.restartClean &= experience.Tutorial.StepIndex == 0 && !experience.Tutorial.Complete;
             Require(report.restartClean, "Restart must restore new stages and replayable tutorial without duplicate targets");
             Finish();
+        }
+
+        IEnumerator InspectReviewedNavigation()
+        {
+            Require(experience.PassageGuide.ShoalCount>=CaveLayout.Passages.Length*2,
+                "Each passage must contain at least two fish schools");
+            for(int room=0;room<CaveLayout.Passages.Length;room++) {
+                CaveLayout.GetPortal(room,true,out Vector3 portal,out Vector3 direction);
+                Vector3 start=portal-direction*95;
+                Frame(portal,start-portal);
+                yield return null;Capture("passage-organic-"+room+".png");
+                var route=CaveLayout.Passages[room];
+                Vector3 midpoint=Vector3.Lerp(route[1],route[2],.5f);
+                Frame(midpoint,new Vector3(0,3,-32));
+                yield return null;Capture("passage-shoal-"+room+".png");
+            }
+            Vector3 school=experience.PassageGuide.ShoalPositions[1];
+            Frame(school,new Vector3(0,8,-42));
+            yield return null;
+            int hits=experience.Combat.Hits;
+            foreach(var target in experience.Combat.Targets) {
+                if(target.visual && target.visual.name=="Corridor fish" && Vector3.Distance(target.position,school)<24 && target.Available)
+                    experience.Combat.AcquireAt(experience.Flight.View.WorldToScreenPoint(target.position));
+                if(experience.Combat.Locks.Count>=7) break;
+            }
+            Require(experience.Combat.Locks.Count>=2,"Passage fish must offer multiple genuine shooting opportunities");
+            experience.Combat.Release();yield return ResolveShots();
+            Require(experience.Combat.Hits>=hits+2 && experience.Combat.MissedScheduledHits==0,
+                "School scattering must preserve simultaneous scheduled impacts");
+            Capture("passage-shoal-scatter.png");
+            Frame(CaveLayout.Rooms[2].Center,new Vector3(0,30,-330));
+            yield return null;Capture("wall-flowing-contours.png");
         }
 
         IEnumerator InspectBrightness()
@@ -369,7 +431,7 @@ namespace Liminal
         }
         void Capture(string name)
         {
-            var pixels = Render(experience.Flight.View, 1600, 900);
+            var pixels = Render(experience.Flight.View, 1600, 900,report.mode=="visual-review");
             int lit = 0;
             foreach (var color in pixels.GetPixels32()) if (Mathf.Max(color.r, Mathf.Max(color.g, color.b)) > 60) lit++;
             visibleFractions.Add(lit / (float)(pixels.width * pixels.height));
@@ -424,6 +486,8 @@ namespace Liminal
             public int completedPhases, pressureShots, interceptions, damageTaken, hits, notes, haloNear, haloFar;
             public float hermitMerge;
             public float originalLuminance,brightLuminance,restoredLuminance;
+            public float reefProgress,stanceDrift;
+            public int reefGroups,smallBubbles,giantRings,spearShots;
             public double gridError;
             public float[] visibleFractions;
             public string gpu;
