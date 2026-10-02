@@ -17,6 +17,8 @@ namespace Liminal
         const float SmallAcquireRange = 105f;
         const float BossAcquireRange = 150f;
         const float PressureSpeed = 24f;
+        const float PressurePodSpeed = 14f;
+        const float PressurePodMinimumDistance = 28f;
         const int MaxOwnedPressureShots = 12;
         const float MergeDuration = 4f;
         const float RefugeDuration = 7f;
@@ -127,6 +129,7 @@ namespace Liminal
         public int ReefFishCount => HermitGeometry.ReefFishCount;
         public bool ReefFishActive => complete && shoalObject && shoalObject.activeSelf;
         public int SmallBubbleShots { get; private set; }
+        public int PressurePods { get; private set; }
         public int GiantBubbleRings { get; private set; }
         public int PlantedFeet { get; private set; }
         public float MaxStanceFootDrift { get; private set; }
@@ -308,6 +311,7 @@ namespace Liminal
             previousBeat = (float)AuthoredScore.BeatPosition(music.Time);
             reefBeat = 0f;
             SmallBubbleShots = 0;
+            PressurePods = 0;
             GiantBubbleRings = 0;
             PlantedFeet = 0;
             MaxStanceFootDrift = 0f;
@@ -898,9 +902,16 @@ namespace Liminal
 
         void FireSmallPulse(float song, int beat)
         {
+            int start = (smallShotSequence * 7) % crabs.Length;
+            if (smallShotSequence % 3 == 2)
+            {
+                FirePressurePod(song, start);
+                smallShotSequence++;
+                return;
+            }
+
             int shooters = 2 + ((smallShotSequence + beat / 2) & 1);
             int fired = 0;
-            int start = (smallShotSequence * 7) % crabs.Length;
             for (int offset = 0; offset < crabs.Length && fired < shooters; offset++)
             {
                 Crab crab = crabs[(start + offset) % crabs.Length];
@@ -921,6 +932,31 @@ namespace Liminal
                 fired++;
             }
             smallShotSequence++;
+        }
+
+        void FirePressurePod(float song, int start)
+        {
+            if (bossActive || merging)
+                return;
+
+            for (int offset = 0; offset < crabs.Length; offset++)
+            {
+                Crab crab = crabs[(start + offset) % crabs.Length];
+                if (crab.state != FormState.Crawling || crab.defeated)
+                    continue;
+                Vector3 origin = crab.root.TransformPoint(new Vector3(0f, 0.92f, 3.15f));
+                if (Vector3.Distance(origin, flight.Position) < PressurePodMinimumDistance)
+                    continue;
+
+                Vector3 direction = WeakAim(origin, PressurePodSpeed);
+                float flank = (smallShotSequence & 1) == 0 ? -24f : 24f;
+                direction = ApplySpread(direction, flank, (smallShotSequence & 1) == 0 ? -2f : 2f);
+                Color color = (smallShotSequence & 1) == 0
+                    ? new Color(0.09f, 0.75f, 0.82f)
+                    : new Color(0.85f, 0.58f, 0.2f);
+                RegisterPressurePod(origin, direction, song, color);
+                return;
+            }
         }
 
         void FireBossPulse(float song)
@@ -998,7 +1034,7 @@ namespace Liminal
             float radius = 1.2f, bool bubbleRing = false, Vector3? acceleration = null,
             float? lifetimeOverride = null)
         {
-            if (combat.Peaceful || combat.LivePressureShots(this) >= MaxOwnedPressureShots ||
+            if (combat.Peaceful || combat.PressureSlotUsage(this) + 1 > MaxOwnedPressureShots ||
                 !combat.CanRegisterPressureShots(1))
                 return false;
             if (combat.RegisterPressureShot(origin, direction, song, color, owner: this, speed: speed,
@@ -1007,6 +1043,18 @@ namespace Liminal
                 return false;
             if (bubbleRing) GiantBubbleRings++;
             else SmallBubbleShots++;
+            return true;
+        }
+
+        bool RegisterPressurePod(Vector3 origin, Vector3 direction, float song, Color color)
+        {
+            if (combat.Peaceful || combat.PressureSlotUsage(this) + 4 > MaxOwnedPressureShots ||
+                !combat.CanRegisterPressureShots(4))
+                return false;
+            if (combat.RegisterPressurePod(origin, direction, song, color,
+                owner: this, speed: PressurePodSpeed) == null)
+                return false;
+            PressurePods++;
             return true;
         }
 

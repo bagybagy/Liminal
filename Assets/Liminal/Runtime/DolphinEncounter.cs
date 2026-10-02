@@ -7,10 +7,11 @@ namespace Liminal
         public const int Capacity = 6;
         public const int PointsPerDolphin = 8;
         const int MaxConcurrentShots = 16;
-        const int ShotsPerBurst = 3;
+        const int ShotsPerBurst = 6;
         const float MaximumSpeed = 80f;
         const float MaximumAcceleration = 90f;
         const float PressureSpeed = 28f;
+        const float SpiralSpeed = 32f;
         const float DolphinScale = 1.5f;
         static readonly Vector3[] LockPointLocalPositions = {
             new(0f, -0.3f, 9.2f),
@@ -444,18 +445,18 @@ namespace Liminal
             }
             else
             {
-                for (int burstIndex = 0; burstIndex < ShotsPerBurst; burstIndex++)
+                int sequence = shotSequence;
+                Vector3 direction = AimDirection(origin, sequence, SpiralSpeed);
+                bool swapColors = (sequence & 1) != 0;
+                Color first = swapColors ? OrangeShot : BlueShot;
+                Color second = swapColors ? BlueShot : OrangeShot;
+                if (combat.RegisterSpiralPair(origin, direction, song, first, second,
+                    owner: this, speed: SpiralSpeed) == ShotsPerBurst)
                 {
-                    int sequence = shotSequence;
-                    Vector3 direction = AimDirection(origin, sequence);
-                    float spread = (burstIndex - 1) * 12f + Mathf.Sin((sequence + 1) * 1.31f) * 2f;
-                    direction = Quaternion.AngleAxis(spread, spreadAxis) * direction;
-                    Color color = (sequence & 1) == 0 ? BlueShot : OrangeShot;
-                    if (combat.RegisterPressureShot(origin, direction, song, color, this, PressureSpeed) == null)
-                        break;
-                    shotSequence++;
-                    ShotsSpawned++;
-                    fired++;
+                    // Keep the prior three-step attack cadence while each attack now emits six projectiles.
+                    shotSequence += 3;
+                    ShotsSpawned += ShotsPerBurst;
+                    fired = ShotsPerBurst;
                 }
             }
 
@@ -496,15 +497,15 @@ namespace Liminal
             }
         }
 
-        Vector3 AimDirection(Vector3 origin, int sequence)
+        Vector3 AimDirection(Vector3 origin, int sequence, float speed = PressureSpeed)
         {
             Vector3 relative = flight.Position - origin;
             Vector3 direct = relative.sqrMagnitude > 0.001f ? relative.normalized : flight.transform.forward;
             Vector3 velocity = flight.Velocity;
-            float a = Vector3.Dot(velocity, velocity) - PressureSpeed * PressureSpeed;
+            float a = Vector3.Dot(velocity, velocity) - speed * speed;
             float b = 2f * Vector3.Dot(relative, velocity);
             float c = relative.sqrMagnitude;
-            float time = c > 0.001f ? Mathf.Sqrt(c) / PressureSpeed : 0f;
+            float time = c > 0.001f ? Mathf.Sqrt(c) / speed : 0f;
             float discriminant = b * b - 4f * a * c;
             if (Mathf.Abs(a) < 0.001f)
             {
