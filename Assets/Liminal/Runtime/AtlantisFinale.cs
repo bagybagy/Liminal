@@ -58,7 +58,7 @@ namespace Liminal
                 throw new System.InvalidOperationException("Atlantis optional layers exceed their auxiliary point budget.");
 
             Credits = new ParticleCredits();
-            Credits.Initialize(cityRoot, creditsShader, new Vector3(207f, 36f, 8f));
+            Credits.Initialize(cityRoot, creditsShader, new Vector3(207f, 88f, 8f));
             root.SetActive(false);
 
             marineLife.PrepareFinale(SampleWhaleDestination);

@@ -13,12 +13,14 @@ namespace Liminal
         string output;
         float started;
         bool finished;
+        bool creditsOnly;
         readonly List<string> errors=new();
         readonly Report report=new();
         public void Initialize(Experience experience)
         {
             game=experience;started=Time.realtimeSinceStartup;
             var args=Environment.GetCommandLineArgs();int at=Array.IndexOf(args,"--output");
+            creditsOnly=Array.IndexOf(args,"--credits-only")>=0;
             output=at>=0&&at+1<args.Length?args[at+1]:Path.GetFullPath("Verification/Journey");
             Directory.CreateDirectory(output);Application.logMessageReceived+=OnLog;
         }
@@ -27,7 +29,7 @@ namespace Liminal
             if(type==LogType.Error||type==LogType.Exception||type==LogType.Assert)
                 if(errors.Count<24) errors.Add(message+"\n"+stack);
         }
-        void Update() {if(!finished && Time.realtimeSinceStartup-started>480){Check(false,"Journey timeout");Finish();}}
+        void Update() {if(!finished && Time.realtimeSinceStartup-started>(creditsOnly?75:480)){Check(false,"Journey timeout");Finish();}}
         void Check(bool condition,string message)
         {
             if(condition) return;
@@ -37,7 +39,16 @@ namespace Liminal
         IEnumerator Start()
         {
             yield return null;
+            while(!game.Ready) yield return null;
             game.Tutorial.SetEnabled(false);
+            if(creditsOnly) {
+                game.Combat.EnterAfterglow();
+                float song=(float)game.Music.Time;
+                game.Finale.Begin(RunProgress.OptionalBosses,song);
+                for(int step=0;step<182;step++) game.Finale.Tick(song,.1f);
+                yield return InspectCredits();
+                Finish();yield break;
+            }
             if(Array.IndexOf(Environment.GetCommandLineArgs(),"--vr-motion-only")>=0) {
                 yield return InspectVrPath();
                 game.Vr.RequestEnable();
@@ -251,20 +262,67 @@ namespace Liminal
                 report.endingVariants++;
                 if(mask==0) {yield return null;Capture("atlantis-base-only.png");}
             }
-            report.creditParticles=game.Finale.Credits.StableParticleCount;
-            for(int step=0;step<28;step++) game.Finale.Credits.Tick(song+step*.1f,.1f);
-            Vector3 credits=AtlantisGeometry.CityOrigin+new Vector3(207,36,8);
-            Frame(credits+Vector3.back*90,credits-Vector3.up*16);
-            yield return null;Capture("particle-credits.png");
-            // Exercise the 96-second circulation with bounded logical ticks; gameplay recording is not needed.
-            for(int step=0;step<960;step++) game.Finale.Credits.Tick(song+step*.1f,.1f);
-            report.creditCycles=game.Finale.Credits.CycleCount;
-            Check(game.Finale.Credits.Completed&&report.creditCycles==8&&game.Finale.Credits.SeenLines==8,
-                "All credits must rise, return to ambient matter, and finish once");
-            Check(game.Finale.Credits.StableParticleCount==report.creditParticles&&report.creditParticles>0,
-                "Credit cycles must keep one fixed particle pool");
+            yield return InspectCredits();
             Check(game.Marine.Matter.InitializationCount==initializations&&game.Marine.Matter.ParticleCount==particleCount,
                 "Finale destination morphs must not recreate whale particles");
+        }
+        IEnumerator InspectCredits()
+        {
+            var credits=game.Finale.Credits;
+            float song=(float)game.Music.Time;
+            credits.Begin(song);
+            report.creditParticles=credits.StableParticleCount;
+            for(int step=0;step<184;step++) credits.Tick(song,.1f);
+            report.simultaneousCredits=credits.VisibleLineCount;
+            Check(report.simultaneousCredits>=4,"Staff roll must form at least four rows simultaneously");
+            Check(ParticleCredits.LineCount==19&&Mathf.Abs(ParticleCredits.Duration-96)<.01f,
+                "The shared ninety-six-second roll must include title, creator, music, technology, and workers");
+            Frame(credits.Position+Vector3.back*300,credits.Position);
+            yield return null;Capture("credits-world.png");
+            var hud=game.GetComponent<Hud>();
+            float displayDeadline=Time.realtimeSinceStartup+35;
+            while(hud.VisibleCreditRows<3&&Time.realtimeSinceStartup<displayDeadline) yield return null;
+            Check(hud.VisibleCreditRows>=3,"A visible player window is required to verify IMGUI credit rendering");
+            yield return CaptureCreditsScreen("credits-desktop.png");
+            report.desktopCreditRows=hud.VisibleCreditRows;
+            Check(report.desktopCreditRows>=3,"The actual desktop HUD must draw multiple scrolling rows");
+            foreach(var size in new[]{new Vector2(640,480),new Vector2(1280,720),new Vector2(1920,1080)}) {
+                Rect viewport=Hud.CreditsViewport(size.x,size.y);
+                Check(viewport.xMin>=size.x*.5f&&viewport.xMax<size.x&&viewport.yMin>=80&&viewport.yMax<=size.y-70,
+                    "Credit column must remain on the right, below score and above overdrive");
+            }
+            float frozen=credits.Elapsed;
+            game.Music.SetPaused(true);
+            yield return new WaitForSecondsRealtime(.2f);
+            report.creditsPause=Mathf.Abs(credits.Elapsed-frozen)<.001f&&hud.VisibleCreditRows==0;
+            Check(report.creditsPause,"Pause must freeze world credits and hide the right-hand roll");
+            game.Music.SetPaused(false);
+            game.Flight.EnableVr(true);
+            yield return CaptureCreditsScreen("credits-vr-world-only.png");
+            report.vrCreditsExcluded=hud.VisibleCreditRows==0&&credits.Active;
+            Check(report.vrCreditsExcluded,"VR must keep world glyphs but exclude the desktop overlay");
+            game.Flight.EnableVr(false);
+            for(int step=0;step<1000&&!credits.Completed;step++) credits.Tick(song,.1f);
+            report.creditCycles=credits.CycleCount;
+            Check(credits.Completed&&report.creditCycles==ParticleCredits.LineCount&&credits.SeenLines==ParticleCredits.LineCount,
+                "Every staff-roll row must circulate and finish once");
+            Check(credits.StableParticleCount==report.creditParticles&&report.creditParticles>0,
+                "Concurrent rows must retain the fixed particle pools");
+            Check(!Hud.ShouldShowCredits(credits,false,false),"Completed roll must leave no desktop credits behind");
+            credits.Reset();
+            Check(!credits.Active&&!credits.Completed&&credits.Elapsed==0&&credits.SeenLines==0,
+                "Restart must clear credit timing and all row bookkeeping");
+            credits.Begin(song);
+            Check(credits.Active&&credits.Elapsed==0&&credits.StableParticleCount==report.creditParticles,
+                "A new ending must reuse its pools and begin at the first row");
+        }
+        IEnumerator CaptureCreditsScreen(string name)
+        {
+            yield return new WaitForEndOfFrame();
+            var image=ScreenCapture.CaptureScreenshotAsTexture();
+            Check(image&&image.width>0&&image.height>0,"Player framebuffer must be available for credit HUD verification");
+            File.WriteAllBytes(Path.Combine(output,name),image.EncodeToPNG());
+            Destroy(image);
         }
         IEnumerator InspectVrPath()
         {
@@ -316,9 +374,10 @@ namespace Liminal
         void OnDestroy(){Application.logMessageReceived-=OnLog;}
         [Serializable] sealed class Report
         {
-            public bool passed,ballisticRings,vrMovement,vrDesktopFallback;
+            public bool passed,ballisticRings,vrMovement,vrDesktopFallback,creditsPause,vrCreditsExcluded;
             public int graphEdges,corridorFish,hermitHits,submarineHits,hits,notes,endingVariants;
             public int spearHits,inheritedRings,inheritedCurtains,musicTransitions,creditParticles,creditCycles;
+            public int simultaneousCredits,desktopCreditRows;
             public double gridError,playbackPhaseError;
             public string[] errors;
         }

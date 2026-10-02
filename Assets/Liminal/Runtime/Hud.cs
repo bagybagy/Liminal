@@ -5,7 +5,8 @@ namespace Liminal
     public sealed class Hud : MonoBehaviour
     {
         public Experience Experience;
-        GUIStyle small, regular, title, number, button;
+        public int VisibleCreditRows { get; private set; }
+        GUIStyle small, regular, title, number, button, creditBody, creditHeading;
         Texture2D pixel;
         static readonly Color White=new(0.89f,0.96f,0.96f), Muted=new(0.43f,0.60f,0.65f), Cyan=new(0.4f,1,0.87f), Gold=new(1,0.7f,0.32f);
         void Setup()
@@ -18,11 +19,28 @@ namespace Liminal
             title=new GUIStyle(regular) {fontSize=34};
             number=new GUIStyle(regular) {fontSize=23};
             button=new GUIStyle(GUI.skin.button) {font=font,fontSize=15};
+            creditBody=new GUIStyle(small) {
+                fontSize=18,alignment=TextAnchor.MiddleCenter,wordWrap=true,richText=false,
+                padding=new RectOffset(2,2,2,2)
+            };
+            creditHeading=new GUIStyle(creditBody) {fontSize=20,fontStyle=FontStyle.Bold};
+        }
+        public static Rect CreditsViewport(float width,float height)
+        {
+            const float rightMargin=28f, top=88f, bottom=78f;
+            float columnWidth=Mathf.Min(Mathf.Clamp(width*0.28f,220f,360f),Mathf.Max(0,width-rightMargin*2));
+            return new Rect(width-rightMargin-columnWidth,top,columnWidth,Mathf.Max(0,height-top-bottom));
+        }
+        public static bool ShouldShowCredits(ParticleCredits credits,bool paused,bool vr)
+        {
+            return !vr&&!paused&&credits!=null&&credits.Active&&!credits.Completed;
         }
         public void OnGUI()
         {
+            VisibleCreditRows=0;
             if(!Experience || !Experience.Ready) return;
-            if((Experience.Vr && Experience.Vr.Enabled) || (Experience.Flight && Experience.Flight.VrEnabled)) return;
+            bool vr=(Experience.Vr && Experience.Vr.Enabled) || (Experience.Flight && Experience.Flight.VrEnabled);
+            if(vr) return;
             Setup();
             var e=Experience.Combat; var music=Experience.Music;
             float w=Screen.width,h=Screen.height,t=(float)music.Time;
@@ -88,6 +106,43 @@ namespace Liminal
                 Text(new Rect(20,h*.74f,w-40,46),"HORIZON RELEASED",title,White,TextAnchor.MiddleCenter);
             if(music.Paused) PausePanel(w,h);
             else if(e.Ended && t-e.EndTime>4) Results(w,h);
+            var finale=Experience.Finale;
+            var credits=finale?finale.Credits:null;
+            if(ShouldShowCredits(credits,music.Paused,vr)) DrawCredits(credits,w,h);
+        }
+        void DrawCredits(ParticleCredits credits,float width,float height)
+        {
+            Rect viewport=CreditsViewport(width,height);
+            if(viewport.width<=0||viewport.height<=0) return;
+            GUI.BeginGroup(viewport);
+            float fadeHeight=Mathf.Min(32f,viewport.height*0.22f);
+            float previousBottom=float.NegativeInfinity;
+            float lifetime=ParticleCredits.GatherDuration+ParticleCredits.ScrollDuration;
+            for(int i=0;i<ParticleCredits.LineCount;i++) {
+                float age=credits.Elapsed-i*ParticleCredits.LineInterval;
+                if(age<0||age>=lifetime) continue;
+                string value=ParticleCredits.GetLineText(i);
+                GUIStyle style=ParticleCredits.IsHeading(i)?creditHeading:creditBody;
+                GUIContent content=new(value);
+                float rowHeight=Mathf.Max(style.fontSize+6,style.CalcHeight(content,viewport.width)+2);
+                float scroll=Mathf.Clamp01((age-ParticleCredits.GatherDuration)/ParticleCredits.ScrollDuration);
+                float rowY=viewport.height-rowHeight-scroll*(viewport.height+rowHeight);
+                if(!float.IsNegativeInfinity(previousBottom)) rowY=Mathf.Max(rowY,previousBottom+6);
+                previousBottom=rowY+rowHeight;
+                float centerY=rowY+rowHeight*0.5f;
+                float edgeAlpha=Mathf.Min(
+                    Mathf.SmoothStep(0,1,centerY/Mathf.Max(1,fadeHeight)),
+                    Mathf.SmoothStep(0,1,(viewport.height-centerY)/Mathf.Max(1,fadeHeight)));
+                float gatherAlpha=Mathf.Clamp01(age/ParticleCredits.GatherDuration);
+                Color color=ParticleCredits.GetLineColor(i);
+                color.a*=gatherAlpha*edgeAlpha;
+                style.normal.textColor=color;
+                if(color.a>0.005f) {
+                    GUI.Label(new Rect(0,rowY,viewport.width,rowHeight),content,style);
+                    if(Event.current.type==EventType.Repaint) VisibleCreditRows++;
+                }
+            }
+            GUI.EndGroup();
         }
         void DrawTargets()
         {

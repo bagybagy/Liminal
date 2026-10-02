@@ -7,51 +7,80 @@ namespace Liminal
 {
     public sealed class ParticleCredits : IDisposable
     {
-        const float LineDuration = 12f;
-        const float GatherDuration = 2.2f;
+        public const float LineInterval = 4f;
+        public const float GatherDuration = 2.2f;
+        public const float ScrollDuration = 18f;
+        public const float ScrollDistance = 108f;
+        const float ScatterDuration = 2f;
+        const float ReturnDuration = 1.8f;
+        const float LineDuration = GatherDuration + ScrollDuration + ScatterDuration + ReturnDuration;
+        const int SlotCount = 6;
 
         readonly struct CreditLine
         {
             public readonly string Text;
             public readonly float Cell, Size, Gain;
             public readonly Color Color;
+            public readonly bool Heading;
 
-            public CreditLine(string text, float cell, float size, float gain, Color color)
+            public CreditLine(string text, bool heading = false, bool featured = false)
             {
                 Text = text;
-                Cell = cell;
-                Size = size;
-                Gain = gain;
-                Color = color;
+                Heading = heading;
+                Cell = featured ? 1.7f : heading ? 0.98f : 1.15f;
+                Size = featured ? 0.60f : heading ? 0.35f : 0.41f;
+                Gain = featured ? 5.2f : heading ? 3.5f : 4f;
+                Color = featured ? new Color(1f, 0.79f, 0.35f) :
+                    heading ? new Color(0.38f, 0.87f, 1f) : new Color(0.82f, 1f, 0.94f);
             }
         }
 
         static readonly CreditLine[] Lines = {
-            new("Created by tete", 0.68f, 0.29f, 5.2f, new Color(1f, 0.79f, 0.35f)),
-            new("Unity 6 / URP", 0.58f, 0.20f, 3.4f, new Color(0.75f, 1f, 0.92f)),
-            new("Compute shader / Graphics buffer", 0.43f, 0.19f, 3.2f, new Color(0.36f, 0.91f, 0.85f)),
-            new("DSP scheduled audio / OpenXR", 0.46f, 0.19f, 3.3f, new Color(0.49f, 0.78f, 1f)),
-            new("Peirce / Gauss / Curie", 0.50f, 0.19f, 3.0f, new Color(0.82f, 0.96f, 0.88f)),
-            new("Meitner / Noether / Kuhn", 0.47f, 0.19f, 3.0f, new Color(0.68f, 0.91f, 1f)),
-            new("Ohm / Fermat / Halley", 0.50f, 0.19f, 3.1f, new Color(1f, 0.75f, 0.41f)),
-            new("Tesla", 0.72f, 0.24f, 3.5f, new Color(0.70f, 1f, 0.89f))
+            new("LIMINAL", true, true),
+            new("ABYSSAL CHOIR", true),
+            new("CREATED BY", true),
+            new("tete", false, true),
+            new("MUSIC", true),
+            new("TidalMemory"),
+            new("ENGINE / RENDERING", true),
+            new("Unity 6 / URP"),
+            new("Compute shader"),
+            new("Graphics buffer"),
+            new("AUDIO / PCVR", true),
+            new("DSP scheduled audio"),
+            new("OpenXR"),
+            new("PRODUCTION WORKERS", true),
+            new("Peirce / Gauss / Curie"),
+            new("Meitner / Noether / Kuhn"),
+            new("Ohm / Fermat / Halley"),
+            new("Tesla"),
+            new("THANK YOU FOR PLAYING", true)
         };
 
         readonly List<Mesh> lineMeshes = new();
-        MeshFilter meshFilter;
-        MeshRenderer meshRenderer;
+        readonly MeshFilter[] meshFilters = new MeshFilter[SlotCount];
+        readonly MeshRenderer[] meshRenderers = new MeshRenderer[SlotCount];
+        readonly MaterialPropertyBlock[] blocks = new MaterialPropertyBlock[SlotCount];
+        readonly int[] slotLines = new int[SlotCount];
         Material material;
         GameObject root;
         bool[] seen;
-        float lineElapsed, elapsed;
-        int lineIndex;
+        float elapsed;
         bool disposed;
 
+        public static int LineCount => Lines.Length;
+        public static float Duration => (LineCount - 1) * LineInterval + LineDuration;
+        public static string GetLineText(int index) => Lines[index].Text;
+        public static Color GetLineColor(int index) => Lines[index].Color;
+        public static bool IsHeading(int index) => Lines[index].Heading;
         public bool Active { get; private set; }
         public bool Completed { get; private set; }
         public int CycleCount { get; private set; }
         public int StableParticleCount { get; private set; }
         public int SeenLines { get; private set; }
+        public float Elapsed => elapsed;
+        public Vector3 Position => root ? root.transform.position : Vector3.zero;
+        public int VisibleLineCount { get; private set; }
 
         public void Initialize(Transform parent, Shader shader, Vector3 localPosition)
         {
@@ -59,19 +88,25 @@ namespace Liminal
             if (root) throw new InvalidOperationException("Particle credits can only be initialized once.");
             if (!parent || !shader) throw new ArgumentException("Particle credits require a parent and shader.");
 
-            root = new GameObject("Atlantis credits / world-fixed glyphs");
+            root = new GameObject("Atlantis credits / world-fixed staff roll");
             root.transform.SetParent(parent, false);
             root.transform.localPosition = localPosition;
             root.transform.localRotation = Quaternion.identity;
             root.transform.localScale = Vector3.one;
-            meshFilter = root.AddComponent<MeshFilter>();
-            meshRenderer = root.AddComponent<MeshRenderer>();
-            material = new Material(shader) { name = "Atlantis credits matter" };
-            material.SetFloat("_Gain", 3.2f);
-            meshRenderer.sharedMaterial = material;
-            meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
-            meshRenderer.receiveShadows = false;
+            material = new Material(shader) { name = "Atlantis circulating credit matter" };
             BuildLineMeshes();
+            for (int i = 0; i < SlotCount; i++)
+            {
+                var slot = new GameObject("Circulating glyph pool / " + i);
+                slot.transform.SetParent(root.transform, false);
+                meshFilters[i] = slot.AddComponent<MeshFilter>();
+                meshRenderers[i] = slot.AddComponent<MeshRenderer>();
+                meshRenderers[i].sharedMaterial = material;
+                meshRenderers[i].shadowCastingMode = ShadowCastingMode.Off;
+                meshRenderers[i].receiveShadows = false;
+                blocks[i] = new MaterialPropertyBlock();
+                slotLines[i] = -1;
+            }
             root.SetActive(false);
         }
 
@@ -80,75 +115,38 @@ namespace Liminal
             if (disposed || !root) throw new InvalidOperationException("Particle credits are not initialized.");
             Active = true;
             Completed = false;
-            CycleCount = 0;
-            SeenLines = 0;
-            lineIndex = 0;
-            lineElapsed = 0f;
+            CycleCount = SeenLines = VisibleLineCount = 0;
             elapsed = 0f;
             Array.Clear(seen, 0, seen.Length);
+            for (int i = 0; i < SlotCount; i++) slotLines[i] = -1;
             root.SetActive(true);
-            SelectLine(0);
-            UpdateMaterial();
+            UpdateSlots();
         }
 
         public void Tick(float song, float dt)
         {
             if (disposed || !root || (!Active && !Completed)) return;
-            dt = Mathf.Clamp(dt, 0f, 0.1f);
-            elapsed += dt;
-
-            if (Active)
+            elapsed += Mathf.Clamp(dt, 0f, 0.1f);
+            VisibleLineCount = CycleCount = 0;
+            for (int i = 0; i < LineCount; i++)
             {
-                lineElapsed += dt;
-                if (!seen[lineIndex] && lineElapsed >= GatherDuration)
-                {
-                    seen[lineIndex] = true;
-                    SeenLines++;
-                }
-
-                while (lineElapsed >= LineDuration && Active)
-                {
-                    lineElapsed -= LineDuration;
-                    CycleCount++;
-                    if (lineIndex + 1 >= Lines.Length)
-                    {
-                        Active = false;
-                        Completed = true;
-                        lineElapsed = LineDuration;
-                        break;
-                    }
-
-                    lineIndex++;
-                    SelectLine(lineIndex);
-                    if (!seen[lineIndex] && lineElapsed >= GatherDuration)
-                    {
-                        seen[lineIndex] = true;
-                        SeenLines++;
-                    }
-                }
+                float age = elapsed - i * LineInterval;
+                if (age >= GatherDuration && !seen[i]) { seen[i] = true; SeenLines++; }
+                if (age >= GatherDuration && age < GatherDuration + ScrollDuration) VisibleLineCount++;
+                if (age >= LineDuration) CycleCount++;
             }
-
-            UpdateMaterial();
+            if (Active && elapsed >= Duration) { Active = false; Completed = true; }
+            UpdateSlots();
         }
 
         public void Reset()
         {
             Active = false;
             Completed = false;
-            CycleCount = 0;
-            SeenLines = 0;
-            lineIndex = 0;
-            lineElapsed = 0f;
+            CycleCount = SeenLines = VisibleLineCount = 0;
             elapsed = 0f;
             if (seen != null) Array.Clear(seen, 0, seen.Length);
             if (root) root.SetActive(false);
-            if (material)
-            {
-                material.SetFloat("_CreditsActive", 0f);
-                material.SetFloat("_AmbientOnly", 0f);
-                material.SetFloat("_CreditsCycle", 0f);
-                material.SetFloat("_CreditsElapsed", 0f);
-            }
         }
 
         void BuildLineMeshes()
@@ -164,33 +162,42 @@ namespace Liminal
                 largest = Mathf.Max(largest, clouds[i].Count);
             }
 
-            StableParticleCount = largest;
+            StableParticleCount = largest * SlotCount;
             seen = new bool[Lines.Length];
             for (int i = 0; i < clouds.Length; i++)
             {
                 PointCloud cloud = clouds[i];
-                while (cloud.Count < StableParticleCount) {
+                while (cloud.Count < largest) {
                     // Glyphs use this same ID seed; unused points continue drifting between lines.
                     float seed = Mathf.Repeat(317 * 0.173f + cloud.Count * 0.6180339f, 1f);
-                    cloud.Add(Vector3.zero, 0.19f, new Color(0.36f, 0.91f, 0.85f, 0f), seed);
+                    cloud.Add(Vector3.zero, 0.32f, new Color(0.38f, 0.87f, 1f, 0f), seed);
                 }
-                lineMeshes.Add(cloud.Build("Atlantis credit glyphs / " + i, 800f));
+                lineMeshes.Add(cloud.Build("Atlantis staff-roll glyphs / " + i, 800f));
             }
         }
 
-        void SelectLine(int index)
+        void UpdateSlots()
         {
-            meshFilter.sharedMesh = lineMeshes[index];
-            material.SetFloat("_Gain", Lines[index].Gain);
-        }
-
-        void UpdateMaterial()
-        {
-            if (!material) return;
-            material.SetFloat("_CreditsActive", Active ? 1f : 0f);
-            material.SetFloat("_AmbientOnly", Completed ? 1f : 0f);
-            material.SetFloat("_CreditsCycle", lineElapsed);
-            material.SetFloat("_CreditsElapsed", elapsed);
+            // Each pool returns to the same ambient positions before taking its next row.
+            for (int slot = 0; slot < SlotCount; slot++)
+            {
+                int cycle = Mathf.Clamp(Mathf.FloorToInt((elapsed - slot * LineInterval) / LineDuration),
+                    0, (LineCount - 1 - slot) / SlotCount);
+                int index = slot + cycle * SlotCount;
+                if (slotLines[slot] != index)
+                {
+                    slotLines[slot] = index;
+                    meshFilters[slot].sharedMesh = lineMeshes[index];
+                }
+                var block = blocks[slot];
+                block.SetFloat("_Gain", Lines[index].Gain);
+                block.SetFloat("_Slot", slot);
+                block.SetFloat("_CreditsActive", Active ? 1f : 0f);
+                block.SetFloat("_AmbientOnly", Completed ? 1f : 0f);
+                block.SetFloat("_CreditsCycle", elapsed - index * LineInterval);
+                block.SetFloat("_CreditsElapsed", elapsed);
+                meshRenderers[slot].SetPropertyBlock(block);
+            }
         }
 
         public void Dispose()
@@ -202,8 +209,6 @@ namespace Liminal
             lineMeshes.Clear();
             if (material) UnityEngine.Object.Destroy(material);
             if (root) UnityEngine.Object.Destroy(root);
-            meshFilter = null;
-            meshRenderer = null;
             material = null;
             root = null;
         }

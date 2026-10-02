@@ -7,6 +7,7 @@ Shader "Liminal/Credits Matter"
         [HideInInspector] _AmbientOnly ("Ambient Afterglow", Float) = 0
         [HideInInspector] _CreditsCycle ("Line Cycle", Float) = 0
         [HideInInspector] _CreditsElapsed ("Elapsed", Float) = 0
+        [HideInInspector] _Slot ("Circulating Pool", Float) = 0
     }
     SubShader
     {
@@ -29,6 +30,7 @@ Shader "Liminal/Credits Matter"
                 float _AmbientOnly;
                 float _CreditsCycle;
                 float _CreditsElapsed;
+                float _Slot;
             CBUFFER_END
 
             struct Attributes
@@ -53,9 +55,9 @@ Shader "Liminal/Credits Matter"
             {
                 float phase = _CreditsElapsed * (0.22 + frac(seed * 7.13) * 0.16) + seed * 6.2831853;
                 return center + float3(
-                    (frac(seed * 19.17) - 0.5) * 88.0 + sin(phase) * 3.4,
-                    -27.0 + cos(phase * 0.73) * 7.5,
-                    (frac(seed * 53.71) - 0.5) * 10.0 + sin(phase * 0.61) * 4.0);
+                    (frac(seed * 19.17) - 0.5) * 164.0 + sin(phase) * 3.4,
+                    -62.0 + cos(phase * 0.73) * 7.5,
+                    (frac(seed * 53.71) - 0.5) * 16.0 + sin(phase * 0.61) * 4.0);
             }
 
             Varyings Vert(Attributes input)
@@ -64,54 +66,49 @@ Shader "Liminal/Credits Matter"
                 Varyings output;
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
-                float seed = input.data.x;
+                float seed = frac(input.data.x + _Slot * 0.137);
                 float3 center = TransformObjectToWorld(float3(0, 0, 0));
-                float3 target = TransformObjectToWorld(input.positionOS) - float3(0, 16, 0);
+                float3 target = TransformObjectToWorld(input.positionOS + float3(0, -54, 0));
                 float3 ambient = AmbientPosition(center, seed);
                 float3 world = ambient;
-                float glow = 0.15;
+                float glow = 0.16;
 
                 bool glyph = input.color.a > 0.5;
-                if (_CreditsActive > 0.5 && glyph)
+                if (_CreditsActive > 0.5 && glyph && _CreditsCycle >= 0.0 && _CreditsCycle < 24.0)
                 {
                     float cycle = _CreditsCycle;
                     if (cycle < 2.2)
                     {
                         world = lerp(ambient, target, smoothstep(0.0, 2.2, cycle));
-                        glow = 0.82;
+                        glow = lerp(0.16, 1.0, smoothstep(0.0, 2.2, cycle));
                     }
-                    else if (cycle < 5.0)
+                    else if (cycle < 20.2)
                     {
-                        world = target;
+                        float rise = saturate((cycle - 2.2) / 18.0);
+                        world = target + float3(sin(seed * 41.0 + cycle) * 0.12, rise * 108.0, 0.0);
                         glow = 1.0;
                     }
-                    else if (cycle < 8.0)
+                    else if (cycle < 22.2)
                     {
-                        float rise = smoothstep(5.0, 8.0, cycle);
-                        world = target + float3(sin(seed * 41.0 + cycle) * 0.5, rise * 32.0, 0.0);
-                        glow = 1.0 - rise * 0.16;
-                    }
-                    else if (cycle < 9.5)
-                    {
-                        float dissolve = smoothstep(8.0, 9.5, cycle);
+                        float dissolve = smoothstep(20.2, 22.2, cycle);
                         float3 scatter = float3(
                             sin(seed * 71.0) * dissolve * 13.0,
-                            32.0 + dissolve * (10.0 + frac(seed * 5.31) * 12.0),
+                            108.0 + dissolve * (10.0 + frac(seed * 5.31) * 12.0),
                             cos(seed * 29.0) * dissolve * 11.0);
                         world = target + scatter;
-                        glow = 1.0 - dissolve;
+                        glow = lerp(1.0, 0.18, dissolve);
                     }
                     else
                     {
-                        float returnToDrift = smoothstep(9.5, 12.0, cycle);
+                        float returnToDrift = smoothstep(22.2, 24.0, cycle);
                         float3 above = target + float3(sin(seed * 71.0) * 13.0,
-                            42.0 + frac(seed * 5.31) * 12.0, cos(seed * 29.0) * 11.0);
+                            118.0 + frac(seed * 5.31) * 12.0, cos(seed * 29.0) * 11.0);
                         world = lerp(above, ambient, returnToDrift);
-                        glow = lerp(0.0, 0.18, returnToDrift);
+                        glow = lerp(0.18, 0.16, returnToDrift);
                     }
                 }
 
-                float alpha = _AmbientOnly > 0.5 ? 0.18 : _CreditsActive;
+                float alpha = max(_AmbientOnly, _CreditsActive);
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;
                 float3 cameraUp = UNITY_MATRIX_V[1].xyz;
                 float depth = max(0.01, -TransformWorldToView(world).z);
@@ -121,7 +118,7 @@ Shader "Liminal/Credits Matter"
                 float3 positionWS = world + (cameraRight * input.uv.x + cameraUp * input.uv.y) * size;
                 output.positionCS = TransformWorldToHClip(positionWS);
                 output.uv = input.uv.xy;
-                output.color = input.color.rgb * _Gain * glow;
+                output.color = input.color.rgb * _Gain;
                 output.alpha = alpha * glow;
                 return output;
             }
@@ -134,7 +131,7 @@ Shader "Liminal/Credits Matter"
                 clip(1.0 - radius);
                 float core = exp(-radius * 8.0) * 1.55;
                 float halo = exp(-radius * 3.0) * 0.14;
-                return half4(input.color * (core + halo), 1.0);
+                return half4(input.color * (core + halo) * input.alpha, 1.0);
             }
             ENDHLSL
         }
