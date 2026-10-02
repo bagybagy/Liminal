@@ -47,4 +47,7 @@ Desktop.ini
 !/Video/PV/
 /Video/PV/LIMINAL_raw.mp4
 /Video/PV/*.log
+/Video/PV/Review/
+/Video/PV/final-work/
+/Video/PV/raw-edit-review.jpg
 /Tools/TrailerRecorder.exe

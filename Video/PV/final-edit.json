@@ -1,0 +1,104 @@
+{
+  "durationSeconds": 38.70965986394558,
+  "source": "LIMINAL_raw.mp4",
+  "metadata": "LIMINAL_raw.json",
+  "sourceDate": "2026-10-01",
+  "sourceCapture": "Unity Recorder 5.1.3 / Unity 6000.3.13f1",
+  "nativeGameSpeed": true,
+  "authoredBeatCuts": true,
+  "shots": [
+    {
+      "name": "grotto",
+      "first": 0,
+      "last": 8,
+      "sourceStart": 0.34266666666666623,
+      "duration": 3.8709750566893426,
+      "outputStart": 0,
+      "sourceFirstFrame": 10,
+      "outputFirstFrame": 0,
+      "frameCount": 116
+    },
+    {
+      "name": "serpent",
+      "first": 48,
+      "last": 64,
+      "sourceStart": 23.568471655328796,
+      "duration": 7.741927437641723,
+      "outputStart": 3.8709750566893426,
+      "sourceFirstFrame": 707,
+      "outputFirstFrame": 116,
+      "frameCount": 232
+    },
+    {
+      "name": "whale-arrival",
+      "first": 68,
+      "last": 92,
+      "sourceStart": 33.245886621315194,
+      "duration": 11.612902494331065,
+      "outputStart": 11.612902494331067,
+      "sourceFirstFrame": 997,
+      "outputFirstFrame": 348,
+      "frameCount": 349
+    },
+    {
+      "name": "whale-colour-and-peeling",
+      "first": 104,
+      "last": 120,
+      "sourceStart": 50.66525170068027,
+      "duration": 7.741927437641723,
+      "outputStart": 23.225804988662134,
+      "sourceFirstFrame": 1520,
+      "outputFirstFrame": 697,
+      "frameCount": 232
+    },
+    {
+      "name": "dolphin-eight-lock-volley",
+      "first": 128,
+      "last": 144,
+      "sourceStart": 62.27815419501134,
+      "duration": 7.741927437641723,
+      "outputStart": 30.967732426303858,
+      "sourceFirstFrame": 1868,
+      "outputFirstFrame": 929,
+      "frameCount": 232
+    }
+  ],
+  "titles": "final-titles.ass",
+  "audio": "Original captured TidalMemory and gameplay SE; phrase edits and measured loudness normalization, no newly generated music",
+  "loudnessTargetLufs": -16,
+  "truePeakTargetDb": -1.5,
+  "loudnessMeasurement": {
+    "input_i": "-18.95",
+    "input_tp": "-4.87",
+    "input_lra": "2.50",
+    "input_thresh": "-29.26",
+    "output_i": "-15.38",
+    "output_tp": "-1.86",
+    "output_lra": "2.20",
+    "output_thresh": "-25.53",
+    "normalization_type": "dynamic",
+    "target_offset": "-0.62"
+  },
+  "sourceFired": 40,
+  "sourceHits": 40,
+  "sourceDolphinFullLocks": 8,
+  "sourceCountsAreFullRawTakeNotEditedPvCounts": true,
+  "outputs": [
+    {
+      "file": "Liminal_PV_High.mp4",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "seconds": 38.709,
+      "bytes": 53618400
+    },
+    {
+      "file": "Liminal_PV_Git.mp4",
+      "width": 1280,
+      "height": 720,
+      "fps": 30,
+      "seconds": 38.72,
+      "bytes": 18361822
+    }
+  ]
+}

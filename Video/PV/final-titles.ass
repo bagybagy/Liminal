@@ -1,0 +1,47 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Poem,Yu Gothic,42,&H00F3FAF4,&H00F3FAF4,&H801B1710,&H901B1710,0,0,0,0,100,100,0,0,1,0.8,1.2,7,120,120,100,1
+Style: OpeningBrand,Bahnschrift,66,&H00F3FAF4,&H00F3FAF4,&H801B1710,&H901B1710,0,0,0,0,100,100,7,0,1,0.8,1.2,7,120,120,100,1
+Style: Title,Bahnschrift,96,&H00F3FAF4,&H00F3FAF4,&H801B1710,&H901B1710,0,0,0,0,100,100,12,0,1,0.8,1.2,7,120,120,100,1
+Style: Subtitle,Consolas,25,&H00DEC89A,&H00DEC89A,&H801B1710,&H901B1710,0,0,0,0,100,100,4,0,1,0.6,0.8,7,120,120,100,1
+Style: Credit,Yu Gothic,23,&H00CFD1CA,&H00CFD1CA,&H801B1710,&H901B1710,0,0,0,0,100,100,0,0,1,0.6,0.8,7,120,120,100,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 1,0:00:00.15,0:00:02.80,OpeningBrand,,0,0,0,,{\an7\pos(122,738)\fad(220,320)}LIMINAL
+Dialogue: 1,0:00:00.75,0:00:00.85,Poem,,0,0,0,,{\an7\pos(120,826)}音
+Dialogue: 1,0:00:00.85,0:00:00.94,Poem,,0,0,0,,{\an7\pos(120,826)}音を
+Dialogue: 1,0:00:00.94,0:00:01.04,Poem,,0,0,0,,{\an7\pos(120,826)}音を、
+Dialogue: 1,0:00:01.04,0:00:01.13,Poem,,0,0,0,,{\an7\pos(120,826)}音を、泳
+Dialogue: 1,0:00:01.13,0:00:01.23,Poem,,0,0,0,,{\an7\pos(120,826)}音を、泳ぐ
+Dialogue: 1,0:00:01.23,0:00:03.60,Poem,,0,0,0,,{\an7\pos(120,826)\fad(0,380)}音を、泳ぐ。
+Dialogue: 1,0:00:04.45,0:00:04.55,Poem,,0,0,0,,{\an7\pos(120,826)}一
+Dialogue: 1,0:00:04.55,0:00:04.64,Poem,,0,0,0,,{\an7\pos(120,826)}一撃
+Dialogue: 1,0:00:04.64,0:00:04.74,Poem,,0,0,0,,{\an7\pos(120,826)}一撃が
+Dialogue: 1,0:00:04.74,0:00:04.83,Poem,,0,0,0,,{\an7\pos(120,826)}一撃が、
+Dialogue: 1,0:00:04.83,0:00:04.93,Poem,,0,0,0,,{\an7\pos(120,826)}一撃が、光
+Dialogue: 1,0:00:04.93,0:00:05.02,Poem,,0,0,0,,{\an7\pos(120,826)}一撃が、光に
+Dialogue: 1,0:00:05.02,0:00:05.12,Poem,,0,0,0,,{\an7\pos(120,826)}一撃が、光にな
+Dialogue: 1,0:00:05.12,0:00:05.21,Poem,,0,0,0,,{\an7\pos(120,826)}一撃が、光になる
+Dialogue: 1,0:00:05.21,0:00:07.70,Poem,,0,0,0,,{\an7\pos(120,826)\fad(0,380)}一撃が、光になる。
+Dialogue: 1,0:00:24.00,0:00:24.10,Poem,,0,0,0,,{\an7\pos(120,826)}そ
+Dialogue: 1,0:00:24.10,0:00:24.19,Poem,,0,0,0,,{\an7\pos(120,826)}その
+Dialogue: 1,0:00:24.19,0:00:24.29,Poem,,0,0,0,,{\an7\pos(120,826)}その光
+Dialogue: 1,0:00:24.29,0:00:24.38,Poem,,0,0,0,,{\an7\pos(120,826)}その光は
+Dialogue: 1,0:00:24.38,0:00:24.48,Poem,,0,0,0,,{\an7\pos(120,826)}その光は、
+Dialogue: 1,0:00:24.48,0:00:24.57,Poem,,0,0,0,,{\an7\pos(120,826)}その光は、世
+Dialogue: 1,0:00:24.57,0:00:24.67,Poem,,0,0,0,,{\an7\pos(120,826)}その光は、世界
+Dialogue: 1,0:00:24.67,0:00:24.76,Poem,,0,0,0,,{\an7\pos(120,826)}その光は、世界に
+Dialogue: 1,0:00:24.76,0:00:24.86,Poem,,0,0,0,,{\an7\pos(120,826)}その光は、世界に還
+Dialogue: 1,0:00:24.86,0:00:24.95,Poem,,0,0,0,,{\an7\pos(120,826)}その光は、世界に還る
+Dialogue: 1,0:00:24.95,0:00:27.90,Poem,,0,0,0,,{\an7\pos(120,826)\fad(0,380)}その光は、世界に還る。
+Dialogue: 1,0:00:35.35,0:00:38.61,Title,,0,0,0,,{\an7\move(120,722,120,712,0,650)\fad(450,180)}LIMINAL
+Dialogue: 1,0:00:35.85,0:00:38.61,Subtitle,,0,0,0,,{\an7\pos(124,840)\fad(350,180)}ABYSSAL CHOIR
+Dialogue: 1,0:00:36.35,0:00:38.61,Credit,,0,0,0,,{\an7\pos(126,892)\fad(300,180)}a game by tete
