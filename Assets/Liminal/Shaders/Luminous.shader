@@ -21,10 +21,12 @@ Shader "Liminal/Luminous"
             #pragma fragment Frag
             #pragma target 4.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "MatterFlow.hlsl"
             CBUFFER_START(UnityPerMaterial)
             float4 _Tint;
             float _Gain, _Mode;
             float4 _Burst;
+            float4 _BurstVelocity;
             float4 _CaveWave;
             float _CaveWaveEnergy;
             CBUFFER_END
@@ -93,6 +95,9 @@ Shader "Liminal/Luminous"
                         float3 curl = side * (sin(turn + phase) - sin(phase)) * 0.32 +
                             normal * (cos(phase) - cos(turn + phase)) * 0.25;
                         p = _Burst.xyz + p + axis * travel + curl;
+                        p += MatterFlowDelta(p*.45,age,group*.037)*saturate(age*2.0)*.48;
+                        p += _BurstVelocity.xyz*(1.0-exp(-age*1.4))/1.4;
+                        p += axis*(age*age*exp(-age*2.0))*.7;
                         p += side * sin(age * 4.2 + input.data.x * 6.2831853) * 0.045 * saturate(age * 2.0);
                     }
                     float grainFade = exp(-age * 0.78) * (1.0 - smoothstep(1.45, 2.25, age));

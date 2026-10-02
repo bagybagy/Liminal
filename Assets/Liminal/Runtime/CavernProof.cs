@@ -149,7 +149,7 @@ namespace Liminal
                 Capture("03db-ray-peeling.png");
                 yield return new WaitForSecondsRealtime(.55f);
                 Capture("03d-ray-transfer.png");
-                yield return new WaitForSecondsRealtime(7.5f);
+                yield return new WaitForSecondsRealtime(experience.Combat.Colonies.TransferDurationAt(0));
                 rayMatterRetained=ray.visual && ray.visual.activeSelf &&
                     ray.visual.GetComponent<MeshFilter>().sharedMesh==originalMesh &&
                     experience.Combat.Colonies.IsSettled(0,(float)experience.Music.Time);

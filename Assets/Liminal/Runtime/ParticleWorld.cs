@@ -158,10 +158,11 @@ namespace Liminal
                 bursts[i]=new Burst { material=m,obj=obj };
             }
         }
-        public void BurstAt(Vector3 position, float song, Color color, float scale=1)
+        public void BurstAt(Vector3 position, float song, Color color, float scale=1, Vector3 motion=default)
         {
             var b = bursts[burstCursor++%bursts.Length];
             b.material.SetVector("_Burst",new Vector4(position.x,position.y,position.z,song));
+            b.material.SetVector("_BurstVelocity",Vector3.ClampMagnitude(motion,14f));
             b.material.SetColor("_Tint",color*scale); b.obj.SetActive(true); b.until=song+2.5f;
             if (hitHalo) hitHalo.Spawn(position, song, color, scale);
         }

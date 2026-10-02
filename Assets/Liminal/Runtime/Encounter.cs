@@ -8,6 +8,7 @@ namespace Liminal
     public sealed class LockTarget
     {
         public int id, hp, reserved, organIndex;
+        public int lockCapacity = 1;
         public TargetKind kind;
         public float u, born, deadline;
         public float acquireRange = Encounter.LockRange;
@@ -19,6 +20,9 @@ namespace Liminal
         public float pressureRadius=.9f;
         public bool pressureRing;
         public Vector3 pressureAcceleration;
+        public int pressurePattern;
+        public float pressurePhase, pressureHelixRadius, pressureDissolveAt = -1;
+        public bool pressureCancelled;
         public Vector3 previousPlayerPosition;
         public Vector3 position, origin, destination, direction, lateral, vertical;
         public GameObject visual;
@@ -38,6 +42,8 @@ namespace Liminal
         ParticleWorld world;
         Flight flight;
         public DefeatedMarineForms Colonies { get; private set; }
+        public PufferfishEncounter Puffers { get; private set; }
+        int summonWaves;
         int nextId, lastSection=-1, lastBeat=-1, nextWave;
         public int Points { get; private set; }
         public int Combo { get; private set; }
@@ -89,6 +95,13 @@ namespace Liminal
         static MaterialPropertyBlock MarkerProperties;
         Mesh bubbleMesh, bubbleRingMesh;
         Material bubbleMaterial;
+        readonly List<PodRelease> podReleases = new();
+        sealed class PodRelease
+        {
+            public Vector3 position, direction;
+            public Color color;
+            public UnityEngine.Object owner;
+        }
         sealed class Shot
         {
             public LockTarget target;
@@ -105,6 +118,8 @@ namespace Liminal
             if(ExplorationMode) {
                 Colonies=gameObject.AddComponent<DefeatedMarineForms>();
                 Colonies.Initialize(world.EnemyMesh,world.NodeMaterial);
+                Puffers=gameObject.AddComponent<PufferfishEncounter>();
+                Puffers.Initialize(this,world,flight);
             }
             for(int i=0;i<16;i++) {
                 var t=new LockTarget {id=nextId++,kind=TargetKind.Organ,organIndex=i,u=0.025f+i*0.058f};
@@ -126,6 +141,8 @@ namespace Liminal
         public void Restart()
         {
             Peaceful=false;
+            if(Puffers) Puffers.ResetSchool();
+            podReleases.Clear(); summonWaves=0;
             foreach(var school in dolphinSchools) if(school) school.ResetSchool();
             foreach(var s in shots) { s.line.enabled=false; lines.Push(s.line); }
             shots.Clear(); Locks.Clear();
@@ -174,6 +191,8 @@ namespace Liminal
                     t.hp=t.reserved>0?t.reserved:0;
                 Locks.RemoveAll(t=>t.kind==TargetKind.Ray || t.kind==TargetKind.Threat);
             }
+            if(Puffers) Puffers.Tick(song,dt,ActiveRoom==1 && !SerpentComplete && !Ended && !Peaceful);
+            DrainPodReleases(song);
             UpdateTargets(song,dt);
             UpdateShots(song);
             if(Colonies) Colonies.Tick(song);
@@ -248,8 +267,7 @@ namespace Liminal
                     if(t.hp>0 && !Ended) {
                         Vector3 previous=t.position;
                         t.pressureAge=Mathf.Max(0,song-t.born);
-                        t.position=t.origin+t.direction*(t.pressureSpeed*t.pressureAge)+
-                            t.pressureAcceleration*(.5f*t.pressureAge*t.pressureAge);
+                        t.position=PressurePosition(t,t.pressureAge);
                         Vector3 tangent=t.direction*t.pressureSpeed+t.pressureAcceleration*t.pressureAge;
                         if(t.pressureRing && tangent.sqrMagnitude>.001f)
                             t.visual.transform.rotation=Quaternion.LookRotation(tangent.normalized,Vector3.up);
@@ -258,7 +276,9 @@ namespace Liminal
                         Vector3 relativeStep=relativeEnd-relativeStart;
                         float closest=Mathf.Clamp01(-Vector3.Dot(relativeStart,relativeStep)/
                             Mathf.Max(0.0001f,relativeStep.sqrMagnitude));
-                        if(t.reserved==0 && PressureContact(t,relativeStart,relativeStep,closest)) {
+                        if(!t.pressureCancelled && t.reserved==0 &&
+                            (t.pressurePattern!=4 || t.pressureAge>=.35f) &&
+                            PressureContact(t,relativeStart,relativeStep,closest)) {
                             ReceiveDamage();
                             t.hp=0;
                         } else if(t.reserved==0 && t.pressureAge>=t.pressureLifetime) {
@@ -267,6 +287,14 @@ namespace Liminal
                         }
                         t.previousPlayerPosition=flight.Position;
                     } else if(Ended) t.hp=0;
+                    if(t.hp<=0 && t.pressurePattern!=0) BeginPressureDissolve(t,song);
+                    if(t.pressureDissolveAt>=0) {
+                        var renderer=t.visual.GetComponent<Renderer>();
+                        renderer.GetPropertyBlock(MarkerProperties);
+                        MarkerProperties.SetFloat("_Dissolve",Mathf.Clamp01((song-t.pressureDissolveAt)/.65f));
+                        MarkerProperties.SetVector("_FlowVelocity",Vector3.ClampMagnitude(t.direction*t.pressureSpeed,10f));
+                        renderer.SetPropertyBlock(MarkerProperties);
+                    }
                     t.visual.transform.localScale=Vector3.one*(t.pressureRing || t.pressureRadius>.91f?t.pressureRadius:1.4f);
                 } else {
                     float f=Mathf.InverseLerp(t.born,t.deadline,song);
@@ -281,8 +309,9 @@ namespace Liminal
                 t.visual.transform.position=t.position;
                 bool activeOrgan=t.kind==TargetKind.Organ && ExplorationMode
                     ? organsActivated && !SerpentComplete : t.hp>0;
-                t.visual.SetActive(activeOrgan && !Ended);
-                if(t.kind!=TargetKind.Organ && t.reserved==0 && (t.hp<=0 || song-t.born>26)) {
+                bool dissolving=t.pressureDissolveAt>=0 && song-t.pressureDissolveAt<.65f;
+                t.visual.SetActive((activeOrgan || dissolving) && !Ended);
+                if(t.kind!=TargetKind.Organ && t.reserved==0 && !dissolving && (t.hp<=0 || song-t.born>26)) {
                     if(Colonies && t.kind==TargetKind.Ray) Colonies.Release(t.visual);
                     Locks.Remove(t);Destroy(t.visual);Targets.RemoveAt(i);
                 }
@@ -290,6 +319,9 @@ namespace Liminal
         }
         void SpawnWave(float song,int beat)
         {
+            summonWaves++;
+            if(Puffers && summonWaves%4==0)
+                Puffers.TrySpawn(flight.Position+flight.View.transform.forward*45f+flight.View.transform.right*10f,song);
             int count=Section<=1?6:4;
             if(Colonies) count=Mathf.Min(count,Colonies.AvailableCapacity);
             Transform camera=flight.View.transform;
@@ -349,7 +381,9 @@ namespace Liminal
         }
         public bool CanAcquire(LockTarget target)
         {
-            if(Ended || Peaceful || target==null || !target.Available || Locks.Count>=8 || Locks.Contains(target)) return false;
+            if(Ended || Peaceful || target==null || !target.Available || Locks.Count>=8) return false;
+            int stacked=LockCount(target);
+            if(stacked>=target.lockCapacity || stacked>=target.hp-target.reserved) return false;
             bool vr=flight.VrEnabled;
             if(vr && target.reserved>0) return false;
             Vector3 origin=vr?flight.Emitter:flight.Position;
@@ -429,6 +463,12 @@ namespace Liminal
             if(!CanAcquire(target)) return false;
             Locks.Add(target); music.LockSound(); MaxLocks=Mathf.Max(MaxLocks,Locks.Count); return true;
         }
+        public int LockCount(LockTarget target)
+        {
+            int count=0;
+            foreach(var item in Locks) if(item==target) count++;
+            return count;
+        }
         public void Release()
         {
             if(Ended) return;
@@ -487,12 +527,18 @@ namespace Liminal
             if(target.isPressureShot) {
                 InterceptedPressureShots++;
                 if(target.pressureOwner is DolphinEncounter) DolphinPressureInterceptions++;
+                if(target.hp<=0 && target.pressurePattern==2 && !target.pressureCancelled &&
+                    !Peaceful && !Ended)
+                    podReleases.Add(new PodRelease { position=target.position,direction=target.direction,
+                        color=target.pressureColor,owner=target.pressureOwner });
+                if(target.hp<=0 && target.pressurePattern!=0) BeginPressureDissolve(target,song);
             }
             if(Colonies && target.kind==TargetKind.Ray && target.hp<=0)
-                target.transformed=Colonies.TryAdopt(target.visual,song,CaveLayout.NearestRoom(target.position));
+                target.transformed=Colonies.TryAdopt(target.visual,song,CaveLayout.NearestRoom(target.position),target.direction*.44f);
             if(target.kind==TargetKind.Organ) world.BurstAt(target.position,song,Amber);
             else if(target.kind==TargetKind.Ray || target.kind==TargetKind.Threat)
-                world.BurstAt(target.position,song,target.isPressureShot ? target.pressureColor : ElectricBlue);
+                world.BurstAt(target.position,song,target.isPressureShot ? target.pressureColor : ElectricBlue,
+                    motion:target.direction*(target.isPressureShot?target.pressureSpeed:.44f));
             else if(target.kind==TargetKind.Dolphin) world.BurstAt(target.position,song,ElectricBlue);
             LastHitTime=song;Hit?.Invoke();
         }
@@ -520,6 +566,8 @@ namespace Liminal
         public void EnterAfterglow()
         {
             Peaceful=true;
+            podReleases.Clear();
+            if(Puffers) Puffers.ResetSchool();
             Locks.Clear();
             foreach(var target in Targets)
                 if(target.isPressureShot || target.kind==TargetKind.Ray || target.kind==TargetKind.Organ ||
@@ -555,7 +603,7 @@ namespace Liminal
         {
             if(target==null) return;
             CancelScheduledShots(target);
-            Locks.Remove(target);
+            Locks.RemoveAll(t=>t==target);
             target.hp=0;
             target.reserved=0;
             target.onHit=null;
@@ -570,7 +618,7 @@ namespace Liminal
         {
             if(target==null) return;
             CancelScheduledShots(target);
-            Locks.Remove(target);
+            Locks.RemoveAll(t=>t==target);
             target.hp=0;
             target.reserved=0;
         }
@@ -600,10 +648,24 @@ namespace Liminal
         internal bool CanRegisterPressureShots(int count)
         {
             if(Ended || Peaceful || !world || !flight || count<=0) return false;
-            int live=0;
+            return PressureBudget()+count<=MaxLivePressureShots;
+        }
+        int PressureBudget()
+        {
+            int budget=podReleases.Count*4;
             foreach(var target in Targets)
-                if(target.isPressureShot && target.hp>0) live++;
-            return live+count<=MaxLivePressureShots;
+                if(target.isPressureShot && target.hp>0)
+                    budget+=target.pressurePattern==2 && !target.pressureCancelled ? 4 : 1;
+            return budget;
+        }
+        public int PressureSlotUsage(UnityEngine.Object owner)
+        {
+            int budget=0;
+            foreach(var release in podReleases) if(release.owner==owner) budget+=4;
+            foreach(var target in Targets)
+                if(target.isPressureShot && target.hp>0 && target.pressureOwner==owner)
+                    budget+=target.pressurePattern==2 && !target.pressureCancelled ? 4 : 1;
+            return budget;
         }
 
         public LockTarget RegisterPressureShot(Vector3 origin,Vector3 direction,float song,Color color,
@@ -611,10 +673,7 @@ namespace Liminal
             Vector3? acceleration=null,float? lifetimeOverride=null)
         {
             if(Ended || Peaceful || !world || !flight || direction.sqrMagnitude<0.0001f) return null;
-            int live=0;
-            foreach(var target in Targets)
-                if(target.isPressureShot && target.hp>0) live++;
-            if(live>=MaxLivePressureShots) return null;
+            if(!CanRegisterPressureShots(1)) return null;
 
             direction.Normalize();
             speed=Mathf.Max(1f,speed);
@@ -641,6 +700,7 @@ namespace Liminal
                 shot.visual.transform.localScale=Vector3.one*1.4f;
             }
             SetMarkerTint(shot.visual,color);
+            shot.visual.transform.position=origin;
             Targets.Add(shot);
             SpawnedPressureShots++;
             if(owner is DolphinEncounter) DolphinPressureShots++;
@@ -696,17 +756,102 @@ namespace Liminal
 
         public void ClearPressureShots(UnityEngine.Object owner)
         {
+            podReleases.RemoveAll(p=>p.owner==owner);
             for(int i=Targets.Count-1;i>=0;i--) {
                 var target=Targets[i];
                 if(!target.isPressureShot || target.pressureOwner!=owner) continue;
+                target.pressureCancelled=true;
                 target.hp=target.reserved;
-                Locks.Remove(target);
-                if(target.visual && target.reserved==0) target.visual.SetActive(false);
-                if(target.reserved==0) {
+                Locks.RemoveAll(t=>t==target);
+                if(target.pressurePattern!=0 && target.reserved==0)
+                    BeginPressureDissolve(target,(float)music.Time);
+                if(target.pressurePattern==0 && target.reserved==0) {
                     if(target.visual) Destroy(target.visual);
                     Targets.RemoveAt(i);
                 }
             }
+        }
+
+        public static Vector3 PressurePosition(LockTarget target,float age)
+        {
+            Vector3 position=target.origin+target.direction*(target.pressureSpeed*age)+
+                target.pressureAcceleration*(.5f*age*age);
+            if(target.pressurePattern==1) {
+                float angle=target.pressurePhase+age*Mathf.PI*1.3f;
+                position+=(target.lateral*Mathf.Cos(angle)+target.vertical*Mathf.Sin(angle))*target.pressureHelixRadius;
+            }
+            return position;
+        }
+
+        public int RegisterSpiralPair(Vector3 origin,Vector3 direction,float song,Color first,Color second,
+            UnityEngine.Object owner=null,float speed=32f)
+        {
+            if(direction.sqrMagnitude<.0001f || !CanRegisterPressureShots(6)) return 0;
+            direction.Normalize();
+            Vector3 side=Vector3.Cross(Vector3.up,direction);
+            if(side.sqrMagnitude<.001f) side=Vector3.right;
+            side.Normalize();
+            Vector3 up=Vector3.Cross(direction,side).normalized;
+            for(int group=0;group<2;group++) for(int i=0;i<3;i++) {
+                var target=RegisterPressureShot(origin+side*(group==0?-4.5f:4.5f),direction,song,
+                    group==0?first:second,owner,speed,1.05f);
+                target.pressurePattern=1;target.lateral=side;target.vertical=up;
+                target.pressureHelixRadius=2.7f;target.pressurePhase=i*Mathf.PI*2/3+group*Mathf.PI/3;
+                target.position=PressurePosition(target,0);
+                target.visual.transform.position=target.position;
+            }
+            return 6;
+        }
+
+        public LockTarget RegisterPressurePod(Vector3 origin,Vector3 direction,float song,Color color,
+            UnityEngine.Object owner=null,float speed=14f)
+        {
+            // Reserve its four children now so lethal interception cannot lose the release at the shared cap.
+            if(direction.sqrMagnitude<.0001f || !CanRegisterPressureShots(4)) return null;
+            var target=RegisterPressureShot(origin,direction,song,color,owner,speed,3.1f,
+                lifetimeOverride:9f);
+            target.hp=4;target.lockCapacity=4;target.pressurePattern=2;
+            return target;
+        }
+
+        void DrainPodReleases(float song)
+        {
+            while(podReleases.Count>0) {
+                var release=podReleases[0];podReleases.RemoveAt(0);
+                if(Ended || Peaceful) continue;
+                Vector3 side=Vector3.Cross(Vector3.up,release.direction);
+                if(side.sqrMagnitude<.001f) side=Vector3.right;
+                side.Normalize();Vector3 up=Vector3.Cross(release.direction,side).normalized;
+                for(int i=0;i<4;i++) {
+                    float angle=i*Mathf.PI*.5f+Mathf.PI*.25f;
+                    Vector3 radial=side*Mathf.Cos(angle)+up*Mathf.Sin(angle);
+                    Vector3 direction=(release.direction+radial*.48f).normalized;
+                    var child=RegisterPressureShot(release.position+radial*3.2f,direction,song,
+                        release.color,release.owner,26f,1.05f);
+                    if(child!=null) child.pressurePattern=3;
+                }
+            }
+        }
+
+        public int RegisterRadialPressureBurst(Vector3 origin,float song,Color color,UnityEngine.Object owner,
+            int count=18,float speed=20f)
+        {
+            int available=MaxLivePressureShots-PressureBudget();
+            count=Mathf.Min(Mathf.Clamp(count,12,24),available);
+            if(count<12 || !CanRegisterPressureShots(count)) return 0;
+            for(int i=0;i<count;i++) {
+                float y=1-2*(i+.5f)/count,r=Mathf.Sqrt(1-y*y),a=i*2.39996323f;
+                Vector3 direction=new(Mathf.Cos(a)*r,y,Mathf.Sin(a)*r);
+                var target=RegisterPressureShot(origin+direction*7f,direction,song,color,owner,speed,1.05f,
+                    lifetimeOverride:5f);
+                target.pressurePattern=4;
+            }
+            return count;
+        }
+
+        static void BeginPressureDissolve(LockTarget target,float song)
+        {
+            if(target.pressureDissolveAt<0) target.pressureDissolveAt=song;
         }
 
         static void SetMarkerTint(GameObject visual,Color color)

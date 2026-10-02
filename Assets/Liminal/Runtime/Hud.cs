@@ -162,7 +162,10 @@ namespace Liminal
                 Color col=index>=0?Gold:distantOrgan?new Color(0.54f,0.68f,0.69f,0.15f):target.kind==TargetKind.Threat?new Color(1,0.34f,0.20f,0.88f):new Color(Cyan.r,Cyan.g,Cyan.b,0.42f);
                 if(index>=0) {
                     Ring(center,radius+5,col,36);
-                    Text(new Rect(center.x+radius+9,center.y-8,30,18),(index+1).ToString("D2"),small,Gold);
+                    int count=e.LockCount(target);
+                    if(count>1) Ring(center,radius+10,col*.55f,36);
+                    string label=count>1?"x"+count:(index+1).ToString("D2");
+                    Text(new Rect(center.x+radius+9,center.y-8,40,18),label,small,Gold);
                     if(index>0) {
                         Vector3 prev=Experience.Flight.View.WorldToScreenPoint(e.Locks[index-1].position);
                         if(prev.z>0) Line(center,new Vector2(prev.x,Screen.height-prev.y),new Color(1,0.72f,0.3f,0.19f),1);

@@ -19,6 +19,7 @@ Shader "Liminal/Defeated Marine Forms"
             #pragma fragment Frag
             #pragma target 4.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "../Shaders/MatterFlow.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
             float4 _Tint;
@@ -33,6 +34,8 @@ Shader "Liminal/Defeated Marine Forms"
             float _SourceGain;
             float _DeathSong;
             float _Elapsed;
+            float _TransferDuration;
+            float4 _SourceVelocity;
             CBUFFER_END
             float _Song, _Pulse, _Reduced;
 
@@ -157,12 +160,15 @@ Shader "Liminal/Defeated Marine Forms"
                     curlNormal * (cos(phase) - cos(turn + phase)) * (0.14 + edge * 0.34);
                 float releaseStart = 0.40 + (1.0 - edge) * 0.18;
                 float scatter = smoothstep(releaseStart, releaseStart + 1.0, elapsed);
-                float settle = smoothstep(1.6, 7.4, elapsed);
+                float settle = smoothstep(2.0, max(10.0,_TransferDuration), elapsed);
                 float current = elapsed * (1.0 - saturate(elapsed / 2.0));
                 float spread = 0.8 + edge * 2.0 + Hash(input.data.x, 10.0) * 1.15;
                 float3 dispersed = source + peelAxis * (scatter * spread) + curl * scatter +
                     (_ColonyRight.xyz * 0.42 + _ColonyForward.xyz * 0.28) * current * scatter;
+                dispersed += _SourceVelocity.xyz*(1.0-exp(-elapsed*.8))/.8;
                 float3 world = lerp(dispersed, target, settle);
+                float flowEnvelope=sin(settle*3.14159265);
+                world += MatterFlowDelta(source*.3,elapsed,input.data.x)*flowEnvelope*2.2;
                 float kelp = step(0.92, Hash(input.data.x, 1.0));
                 world += _ColonyRight.xyz * sin(_Song * 0.47 + input.data.x * 19.0) * kelp * settle * 0.10;
 
@@ -182,9 +188,10 @@ Shader "Liminal/Defeated Marine Forms"
                 float3 startColor = lerp(electricHue * sourceLevel, rawSourceColor, warm);
                 float charge = smoothstep(0.0, 0.48, elapsed);
                 float flare = charge * exp(-max(0.0, elapsed - 0.46) * 1.15);
-                startColor *= 1.0 + flare * 0.32;
+                startColor *= 1.0 + flare * 0.5;
                 float3 formTint = lerp(_RoomColor.rgb, _RoomAccent.rgb, accent);
                 float3 formColor = formTint * (0.92 + Hash(input.data.x, 11.0) * 0.28);
+                formColor *= 1.0+.24*exp(-pow((settle-.88)*8.0,2.0));
                 float pulse = lerp(0.92 + 0.08 * _Pulse * (1.0 - _Reduced), 1.0 + _Pulse * 0.055 * (1.0 - _Reduced), settle);
                 float distanceFade = exp(-distanceToCamera * 0.0018);
 

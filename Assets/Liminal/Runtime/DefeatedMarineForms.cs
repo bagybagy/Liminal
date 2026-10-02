@@ -18,6 +18,8 @@ namespace Liminal
         static readonly int SourceGainId = Shader.PropertyToID("_SourceGain");
         static readonly int DeathSongId = Shader.PropertyToID("_DeathSong");
         static readonly int ElapsedId = Shader.PropertyToID("_Elapsed");
+        static readonly int TransferDurationId = Shader.PropertyToID("_TransferDuration");
+        static readonly int SourceVelocityId = Shader.PropertyToID("_SourceVelocity");
         static readonly int TintId = Shader.PropertyToID("_Tint");
         static readonly int GainId = Shader.PropertyToID("_Gain");
         const float GoldenAngle = 2.39996323f;
@@ -30,9 +32,9 @@ namespace Liminal
             public MaterialPropertyBlock sourceProperties;
             public Bounds sourceBounds;
             public Matrix4x4 sourceMatrix;
-            public Vector3 root;
+            public Vector3 root, velocity;
             public Color roomColor, roomAccent, sourceTint;
-            public float sourceGain, deathSong;
+            public float sourceGain, deathSong, transferDuration;
         }
 
         readonly List<Colony> colonies = new();
@@ -47,7 +49,9 @@ namespace Liminal
         public int ReservedCount => reservations.Count;
         public int AvailableCapacity => Mathf.Max(0, Capacity - Count - ReservedCount);
         public Vector3 RootAt(int index) => colonies[index].root;
-        public bool IsSettled(int index, float songTime) => songTime - colonies[index].deathSong >= 7.4f;
+        public bool IsSettled(int index, float songTime) => songTime - colonies[index].deathSong >= colonies[index].transferDuration;
+        public float TransferDurationAt(int index) => colonies[index].transferDuration;
+        public static float TransferSeconds(float distance) => 2f+Mathf.Max(8f,distance/8f);
 
         public void Initialize(Mesh rayMesh, Material rayMaterial, int capacity = DefaultCapacity)
         {
@@ -83,7 +87,7 @@ namespace Liminal
             return rayVisual && reservations.Remove(rayVisual);
         }
 
-        public bool TryAdopt(GameObject rayVisual, float songTime, int roomIndex)
+        public bool TryAdopt(GameObject rayVisual, float songTime, int roomIndex, Vector3 velocity=default)
         {
             if (!initialized || !rayVisual || roomIndex < 0 || roomIndex >= CaveLayout.Rooms.Length)
                 return false;
@@ -127,7 +131,9 @@ namespace Liminal
                 roomAccent = room.Accent,
                 sourceTint = sourceTint,
                 sourceGain = sourceGain,
-                deathSong = songTime
+                deathSong = songTime,
+                velocity = Vector3.ClampMagnitude(velocity,8f),
+                transferDuration = TransferSeconds(Vector3.Distance(sourcePosition,root))
             };
 
             renderer.sharedMaterial = colonyMaterial;
@@ -161,6 +167,8 @@ namespace Liminal
             properties.SetFloat(SourceGainId, colony.sourceGain);
             properties.SetFloat(DeathSongId, colony.deathSong);
             properties.SetFloat(ElapsedId, elapsed);
+            properties.SetFloat(TransferDurationId, colony.transferDuration);
+            properties.SetVector(SourceVelocityId, colony.velocity);
             colony.renderer.SetPropertyBlock(properties);
         }
 

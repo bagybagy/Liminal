@@ -244,6 +244,9 @@ namespace Liminal
                 Vector3 offset = target.position - view.position;
                 float distance = Mathf.Max(0.1f, offset.magnitude);
                 float radius = Mathf.Max(MinimumTargetRadius, distance * Mathf.Tan(TargetRadiusRadians));
+                int stacked=0;
+                for(int j=0;j<i;j++) if(experience.Combat.Locks[j]==target) stacked++;
+                radius*=1+stacked*.1f;
                 SetCircle(ring, target.position, view.right, view.up, radius, RingSegments);
                 ring.widthMultiplier = LockRingWidth(distance);
                 Color color = target.kind == TargetKind.Threat || target.kind == TargetKind.Ray
@@ -252,7 +255,9 @@ namespace Liminal
                 ring.startColor = ring.endColor = color;
                 ring.enabled = true;
                 TextMesh label = lockLabels[i];
-                label.transform.SetPositionAndRotation(target.position + view.right * radius * .95f + view.up * radius * .78f, view.rotation);
+                float angle=.65f+stacked*.65f;
+                label.transform.SetPositionAndRotation(target.position +
+                    (view.right*Mathf.Cos(angle)+view.up*Mathf.Sin(angle))*radius*1.3f, view.rotation);
                 FitText(label, distance * Mathf.Tan(1.1f * Mathf.Deg2Rad), distance * Mathf.Tan(.85f * Mathf.Deg2Rad));
                 label.gameObject.SetActive(true);
             }
