@@ -1,0 +1,4 @@
+* text=auto eol=lf
+
+# Keep distributed Unity players byte-for-byte identical to the verified build.
+Builds/Windows/** -text -diff

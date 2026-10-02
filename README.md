@@ -4,6 +4,12 @@ Area X の視覚・音楽・操作の結びつきに着想を得た、オリジ�
 Unity 6 で、発光する五つの海底洞窟を自由に遊泳する探索・射撃体験を構築しています。
 原作の音源、モデル、テクスチャ、商標ロゴは含みません。
 
+## リポジトリ
+
+このフォルダーが単独のUnityプロジェクト兼リポジトリです。
+開発は `C:/repos/Antigravity/Liminal` と `bagybagy/Liminal` で継続します。
+旧AgentRezは履歴保管用に残し、移行の内容は `REPOSITORY_MIGRATION.md` に記録しています。
+
 ![Unityで描画したホライゾンホエール](VisualPreview.png)
 
 上図は2026-10-01版のWindowsビルドからURP描画を直接取得した画像です。HUDは含みません。
