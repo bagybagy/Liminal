@@ -477,6 +477,7 @@ namespace Liminal
             Points+=100*(1+Mathf.Min(7,Combo/8));Charge=Mathf.Min(1,Charge+0.018f);
             if(target.kind==TargetKind.Organ) {
                 BossDamage++;
+                if(BossDamage==BossDamageGoal) music.BossRelease(song,0);
                 if(ExplorationMode) {
                     SetOrganMarker(target,1);
                     world.Serpent.SetOrganState(target.organIndex,target.u,1,song,true);

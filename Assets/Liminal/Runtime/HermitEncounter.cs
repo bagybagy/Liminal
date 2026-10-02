@@ -700,6 +700,7 @@ namespace Liminal
         void BeginRefuge(float song)
         {
             refugeStarted = true;
+            music.BossRelease(song, 1);
             refugeStartSong = song;
             refugeProgress = 0f;
             reefBeat = (float)AuthoredScore.BeatPosition(song);

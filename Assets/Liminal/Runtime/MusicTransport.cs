@@ -18,6 +18,7 @@ namespace Liminal
         readonly AudioSource[] voices = new AudioSource[VoiceCount];
         readonly double[] voiceEnds = new double[VoiceCount];
         readonly Dictionary<int, AudioClip> notes = new();
+        readonly Dictionary<int, AudioClip> releaseTones = new();
         AudioClip impact, lockTone, whaleTone;
         double origin;
         int activeMusicSource, scheduledMusicSource = -1, fadeOutMusicSource = -1;
@@ -33,6 +34,8 @@ namespace Liminal
         public double MaxGridError { get; private set; }
         public double MaxPlaybackPhaseError { get; private set; }
         public int DroppedNotes { get; private set; }
+        public int BossReleaseEvents { get; private set; }
+        public double MaxReleaseGridError { get; private set; }
         public int ThemeCount => AuthoredScore.ThemeCount;
         public bool StageMusicEnabled => stageMusicAvailable;
         public AudioClip ActiveSoundtrack => musicSources[activeMusicSource] ? musicSources[activeMusicSource].clip : null;
@@ -97,6 +100,8 @@ namespace Liminal
                 for (int i = 0; i < 8; i++) {
                     int midi = chord.notes[i % chord.notes.Length] + 12 + 12 * (i / chord.notes.Length);
                     if (!notes.ContainsKey(midi)) notes.Add(midi, Synthesize(midi, 1.8f, false));
+                    if (i == 0 && !releaseTones.ContainsKey(midi))
+                        releaseTones.Add(midi, MakeReleaseTone(midi));
                 }
             }
         }
@@ -134,6 +139,8 @@ namespace Liminal
             MaxGridError = 0;
             MaxPlaybackPhaseError = 0;
             DroppedNotes = 0;
+            BossReleaseEvents = 0;
+            MaxReleaseGridError = 0;
         }
 
         public void RequestTheme(int room, bool ending = false)
@@ -269,6 +276,20 @@ namespace Liminal
         public void DamageSound() => Play(impact, AudioSettings.dspTime + 0.01, 0, 0.6f);
         public void WhaleCall() => Play(whaleTone, origin + Score.NextEighth(Time, .15), 0, .7f);
 
+        public void BossRelease(float song, int voice = 0)
+        {
+            if (!playbackStarted || Paused) return;
+            double boundary = AuthoredScore.Next(Math.Max(song, Time), SchedulingLead(), false);
+            int root = AuthoredScore.Note(0, boundary);
+            if (!releaseTones.TryGetValue(root, out AudioClip tone)) return;
+            // A short tactile onset precedes the harmonic resolution on the authored audio grid.
+            Play(impact, AudioSettings.dspTime + .02, 0, .22f);
+            if (Play(tone, origin + boundary, 0, voice == 3 ? .68f : .76f)) {
+                BossReleaseEvents++;
+                MaxReleaseGridError = Math.Max(MaxReleaseGridError, AuthoredScore.GridError(boundary));
+            }
+        }
+
         bool Play(AudioClip clip, double dspTime, float pan, float volume)
         {
             int voice = -1;
@@ -290,6 +311,7 @@ namespace Liminal
         {
             AudioListener.pause = false;
             foreach (var clip in notes.Values) if (clip) Destroy(clip);
+            foreach (var clip in releaseTones.Values) if (clip) Destroy(clip);
             if (impact) Destroy(impact);
             if (lockTone) Destroy(lockTone);
             if (whaleTone) Destroy(whaleTone);
@@ -309,6 +331,30 @@ namespace Liminal
                 samples[i * 2 + 1] = v;
             }
             var clip = AudioClip.Create("Horizon song", frames, 2, rate, false);
+            clip.SetData(samples, 0);
+            return clip;
+        }
+
+        static AudioClip MakeReleaseTone(int midi)
+        {
+            const int rate = 44100;
+            const float length = 2.2f;
+            int frames = Mathf.CeilToInt(rate * length);
+            var samples = new float[frames * 2];
+            double frequency = 440 * Math.Pow(2, (midi - 81) / 12.0);
+            for (int i = 0; i < frames; i++) {
+                double t = i / (double)rate;
+                double envelope = Math.Min(t / .012, 1) * Math.Exp(-t * 2.2) * Math.Min((length - t) / .18, 1);
+                double p = 2 * Math.PI * frequency * t;
+                double glide = .9 * Math.Exp(-t * 14);
+                double left = Math.Sin(p + glide) * .29 + Math.Sin(p * 2) * .14 +
+                    Math.Sin(p * 3) * .085 + Math.Sin(p * 4.002) * .055;
+                double right = Math.Sin(p + glide) * .29 + Math.Sin(p * 2) * .14 +
+                    Math.Sin(p * 3) * .085 + Math.Sin(p * 3.998) * .055;
+                samples[i * 2] = (float)(left * envelope);
+                samples[i * 2 + 1] = (float)(right * envelope);
+            }
+            var clip = AudioClip.Create("Release_" + midi, frames, 2, rate, false);
             clip.SetData(samples, 0);
             return clip;
         }
