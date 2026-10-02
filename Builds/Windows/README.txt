@@ -1,4 +1,4 @@
-LIMINAL v0.1.1 / Windows x64 / PCVR
+LIMINAL v0.1.2 / Windows x64 / PCVR
 
 フォルダ全体を展開して Liminal.exe を起動してください。
 Liminal_Data・DLLなどを移動したり削除しないでください。
@@ -14,7 +14,9 @@ PCVRは Quest Link / Air Link などでPCに接続し、対応するOpenXRラン
 右トリガー保持でロック、離すと発射。左メニューでポーズ。
 
 音楽は全編 TidalMemory。実HMDの今回の変更への再確認は未実施です。
-限定検査の結果は EncounterReviewReport.json と PlayerFeedbackReport.json を参照してください。
+イルカの6連螺旋、小ヤドカリの4重ロック弾、海蛇のハリセンボンを追加。
+粒子の離散・集合に渦状の流れを加え、海底への変形時間を距離連動にしました。
+今回の限定検査は PressurePatternReport.json、既存機能は PlayerFeedbackReport.json を参照してください。
 
 制作: tete
 プロジェクト: https://github.com/bagybagy/Liminal
