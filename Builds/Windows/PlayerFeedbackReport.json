@@ -14,11 +14,14 @@
     "pauseUi": true,
     "hardwareVrTested": false,
     "scheduledHits": 8,
+    "travel": true,
+    "desktopTravelSpeed": 78.0,
+    "vrTravelSpeed": 60.000003814697269,
     "gridError": 0.0,
-    "playbackPhaseError": 0.02132426303854862,
-    "phaseAtStart": 0.000018140589569726195,
-    "phaseBeforePause": 0.0000226757369621855,
-    "phaseAfterPause": 0.0000226757369621855,
+    "playbackPhaseError": 0.021324263038549064,
+    "phaseAtStart": 0.000022675736960825477,
+    "phaseBeforePause": 0.00002267573696129732,
+    "phaseAfterPause": 0.00002267573696129732,
     "phaseAtFinish": 0.00000453514739273686,
     "errors": []
 }

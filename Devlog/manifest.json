@@ -388,6 +388,18 @@
     "full_lock_screenshot": "Liminal/Video/PV/dolphin-full-lock.png",
     "published_to_x": false
   },
+  "latest_encounter_review": {
+    "date": "2026-10-03",
+    "source_commit": "ba0350f",
+    "reports": ["Builds/Windows/EncounterReviewReport.json", "Builds/Windows/PlayerFeedbackReport.json"],
+    "images": ["Devlog/images/10-vr-route-announcement.png", "Devlog/images/10-atlantis-separated-shoals.png"],
+    "passed": true,
+    "submarine_hits": 224,
+    "desktop_travel_mps": 78,
+    "vr_travel_mps": 60,
+    "hardware_vr_tested": false,
+    "existing_user_scene_changes_preserved": true
+  },
   "latest_musical_balance": {
     "implementation_commit": "bac3059",
     "report": "Liminal/Verification/MusicalDolphins/report.json",

@@ -1,0 +1,13 @@
+{
+    "passed": true,
+    "vrRoutes": true,
+    "whaleIdle": true,
+    "submarineHits": 224,
+    "bossReleaseEvents": 5,
+    "atlantisSchools": 7,
+    "dolphinVerticalSpan": 15.62078857421875,
+    "dolphinMaxDistance": 52.79902648925781,
+    "whaleMaxColorStep": 0.0571686327457428,
+    "gridError": 0.0,
+    "errors": []
+}
