@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -10,10 +11,13 @@ namespace Liminal
         const float OnboardingSeconds = 24f;
         const float MinimumTargetRadius = 0.13f;
         const float TargetRadiusRadians = 0.038f;
+        const float PassageLabelAngularWidthDegrees = 12f;
+        const float PassageLabelAngularHeightDegrees = 3.5f;
         public const float LockRingAngularWidthDegrees = 0.16f;
 
         readonly LineRenderer[] lockRings = new LineRenderer[8];
         readonly TextMesh[] lockLabels = new TextMesh[8];
+        readonly List<string> passageLabelTexts = new();
         Experience experience;
         PcVrSession session;
         Transform hudRoot;
@@ -22,6 +26,8 @@ namespace Liminal
         TextMesh onboardingText;
         TextMesh pauseTitle;
         TextMesh pauseItems;
+        TextMesh[] passageLabels;
+        Transform passageLabelsRoot;
         LineRenderer reticle;
         Material hudMaterial;
         Material textMaterial;
@@ -34,6 +40,8 @@ namespace Liminal
         bool wasPaused;
         public bool PauseMenuVisible => active && pauseTitle != null && pauseTitle.gameObject.activeInHierarchy;
         public int VisibleLocks { get; private set; }
+        public int VisiblePassageLabels { get; private set; }
+        public IReadOnlyList<string> PassageLabelTexts => passageLabelTexts;
         public static float LockRingWidth(float distance) => Mathf.Max(.012f, distance * Mathf.Tan(LockRingAngularWidthDegrees * Mathf.Deg2Rad));
 
         public void Initialize(Experience owner, PcVrSession vrSession)
@@ -72,6 +80,20 @@ namespace Liminal
             CreateText("VR status", new Vector3(0f, -0.53f, 0f), 0.024f, out statusText);
             CreateText("Pause title", new Vector3(0f, 0.21f, 0f), 0.04f, out pauseTitle);
             CreateText("Pause choices", new Vector3(0f, -0.18f, 0f), 0.029f, out pauseItems);
+            int passageLabelCapacity = 1;
+            for (int room = 0; room < CaveLayout.Rooms.Length; room++)
+                passageLabelCapacity = Mathf.Max(passageLabelCapacity, CaveLayout.IncidentPassages(room).Count);
+            passageLabels = new TextMesh[passageLabelCapacity];
+            passageLabelsRoot = new GameObject("VR passage destination labels").transform;
+            passageLabelsRoot.SetParent(experience.transform, false);
+            for (int i = 0; i < passageLabels.Length; i++)
+            {
+                CreateText("Passage destination " + (i + 1), Vector3.zero, 0.028f,
+                    out passageLabels[i], passageLabelsRoot);
+                passageLabels[i].color = new Color(0.48f, 1f, 0.86f, 0.98f);
+                passageLabels[i].gameObject.SetActive(false);
+            }
+            passageLabelsRoot.gameObject.SetActive(false);
             stageText.color = new Color(0.72f, 1f, 0.94f, 1f);
             onboardingText.color = Color.white;
             statusText.color = new Color(0.65f, 0.85f, 0.9f, 0.9f);
@@ -102,11 +124,15 @@ namespace Liminal
 
             active = value;
             hudRoot.gameObject.SetActive(value);
+            passageLabelsRoot.gameObject.SetActive(value);
             wasPaused = false;
             pauseTitle.gameObject.SetActive(false);
             pauseItems.gameObject.SetActive(false);
             if (!value)
+            {
+                HidePassageLabels();
                 return;
+            }
 
             Transform view = experience.Flight.View != null ? experience.Flight.View.transform : null;
             Vector3 localPosition = view != null ? view.localPosition : new Vector3(0f, 1.55f, 0f);
@@ -142,6 +168,7 @@ namespace Liminal
             UpdateReticle();
             reticle.enabled = !paused;
             UpdateLockRings(paused);
+            UpdatePassageLabels(paused);
             UpdateOnboarding(paused);
             UpdatePauseMenu(paused);
         }
@@ -231,6 +258,74 @@ namespace Liminal
             }
         }
 
+        void UpdatePassageLabels(bool paused)
+        {
+            VisiblePassageLabels = 0;
+            passageLabelTexts.Clear();
+            if (paused || !active || !experience.CavernMode || experience.Flight.View == null)
+            {
+                HidePassageLabels();
+                return;
+            }
+
+            Transform view = experience.Flight.View.transform;
+            Vector3 position = experience.Flight.Position;
+            int room = Mathf.Clamp(experience.CurrentRoom, 0, CaveLayout.Rooms.Length - 1);
+            int nextLabel = 0;
+            if (CaveLayout.RoomDistance(room, position) < 1f)
+            {
+                foreach (int passage in CaveLayout.IncidentPassages(room))
+                {
+                    bool forward = CaveLayout.FromRoom(passage) == room;
+                    int destination = forward ? CaveLayout.ToRoom(passage) : CaveLayout.FromRoom(passage);
+                    CaveLayout.GetPortal(passage, forward, out Vector3 mouth, out Vector3 direction);
+                    float distance = Vector3.Distance(position, mouth);
+                    Vector3 labelPosition = mouth + direction * 7f + Vector3.up * 8f;
+                    ShowPassageLabel(nextLabel++, CaveLayout.Rooms[destination].Name + "\n" +
+                        distance.ToString("F0") + " M", labelPosition, view);
+                }
+            }
+            else if (CaveLayout.NextPassage(position, out Vector3 waypoint, out int destination))
+            {
+                float distance = Vector3.Distance(position, waypoint);
+                Vector3 labelPosition = waypoint + Vector3.up * 8f;
+                ShowPassageLabel(nextLabel++, "NEXT  " + CaveLayout.Rooms[destination].Name + "\n" +
+                    distance.ToString("F0") + " M", labelPosition, view);
+            }
+
+            for (int i = nextLabel; i < passageLabels.Length; i++)
+                if (passageLabels[i].gameObject.activeSelf)
+                    passageLabels[i].gameObject.SetActive(false);
+            VisiblePassageLabels = nextLabel;
+        }
+
+        void ShowPassageLabel(int index, string value, Vector3 position, Transform view)
+        {
+            if (index >= passageLabels.Length)
+                return;
+
+            TextMesh label = passageLabels[index];
+            label.text = value;
+            label.transform.SetPositionAndRotation(position, view.rotation);
+            float distance = Mathf.Max(0.1f, Vector3.Distance(view.position, position));
+            float width = 2f * distance * Mathf.Tan(PassageLabelAngularWidthDegrees * 0.5f * Mathf.Deg2Rad);
+            float height = 2f * distance * Mathf.Tan(PassageLabelAngularHeightDegrees * 0.5f * Mathf.Deg2Rad);
+            FitText(label, width, height);
+            label.gameObject.SetActive(true);
+            passageLabelTexts.Add(value);
+        }
+
+        void HidePassageLabels()
+        {
+            VisiblePassageLabels = 0;
+            passageLabelTexts.Clear();
+            if (passageLabels == null)
+                return;
+            foreach (TextMesh label in passageLabels)
+                if (label != null)
+                    label.gameObject.SetActive(false);
+        }
+
         void PositionPanel(float distance, float height)
         {
             Transform view = experience.Flight.View.transform;
@@ -309,10 +404,11 @@ namespace Liminal
             }
         }
 
-        void CreateText(string objectName, Vector3 localPosition, float characterSize, out TextMesh text)
+        void CreateText(string objectName, Vector3 localPosition, float characterSize, out TextMesh text,
+            Transform parent = null)
         {
             GameObject child = new GameObject(objectName);
-            child.transform.SetParent(hudRoot, false);
+            child.transform.SetParent(parent != null ? parent : hudRoot, false);
             child.transform.localPosition = localPosition;
             text = child.AddComponent<TextMesh>();
             text.anchor = TextAnchor.MiddleCenter;
@@ -367,6 +463,11 @@ namespace Liminal
 
         void OnDestroy()
         {
+            HidePassageLabels();
+            if (passageLabelsRoot != null)
+                Destroy(passageLabelsRoot.gameObject);
+            if (hudRoot != null)
+                Destroy(hudRoot.gameObject);
             if (hudMaterial != null)
                 Destroy(hudMaterial);
             if (textMaterial != null)

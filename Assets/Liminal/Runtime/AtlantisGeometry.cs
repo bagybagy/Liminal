@@ -5,11 +5,25 @@ namespace Liminal
     internal static class AtlantisGeometry
     {
         public const int AuxiliaryPointBudget = 35000;
+        public const int SerpentSchoolCount = 7;
+        public const int FishPerSchool = 22;
         const float Tau = Mathf.PI * 2f;
         static readonly Color Pearl = new(0.68f, 0.94f, 0.91f);
         static readonly Color Aqua = new(0.12f, 0.78f, 0.71f);
         static readonly Color Gold = new(1f, 0.61f, 0.24f);
-        static readonly Color Blue = new(0.20f, 0.57f, 0.86f);
+        static readonly Color Blue = new(0.07f, 0.20f, 0.38f);
+
+        public readonly struct SchoolPose
+        {
+            public readonly Vector3 Center;
+            public readonly float HeadingRadians;
+
+            public SchoolPose(Vector3 center, float headingRadians)
+            {
+                Center = center;
+                HeadingRadians = headingRadians;
+            }
+        }
 
         public static Vector3 CityOrigin
         {
@@ -193,24 +207,25 @@ namespace Liminal
         {
             var cloud = new PointCloud();
             int seed = 0;
-            const int schools = 7;
-            const int fishPerSchool = 22;
-            for (int school = 0; school < schools; school++)
+            for (int school = 0; school < SerpentSchoolCount; school++)
             {
-                Vector3 center = SchoolCenter(school);
-                float schoolAngle = school * Tau / schools;
-                Vector3 tangent = new(-Mathf.Sin(schoolAngle), 0f, Mathf.Cos(schoolAngle));
-                Vector3 lateral = new(Mathf.Cos(schoolAngle), 0f, Mathf.Sin(schoolAngle));
-                for (int fish = 0; fish < fishPerSchool; fish++)
+                SchoolPose pose = EvaluateSchoolPose(school, 0f);
+                Quaternion orientation = Quaternion.Euler(0f, pose.HeadingRadians * Mathf.Rad2Deg, 0f);
+                Vector3 tangent = orientation * Vector3.forward;
+                Vector3 lateral = orientation * Vector3.right;
+                for (int fish = 0; fish < FishPerSchool; fish++)
                 {
-                    float shell = Mathf.Sqrt((fish + 0.5f) / fishPerSchool);
+                    float shell = Mathf.Sqrt((fish + 0.5f) / FishPerSchool);
                     float scatter = fish * 2.3999632f + school * 0.73f;
-                    Vector3 fishCenter = center + tangent * (Mathf.Cos(scatter) * shell * 13f) +
-                        lateral * (Mathf.Sin(scatter) * shell * 11f) + Vector3.up * Mathf.Sin(scatter * 0.7f) * 3f;
-                    AddSchoolFish(cloud, fishCenter, tangent, lateral, school, fish, ref seed);
+                    Vector3 fishCenter = pose.Center + tangent * (Mathf.Cos(scatter) * shell * 15f) +
+                        lateral * (Mathf.Sin(scatter) * shell * 12f) + Vector3.up * Mathf.Sin(scatter * 0.7f) * 3f;
+                    float headingJitter = ((fish % 5) - 2) * 3f;
+                    Quaternion fishOrientation = Quaternion.AngleAxis(headingJitter, Vector3.up);
+                    AddSchoolFish(cloud, fishCenter, fishOrientation * tangent,
+                        fishOrientation * lateral, school, fish, ref seed);
                 }
             }
-            return cloud.Build("Atlantis / Serpent shoals", 600f);
+            return cloud.Build("Atlantis / Serpent shoals", 760f);
         }
 
         public static Mesh BuildSubmarines()
@@ -275,34 +290,52 @@ namespace Liminal
 
         public static Vector3 SchoolCenter(int school)
         {
-            float angle = school * Tau / 7f;
-            float radius = 99f + (school % 3) * 10f;
-            return new Vector3(Mathf.Cos(angle) * radius, 29f + (school % 2) * 9f,
-                Mathf.Sin(angle) * radius);
+            return EvaluateSchoolPose(school, 0f).Center;
+        }
+
+        public static SchoolPose EvaluateSchoolPose(int school, float song)
+        {
+            school = Mathf.Clamp(school, 0, SerpentSchoolCount - 1);
+            float phaseOffset = school * 2.3999632f;
+            float speed = 0.115f + (school % 3) * 0.017f;
+            float phase = phaseOffset + song * speed;
+            float laneAngle = school * Tau / SerpentSchoolCount;
+            float radius = 218f + (school % 3) * 24f;
+            float orbitX = 22f + (school % 2) * 8f;
+            float orbitZ = 18f + ((school + 1) % 3) * 5f;
+            float altitude = 82f + (school % 4) * 14f;
+            Vector3 center = new(
+                Mathf.Cos(laneAngle) * radius + Mathf.Cos(phase) * orbitX,
+                altitude + Mathf.Sin(phase * 0.67f + school * 0.37f) * 3f,
+                Mathf.Sin(laneAngle) * radius + Mathf.Sin(phase) * orbitZ);
+            float velocityX = -Mathf.Sin(phase) * orbitX * speed;
+            float velocityZ = Mathf.Cos(phase) * orbitZ * speed;
+            return new SchoolPose(center, Mathf.Atan2(velocityX, velocityZ));
         }
 
         static void AddSchoolFish(PointCloud cloud, Vector3 center, Vector3 forward, Vector3 side,
             int school, int fish, ref int seed)
         {
-            Color color = fish % 7 == 0 ? new Color(0.98f, 0.73f, 0.34f) :
-                Color.Lerp(Blue, new Color(0.62f, 0.97f, 0.89f),
+            Color color = fish % 7 == 0 ? new Color(0.42f, 0.22f, 0.08f) :
+                Color.Lerp(Blue, new Color(0.12f, 0.42f, 0.40f),
                     ((fish + school) % 7) / 7f);
             for (int i = 0; i < 16; i++)
             {
                 float t = i / 15f;
-                float z = 1.45f - t * 2.9f;
-                float width = 0.10f + Mathf.Sin(t * Mathf.PI) * 0.43f;
-                Add(cloud, center + forward * z, 0.095f, color, ref seed, school);
-                Add(cloud, center + forward * z + side * width, 0.073f, color, ref seed, school);
-                Add(cloud, center + forward * z - side * width, 0.073f, color, ref seed, school);
+                float z = 3.8f - t * 7.6f;
+                float width = 0.15f + Mathf.Sin(t * Mathf.PI) * 0.76f;
+                Add(cloud, center + forward * z, 0.105f, color, ref seed, school);
+                Add(cloud, center + forward * z + side * width, 0.08f, color, ref seed, school);
+                Add(cloud, center + forward * z - side * width, 0.08f, color, ref seed, school);
             }
+            Color tail = new(0.045f, 0.28f, 0.29f);
             for (int i = 0; i < 8; i++)
             {
                 float t = i / 7f;
-                float z = -1.25f - t * 0.92f;
-                float flare = Mathf.Sin(t * Mathf.PI) * 0.52f;
-                Add(cloud, center + forward * z + side * flare, 0.067f, Aqua, ref seed, school);
-                Add(cloud, center + forward * z - side * flare, 0.067f, Aqua, ref seed, school);
+                float z = -3.35f - t * 1.15f;
+                float flare = Mathf.Sin(t * Mathf.PI) * 0.68f;
+                Add(cloud, center + forward * z + side * flare, 0.074f, tail, ref seed, school);
+                Add(cloud, center + forward * z - side * flare, 0.074f, tail, ref seed, school);
             }
         }
 

@@ -55,6 +55,32 @@ Shader "Liminal/Atlantis Matter"
                     -sine * position.x + cosine * position.z);
             }
 
+            float SchoolSpeed(float school)
+            {
+                return 0.115 + fmod(school, 3.0) * 0.017;
+            }
+
+            float3 SchoolCenter(float school, float phase)
+            {
+                float laneAngle = school * 0.8975979;
+                float radius = 218.0 + fmod(school, 3.0) * 24.0;
+                float orbitX = 22.0 + fmod(school, 2.0) * 8.0;
+                float orbitZ = 18.0 + fmod(school + 1.0, 3.0) * 5.0;
+                float altitude = 82.0 + fmod(school, 4.0) * 14.0;
+                return float3(cos(laneAngle) * radius + cos(phase) * orbitX,
+                    altitude + sin(phase * 0.67 + school * 0.37) * 3.0,
+                    sin(laneAngle) * radius + sin(phase) * orbitZ);
+            }
+
+            float SchoolHeading(float school, float phase)
+            {
+                float speed = SchoolSpeed(school);
+                float orbitX = 22.0 + fmod(school, 2.0) * 8.0;
+                float orbitZ = 18.0 + fmod(school + 1.0, 3.0) * 5.0;
+                return atan2(-sin(phase) * orbitX * speed,
+                    cos(phase) * orbitZ * speed);
+            }
+
             Varyings Vert(Attributes input)
             {
                 UNITY_SETUP_INSTANCE_ID(input);
@@ -70,26 +96,36 @@ Shader "Liminal/Atlantis Matter"
                     (frac(seed * 17.173) - 0.5) * 46.0,
                     -44.0 + frac(seed * 3.713) * 21.0,
                     (frac(seed * 91.713) - 0.5) * 32.0);
-                float3 world = lerp(gather, anchor, formation);
+                float3 world;
 
                 if (_LayerKind > 0.5 && _LayerKind < 1.5)
                 {
                     float school = floor(input.data.y + 0.5);
-                    float speed = 0.075 + fmod(school, 3.0) * 0.012;
-                    float orbit = _Song * speed;
-                    float3 local = TransformWorldToObject(world);
-                    world = TransformObjectToWorld(RotateY(local, orbit));
-                }
-                else if (_LayerKind > 1.5)
-                {
-                    float craft = floor(input.data.y + 0.5);
-                    float phase = _Song * 0.19 + craft * 2.0943951;
-                    world += float3(sin(phase) * 2.4, sin(phase * 0.63) * 1.2,
-                        cos(phase) * 2.4);
+                    float phaseOffset = school * 2.3999632;
+                    float phase = phaseOffset + _Song * SchoolSpeed(school);
+                    float3 localAnchor = TransformWorldToObject(anchor);
+                    float3 startCenter = SchoolCenter(school, phaseOffset);
+                    float3 currentCenter = SchoolCenter(school, phase);
+                    float heading = SchoolHeading(school, phase);
+                    float startHeading = SchoolHeading(school, phaseOffset);
+                    anchor = TransformObjectToWorld(currentCenter +
+                        RotateY(localAnchor - startCenter, heading - startHeading));
+                    world = lerp(gather, anchor, formation);
                 }
                 else
                 {
-                    world.y += sin(_Song * 0.27 + seed * 6.2831853) * 0.045 * formation;
+                    world = lerp(gather, anchor, formation);
+                    if (_LayerKind > 1.5)
+                    {
+                        float craft = floor(input.data.y + 0.5);
+                        float phase = _Song * 0.19 + craft * 2.0943951;
+                        world += float3(sin(phase) * 2.4, sin(phase * 0.63) * 1.2,
+                            cos(phase) * 2.4);
+                    }
+                    else
+                    {
+                        world.y += sin(_Song * 0.27 + seed * 6.2831853) * 0.045 * formation;
+                    }
                 }
 
                 float2 quad = input.uv.xy;
@@ -102,7 +138,8 @@ Shader "Liminal/Atlantis Matter"
                 float3 positionWS = world + (cameraRight * quad.x + cameraUp * quad.y) * size;
                 output.positionCS = TransformWorldToHClip(positionWS);
                 output.uv = quad;
-                output.color = input.color.rgb * _Gain * (0.58 + formation * 0.42);
+                float schoolRadiance = _LayerKind > 0.5 && _LayerKind < 1.5 ? 0.48 : 1.0;
+                output.color = input.color.rgb * _Gain * schoolRadiance * (0.58 + formation * 0.42);
                 output.alpha = input.color.a * formation;
                 return output;
             }
