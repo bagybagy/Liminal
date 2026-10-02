@@ -263,6 +263,19 @@ namespace Liminal
             return slot >= 0 && slot < Capacity && slots[slot] != null ? slots[slot].pose : default;
         }
 
+        public static float VerticalTargetHeight(int slot, float age)
+        {
+            if (slot < 0 || slot >= Capacity) throw new System.ArgumentOutOfRangeException(nameof(slot));
+            age = Mathf.Max(0f, age);
+            float phase = slot * (Mathf.PI * 2f / Capacity);
+            float arcCycle = Mathf.Repeat(age + slot * 4f, 30f);
+            float arcRise = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(15f, 18f, arcCycle));
+            float arcFall = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(22f, 25f, arcCycle));
+            float breachArc = arcRise * arcFall * 13f;
+            return Mathf.Sin(age * 0.19f + phase * 1.7f) * 5.2f +
+                Mathf.Sin(age * 0.085f + phase) * 2.5f + breachArc;
+        }
+
         public System.Collections.Generic.IReadOnlyList<LockTarget> TargetsAt(int slot)
         {
             return slot >= 0 && slot < Capacity && slots[slot] != null
@@ -307,8 +320,7 @@ namespace Liminal
             float fastSpeed = Mathf.Min(72f, curvedSprintLimit);
             float tangentSpeed = Mathf.Lerp(slowSpeed, fastSpeed, sprintBlend);
 
-            float targetHeight = Mathf.Sin(age * 0.72f + slot.phase * 1.7f) * 7f +
-                Mathf.Sin(age * 0.31f + slot.phase) * 3f;
+            float targetHeight = VerticalTargetHeight(index, age);
             float height = Vector3.Dot(relativePosition, planeUp);
             float verticalSpeed = Mathf.Clamp((targetHeight - height) * 1.4f - Vector3.Dot(relativeVelocity, planeUp) * 0.8f, -12f, 12f);
             Vector3 baseVelocity = flight.Velocity + radial * radialSpeed + planeUp * verticalSpeed;
@@ -365,19 +377,11 @@ namespace Liminal
             for (int point = 0; point < PointsPerDolphin; point++)
             {
                 LockTarget target = slot.targets[point];
-                Vector3 local = DeformLockPoint(LockPointLocalPositions[point], song);
+                Vector3 local = DolphinForm.Deform(LockPointLocalPositions[point], song);
                 target.position = next + orientation * (local * DolphinScale);
                 slot.markers[point].transform.SetPositionAndRotation(target.position, orientation);
                 slot.markers[point].SetActive(target.hp > 0 && !slot.pose.Retired && !combat.Ended);
             }
-        }
-
-        static Vector3 DeformLockPoint(Vector3 point, float song)
-        {
-            float tail = Mathf.Clamp01((-point.z - 2f) / 7.5f);
-            point.y += Mathf.Sin(song * 2.2f + point.z * 0.22f) * tail * 0.65f;
-            point.x += Mathf.Sin(song * 1.1f + point.z * 0.18f) * tail * 0.18f;
-            return point;
         }
 
         void FireBurstIfReady(float song)

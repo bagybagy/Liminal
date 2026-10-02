@@ -56,5 +56,21 @@ namespace Liminal
             }
             return new Vector4(p.x, p.y, p.z, 0.055f);
         }
+
+        public static Vector3 Deform(Vector3 point, float song)
+        {
+            float tail = Mathf.Clamp01((-point.z - 2f) / 7.5f);
+            point.y += Mathf.Sin(song * 2.2f + point.z * 0.22f) * tail * 0.82f;
+            point.x += Mathf.Sin(song * 1.1f + point.z * 0.18f) * tail * 0.22f;
+
+            float finSpan = Mathf.Clamp01((Mathf.Abs(point.x) - 0.75f) / 3.75f);
+            float finRoot = Mathf.Clamp01((point.z + 2.5f) / 2.5f) *
+                Mathf.Clamp01((4.8f - point.z) / 2f);
+            float fin = finSpan * finRoot;
+            float finPhase = song * 1.35f + point.z * 0.12f;
+            point.y += Mathf.Sin(finPhase) * fin * 0.36f;
+            point.z += Mathf.Cos(finPhase) * fin * 0.10f;
+            return point;
+        }
     }
 }

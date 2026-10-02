@@ -84,18 +84,18 @@ float3 WhaleDeform(float3 p, float song)
     float phase = song * 0.42;
     float tail = WhaleSmooth(-8.0, 78.0, -form.z);
     float wave = sin(phase - tail * 0.65);
-    float pitch = 0.20 * tail * wave;
+    float pitch = 0.22 * tail * wave;
     float cp = cos(pitch), sp = sin(pitch);
-    p.y = form.y * cp + 8.0 * tail * tail * wave;
+    p.y = form.y * cp + 8.6 * tail * tail * wave;
     p.z = form.z - form.y * sp;
-    p.x += 0.65 * tail * tail * sin(phase * 0.5 - tail * 0.4);
+    p.x += 0.70 * tail * tail * sin(phase * 0.5 - tail * 0.4);
     float span = WhaleSmooth(17.0, 53.0, abs(form.x));
     float fin = span * WhaleSmooth(-54.0, -43.0, form.z) * (1.0 - WhaleSmooth(30.0, 40.0, form.z));
     float bank = sin(song * 0.16);
     float side = form.x < 0.0 ? -1.0 : 1.0;
-    p.y += fin * (3.8 * sin(phase - 1.1) - side * 3.2 * bank);
-    p.z += fin * 1.1 * cos(phase - 1.1);
-    float roll = 0.035 * bank;
+    p.y += fin * (4.2 * sin(phase - 1.1) - side * 3.4 * bank);
+    p.z += fin * 1.2 * cos(phase - 1.1);
+    float roll = 0.037 * bank;
     float cr = cos(roll), sr = sin(roll);
     return float3(p.x * cr - p.y * sr, p.x * sr + p.y * cr, p.z);
 }

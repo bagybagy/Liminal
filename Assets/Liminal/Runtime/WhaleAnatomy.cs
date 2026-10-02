@@ -154,18 +154,18 @@ namespace Liminal
             float phase = song * 0.42f;
             float tail = Smooth(-8f, 78f, -form.z);
             float wave = Mathf.Sin(phase - tail * 0.65f);
-            float pitch = 0.20f * tail * wave;
+            float pitch = 0.22f * tail * wave;
             float cp = Mathf.Cos(pitch), sp = Mathf.Sin(pitch);
-            p.y = form.y * cp + 8f * tail * tail * wave;
+            p.y = form.y * cp + 8.6f * tail * tail * wave;
             p.z = form.z - form.y * sp;
-            p.x += 0.65f * tail * tail * Mathf.Sin(phase * 0.5f - tail * 0.4f);
+            p.x += 0.70f * tail * tail * Mathf.Sin(phase * 0.5f - tail * 0.4f);
             float span = Smooth(17f, 53f, Mathf.Abs(form.x));
             float fin = span * Smooth(-54f, -43f, form.z) * (1f - Smooth(30f, 40f, form.z));
             float bank = Mathf.Sin(song * 0.16f);
             float side = form.x < 0f ? -1f : 1f;
-            p.y += fin * (3.8f * Mathf.Sin(phase - 1.1f) - side * 3.2f * bank);
-            p.z += fin * 1.1f * Mathf.Cos(phase - 1.1f);
-            float roll = 0.035f * bank;
+            p.y += fin * (4.2f * Mathf.Sin(phase - 1.1f) - side * 3.4f * bank);
+            p.z += fin * 1.2f * Mathf.Cos(phase - 1.1f);
+            float roll = 0.037f * bank;
             float cr = Mathf.Cos(roll), sr = Mathf.Sin(roll);
             return new Vector3(p.x * cr - p.y * sr, p.x * sr + p.y * cr, p.z);
         }

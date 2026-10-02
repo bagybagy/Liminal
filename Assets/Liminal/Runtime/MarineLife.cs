@@ -17,6 +17,7 @@ namespace Liminal
         const float FishScatterSeconds = 8f;
         const float JellySettleSeconds = 10f;
         const float WhaleRecallSeconds = 4f;
+        const float WhaleSurfaceColorFadeSeconds = 2f;
         const int JellyKind = 1, FishKind = 2, WhaleKind = 3, AmbientKind = 0;
         static readonly Color Aqua = new(0.24f, 1f, 0.87f);
         static readonly Color Pearl = new(0.76f, 0.94f, 1f);
@@ -76,6 +77,7 @@ namespace Liminal
         WhaleArrival arrival;
         DolphinEncounter dolphins;
         WhaleInheritance inheritance;
+        MusicTransport music;
         PersistentMatter matter;
         ParticleWorld world;
         Encounter combat;
@@ -84,15 +86,18 @@ namespace Liminal
         Quaternion whaleRotation = Quaternion.identity;
         int whaleGroup, ambientGroup, fishScatteringCount, fishRegroupingCount;
         float whalePulse, whaleReleaseAt, whaleRecallStartAt = -1f, whaleRecallStartedAt = -1f;
-        float whaleRecallFinishAt = -1f, whaleRecallProgress, whaleTurn, jellyImpactAge = -100;
+        float whaleRecallFinishAt = -1f, whaleRecallProgress, whaleTurn, whaleSurfaceColorBlend, jellyImpactAge = -100;
         int whaleDamage, whaleRound = 1;
         Vector3 jellyImpactPoint;
         int jellyImpactIndex = -1;
-        bool whaleReleased, whaleRegenerating, whaleRecallStarted;
+        bool whaleReleased, whaleRegenerating, whaleRecallStarted, whaleReleaseSoundPlayed;
         int whaleRegenerations, dolphinRecallCount;
         bool whalePoseStarted, playerPoseStarted;
         bool whalePeakEffectsPlayed;
         Matrix4x4 whaleReleaseMatrix;
+        float lastWhaleHitSong = -1f;
+        bool lastWhaleHitValidity;
+        string lastWhaleHitCondition = "No resonator hit this run";
 
         public PersistentMatter Matter => matter;
         public int IlluminatedJellies => litJellies.Count;
@@ -107,6 +112,10 @@ namespace Liminal
         public int RemainingWhaleTargets => whaleDamage >= WhaleDamageGoal ? 0 :
             Mathf.Max(0, WhaleOrganCount - litResonators.Count);
         public bool WhaleRegenerating => whaleRegenerating;
+        public float WhaleSurfaceColorBlend => whaleSurfaceColorBlend;
+        public float LastWhaleHitSong => lastWhaleHitSong;
+        public bool LastWhaleHitValidity => lastWhaleHitValidity;
+        public string LastWhaleHitCondition => lastWhaleHitCondition;
         public float WhaleRecallProgress => whaleRecallProgress;
         public int WhaleRegenerations => whaleRegenerations;
         public int DolphinRecallCount => dolphinRecallCount;
@@ -155,6 +164,7 @@ namespace Liminal
         {
             world = particleWorld;
             combat = encounter;
+            music = GetComponent<Experience>().Music;
             EvaluateWhalePose(0, out whalePosition, out whaleRotation);
             if (!world.matterSimulation || !world.matterLight)
                 throw new InvalidOperationException("MarineLife requires ParticleWorld.matterSimulation and matterLight.");
@@ -487,7 +497,33 @@ namespace Liminal
 
         void HitWhale(int index, LockTarget target, float song)
         {
-            if (whaleReleased || whaleRecallStarted || litResonators.Contains(index)) return;
+            if (whaleReleased)
+            {
+                lastWhaleHitValidity = false;
+                lastWhaleHitCondition = "Whale already released";
+                return;
+            }
+            if (whaleRecallStarted)
+            {
+                lastWhaleHitValidity = false;
+                lastWhaleHitCondition = "Whale recall active";
+                return;
+            }
+            if (litResonators.Contains(index))
+            {
+                lastWhaleHitValidity = false;
+                lastWhaleHitCondition = "Resonator already lit";
+                return;
+            }
+            if (!WhaleEntranceComplete)
+            {
+                lastWhaleHitValidity = false;
+                lastWhaleHitCondition = "Whale entrance incomplete";
+                return;
+            }
+            lastWhaleHitValidity = true;
+            lastWhaleHitSong = song;
+            lastWhaleHitCondition = "Valid resonator hit";
             litResonators.Add(index);
             if (whaleDamage < WhaleDamageGoal) whaleDamage++;
             whaleOrganHeat[index] = 1f;
@@ -508,6 +544,11 @@ namespace Liminal
             {
                 FreezeWhaleTargets();
                 FreezeDolphinTargets();
+                if (!whaleReleaseSoundPlayed)
+                {
+                    whaleReleaseSoundPlayed = true;
+                    music.BossRelease(song, 2);
+                }
             }
             if (litResonators.Count >= WhaleOrganCount - 4 && whaleDamage < WhaleDamageGoal)
                 BeginWhaleRegeneration();
@@ -515,6 +556,7 @@ namespace Liminal
 
         void ReleaseWhale(float song)
         {
+            if (whaleReleased) return;
             whaleReleased = true;
             whaleReleaseAt = song;
             whaleReleaseMatrix = Matrix4x4.TRS(whalePosition, whaleRotation, Vector3.one * 1.8f);
@@ -548,6 +590,10 @@ namespace Liminal
             Array.Clear(whaleOrganHeat, 0, whaleOrganHeat.Length);
             Array.Clear(whaleOrganPatches, 0, whaleOrganPatches.Length);
             whaleDamage = 0; whaleRound = 1;
+            lastWhaleHitSong = -1f;
+            lastWhaleHitValidity = false;
+            lastWhaleHitCondition = "No resonator hit this run";
+            whaleReleaseSoundPlayed = false;
             whaleRegenerating = whaleRecallStarted = false;
             whaleRecallStartAt = whaleRecallStartedAt = whaleRecallFinishAt = -1f;
             whaleRecallProgress = 0f;
@@ -557,6 +603,7 @@ namespace Liminal
             fishScatteringCount = fishRegroupingCount = 0;
             whaleVelocity = Vector3.zero;
             WhaleSurfaceActivity = 0f;
+            whaleSurfaceColorBlend = 0f;
             whaleTurn = 0f;
             EvaluateWhalePose(0, out whalePosition, out whaleRotation);
             whaleRoot.transform.SetPositionAndRotation(whalePosition, whaleRotation);
@@ -769,8 +816,11 @@ namespace Liminal
             whaleRoot.transform.localScale = Vector3.one * 1.8f;
             float phase = song * 0.045f;
             whaleTurn = Mathf.Abs(Mathf.Sin(phase));
+            whaleSurfaceColorBlend = WhaleEntranceComplete
+                ? Mathf.MoveTowards(whaleSurfaceColorBlend, 1f, dt / WhaleSurfaceColorFadeSeconds)
+                : 0f;
             WhaleSurfaceActivity = Mathf.Clamp01((whalePosition.y - (CaveLayout.HorizonSurfaceY - 42f)) / 42f) *
-                Mathf.Clamp01(whaleVelocity.magnitude / 18f);
+                Mathf.Clamp01(whaleVelocity.magnitude / 18f) * whaleSurfaceColorBlend;
             float dive = Mathf.Clamp01(-whaleVelocity.y / 16f);
             WhaleLightColor = Color.Lerp(new Color(.04f,.85f,1f),new Color(1f,.12f,.62f),
                 Mathf.SmoothStep(0,1,Mathf.Clamp01(whaleTurn*.70f+dive*.65f)));

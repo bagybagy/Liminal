@@ -84,8 +84,15 @@ float3 Deform(float3 p, float3 localForm, float seed, float kind, float tail, fl
 float3 DolphinDeform(float3 p, float song)
 {
     float tail = saturate((-p.z - 2.0) / 7.5);
-    p.y += sin(song * 2.2 + p.z * 0.22) * tail * 0.65;
-    p.x += sin(song * 1.1 + p.z * 0.18) * tail * 0.18;
+    p.y += sin(song * 2.2 + p.z * 0.22) * tail * 0.82;
+    p.x += sin(song * 1.1 + p.z * 0.18) * tail * 0.22;
+
+    float finSpan = saturate((abs(p.x) - 0.75) / 3.75);
+    float finRoot = saturate((p.z + 2.5) / 2.5) * saturate((4.8 - p.z) / 2.0);
+    float fin = finSpan * finRoot;
+    float finPhase = song * 1.35 + p.z * 0.12;
+    p.y += sin(finPhase) * fin * 0.36;
+    p.z += cos(finPhase) * fin * 0.10;
     return p;
 }
 
