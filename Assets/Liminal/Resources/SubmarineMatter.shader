@@ -19,6 +19,7 @@ Shader "Liminal/Submarine Matter"
             #pragma fragment Frag
             #pragma target 4.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "../Shaders/MatterFlow.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
             float4 _Tint;
@@ -109,6 +110,8 @@ Shader "Liminal/Submarine Matter"
                 float3 drift = float3(sin(age * 0.23 + craft) * 3.5,
                     sin(age * 0.17 + craft * 2.0) * 2.2, cos(age * 0.2 + craft) * 3.5);
                 float3 cloudOffset = direction * radial + drift;
+                cloudOffset += MatterFlowDelta(hullOffset*.25,age,seed)*3.0;
+                cloudOffset += RotateY(float3(0,0,1),state.y)*(1-exp(-age*.8))*3.0;
                 return _FleetCloudCenters[craft].xyz + lerp(hullOffset, cloudOffset, dissolve);
             }
 
@@ -234,6 +237,7 @@ Shader "Liminal/Submarine Matter"
                 float3 world = lerp(from, to, morph);
                 float flow = sin(_Song * 1.6 + input.data.x * 31.0) * sin(morph * 3.14159265);
                 world += float3(flow * 0.52, flow * 0.31, -flow * 0.43);
+                world += MatterFlowDelta(from*.08,_Morph*4.0,input.data.x)*sin(morph*3.14159265)*3.5;
 
                 float distanceToCamera = length(_WorldSpaceCameraPos - world);
                 float viewDepth = abs(mul(UNITY_MATRIX_V, float4(world, 1.0)).z);
@@ -256,6 +260,10 @@ Shader "Liminal/Submarine Matter"
                 float tip = input.data.z > 3.5 ? smoothstep(-128.0, -100.0, input.giantPoint.y) : 0.0;
                 palette += float3(0.23, 0.77, 1.2) * tip * _SpearCharge * giantWeight;
                 float flare = 1.0 + (0.12 + input.data.w * 0.22) * (0.5 + 0.5 * sin(_BeatPosition * 6.2831853 + input.data.x * 19.0));
+                flare *= 1.0+.25*sin(morph*3.14159265);
+                float cloud=lerp(_FormFrom>.5 && _FormFrom<1.5?FleetCloudDissolve(input):0.0,
+                    _FormTo>.5 && _FormTo<1.5?FleetCloudDissolve(input):0.0,morph);
+                flare *= 1.0+.3*sin(cloud*3.14159265);
                 float fade = exp(-distanceToCamera * 0.00165);
 
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;

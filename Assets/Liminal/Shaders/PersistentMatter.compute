@@ -1,5 +1,6 @@
 #pragma kernel Initialize
 #pragma kernel Simulate
+#include "MatterFlow.hlsl"
 #include "WhaleAnatomy.hlsl"
 
 static const int WhaleRingCount = 12;
@@ -180,6 +181,7 @@ void Simulate(uint3 id : SV_DispatchThreadID)
         float3 swirl = cross(axis, Curl(position * 0.035, _Song * 0.6 + seed.traits.z));
         acceleration = offset * stiffness - (velocity - _WhaleVelocity) * (2.0 * sqrt(stiffness));
         acceleration += swirl * 16.0 * (1.0 - converge);
+        acceleration += MatterCurrent(position,age,seed.traits.z)*6.0*(1.0-converge);
     }
     else if (phase > 3.5)
     {
@@ -188,6 +190,7 @@ void Simulate(uint3 id : SV_DispatchThreadID)
         float3 peel = normalize(source - group.impulse.xyz + float3(0.001,0.002,0.003));
         source += peel * sin(saturate(age / 1.65) * 3.14159265) * 9;
         float3 forming = lerp(source, target, morph);
+        forming += MatterFlowDelta(source*.25,age,seed.traits.z)*sin(morph*3.14159265)*2.2;
         acceleration += (forming - position) * 120 - (velocity - dolphinVelocity.xyz * morph) * 21.9;
     }
     else if (phase < 0.5)
@@ -258,6 +261,7 @@ void Simulate(uint3 id : SV_DispatchThreadID)
         else
             acceleration += toDestination * lerp(0.015, 12.0, settle) * travel - velocity * lerp(0.8, 5.2, settle) * release;
         acceleration += vortex * (0.7 * (1.0 - settle));
+        acceleration += MatterCurrent(position,age,seed.traits.z)*6.0*release*(1.0-settle);
         float3 origin = group.impulse.xyz;
         float3 burst = position - origin;
         acceleration += normalize(burst + 0.0001) * max(0.0, group.impulse.w) * erupt;
@@ -303,14 +307,16 @@ void Simulate(uint3 id : SV_DispatchThreadID)
     if (phase > 4.5)
     {
         float ribbon = pow(0.5 + 0.5 * sin(age * 5.0 - seed.form.z * 0.16 + seed.traits.z * 8.0), 6.0);
-        p.colorSize = float4(lerp(float3(0.025,0.36,1.6),float3(0.06,1.5,2.4),ribbon), seed.form.w * 1.3);
+        float gathering=1.0+.3*sin(saturate(age/3.0)*3.14159265);
+        p.colorSize = float4(lerp(float3(0.025,0.36,1.6),float3(0.06,1.5,2.4),ribbon)*gathering, seed.form.w * 1.3);
         p.identityState.w = 0;
     }
     else if (phase > 3.5)
     {
         float glint = pow(0.5 + 0.5 * sin(_Song * 2.0 - _AlternateForms[id.x].z * 0.55), 10);
         float3 ocean = lerp(float3(0.035,0.30,1.5),float3(0.03,1.35,2.0),glint);
-        p.colorSize = float4(ocean * (0.5 + glint * 0.8), _AlternateForms[id.x].w);
+        float peeling=1.0+.3*sin(saturate(age/1.65)*3.14159265);
+        p.colorSize = float4(ocean * (0.5 + glint * 0.8)*peeling, _AlternateForms[id.x].w);
         p.identityState.w = 0;
     }
     else if (kind > 2.5 && phase < 0.5)

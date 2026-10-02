@@ -37,6 +37,7 @@ Shader "Liminal/Hermit Matter"
             #pragma fragment Frag
             #pragma target 4.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "../Shaders/MatterFlow.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
             float4 _Tint;
@@ -203,7 +204,8 @@ Shader "Liminal/Hermit Matter"
                 float distance = min(elapsed * (1.6 + seed * 1.5), 22.0) * (0.45 + Hash(id, 16.0));
                 float sway = (sin(elapsed * 0.37 + seed * TAU) - sin(seed * TAU)) * 0.65;
                 float sway2 = (cos(elapsed * 0.29 + seed * 19.0) - cos(seed * 19.0)) * 0.48;
-                return source + drift * distance + float3(sway, sway2, -sway * 0.55);
+                return source + drift * distance + float3(sway, sway2, -sway * 0.55)+
+                    MatterFlowDelta(source*.2,elapsed,seed)*min(elapsed*.45,1.8);
             }
 
             float3 RefugePoint(float id, out float part, out float accent)
@@ -337,6 +339,7 @@ Shader "Liminal/Hermit Matter"
                     float3 scattered = ScatteredPoint(source, id, input.data.z, max(0.0, _Song - _DeathSong));
                     float blend = smoothstep(0.0, 1.0, _MergeProgress);
                     world = lerp(scattered, GiantPoint(input, _Beat, id), blend);
+                    world += MatterFlowDelta(source*.2,_MergeProgress*4.0,input.data.z)*sin(blend*PI)*3.0;
                     matterScale = lerp(1.0, GIANT_SCALE, blend);
                     color = lerp(color, giantColor, blend);
                 }
@@ -366,6 +369,7 @@ Shader "Liminal/Hermit Matter"
                     float3 stream = float3(-drift.z, 0.6 + abs(drift.y), drift.x);
                     world = lerp(source + drift * (3.8 * disperse), refuge, blend)
                         + stream * (sin(blend * PI) * 8.0);
+                    world += MatterFlowDelta(source*.15,_RefugeProgress*7.0,input.data.z)*sin(blend*PI)*3.0;
                     matterScale = lerp(sourceScale, 2.4, blend);
                     color = lerp(sourceColor, RefugeColor(refugePart, refugeAccent, id), blend);
                 }
@@ -399,6 +403,10 @@ Shader "Liminal/Hermit Matter"
                 float pulse = 0.96 + 0.04 * sin(_Beat * TAU + input.data.z * TAU);
                 float distanceFade = exp(-distanceToCamera * 0.0014);
                 color *= _Tint.rgb * _Gain * 2.4 * pulse * distanceFade;
+                float transitionLight=_State>.5 && _State<1.5?exp(-max(0,_Song-_DeathSong)*1.6):
+                    _State<2.5 && _State>1.5?sin(saturate(_MergeProgress)*PI):
+                    _State<3.5 && _State>2.5?sin(saturate(_RefugeProgress)*PI):0;
+                color *= 1.0+transitionLight*.3;
                 color *= 1.0 + glintMask * max(0.0, sin(_Song * 3.6 + input.data.z * 29.0)) * 0.5;
 
                 output.positionCS = TransformWorldToHClip(world);
