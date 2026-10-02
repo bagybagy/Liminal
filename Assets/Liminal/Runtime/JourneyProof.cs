@@ -134,7 +134,7 @@ namespace Liminal
                 }
             }
             report.submarineHits=game.Submarines.TotalHits;
-            Check(game.Submarines.Complete&&report.submarineHits==160&&game.Progress.Has(BossId.Submarine),
+            Check(game.Submarines.Complete&&report.submarineHits==SubmarineEncounter.TotalGoal&&game.Progress.Has(BossId.Submarine),
                 "All submarine forms must remain beatable and record the boss");
             Check(game.Progress.OptionalCount==3,"Defeat count must derive from boss IDs, not visited rooms");
 

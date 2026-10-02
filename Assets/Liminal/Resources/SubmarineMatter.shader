@@ -34,6 +34,8 @@ Shader "Liminal/Submarine Matter"
             float _Song;
             float _Reduced;
             float _SpearCharge;
+            float4 _FleetCloudCenters[3];
+            float4 _FleetCloudStates[3];
             CBUFFER_END
 
             struct Input
@@ -62,6 +64,60 @@ Shader "Liminal/Submarine Matter"
                 return float3(c * p.x - s * p.y, s * p.x + c * p.y, p.z);
             }
 
+            float3 RotateY(float3 p, float angle)
+            {
+                float s = sin(angle), c = cos(angle);
+                return float3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z);
+            }
+
+            int FleetCraftIndex(Input input)
+            {
+                return clamp((int)(input.uv.w + 0.5), 0, 2);
+            }
+
+            float3 FleetCraftLocalCenter(int craft)
+            {
+                float angle = craft * 2.0943951;
+                return float3(cos(angle) * 72.0, sin(angle * 2.0) * 5.0, sin(angle) * 72.0);
+            }
+
+            float FleetCloudDissolve(Input input)
+            {
+                int craft = FleetCraftIndex(input);
+                float4 state = _FleetCloudStates[craft];
+                if (state.z < 0.5) return 0.0;
+                return smoothstep(0.0, 3.2, max(0.0, _Song - state.x));
+            }
+
+            float3 FleetMatterPosition(Input input)
+            {
+                int craft = FleetCraftIndex(input);
+                float3 live = mul(_FleetToWorld, float4(input.fleetPoint.xyz, 1.0)).xyz;
+                float4 state = _FleetCloudStates[craft];
+                if (state.z < 0.5) return live;
+
+                float age = max(0.0, _Song - state.x);
+                float dissolve = smoothstep(0.0, 3.2, age);
+                float3 centerOffset = input.fleetPoint.xyz - FleetCraftLocalCenter(craft);
+                float3 hullOffset = RotateY(centerOffset, state.y);
+                float seed = input.data.x;
+                float angle = seed * 6.2831853;
+                float vertical = frac(seed * 7.13) * 2.0 - 1.0;
+                float radial = 9.0 + frac(seed * 13.37) * 31.0;
+                float planar = sqrt(max(0.0, 1.0 - vertical * vertical));
+                float3 direction = float3(cos(angle) * planar, vertical, sin(angle) * planar);
+                float3 drift = float3(sin(age * 0.23 + craft) * 3.5,
+                    sin(age * 0.17 + craft * 2.0) * 2.2, cos(age * 0.2 + craft) * 3.5);
+                float3 cloudOffset = direction * radial + drift;
+                return _FleetCloudCenters[craft].xyz + lerp(hullOffset, cloudOffset, dissolve);
+            }
+
+            float FormOpacity(float form, Input input)
+            {
+                if (form < 0.5 || form >= 1.5) return 1.0;
+                return lerp(1.0, 0.52, FleetCloudDissolve(input));
+            }
+
             float3 GiantPose(float3 position, float joint)
             {
                 if (joint < 0.5) return position;
@@ -86,7 +142,7 @@ Shader "Liminal/Submarine Matter"
                 if (form < 0.5)
                     return mul(_SubmarineToWorld, float4(input.positionOS, 1.0)).xyz;
                 if (form < 1.5)
-                    return mul(_FleetToWorld, float4(input.fleetPoint.xyz, 1.0)).xyz;
+                    return FleetMatterPosition(input);
                 if (form < 2.5)
                 {
                     float flowAngle = _Song * input.giantFlowCenter.w * lerp(1.0, 0.45, _Reduced);
@@ -193,6 +249,7 @@ Shader "Liminal/Submarine Matter"
                 float3 fromColor = Palette(_FormFrom, fromAccent);
                 float3 toColor = Palette(_FormTo, toAccent);
                 float3 palette = lerp(fromColor, toColor, morph);
+                float matterOpacity = lerp(FormOpacity(_FormFrom, input), FormOpacity(_FormTo, input), morph);
                 float hullLight = lerp(HullLight(_FormFrom, input, from), HullLight(_FormTo, input, to), morph);
                 float giantWeight = lerp(_FormFrom > 1.5 && _FormFrom < 2.5 ? 1.0 : 0.0,
                     _FormTo > 1.5 && _FormTo < 2.5 ? 1.0 : 0.0, morph);
@@ -206,7 +263,7 @@ Shader "Liminal/Submarine Matter"
                 world += (cameraRight * input.uv.x + cameraUp * input.uv.y) * size;
                 output.positionCS = TransformWorldToHClip(world);
                 output.uv = input.uv.xy;
-                output.color = float4(palette * input.color.rgb * _Tint.rgb * _Gain * pulse * flare * fade * hullLight, 1.0);
+                output.color = float4(palette * input.color.rgb * _Tint.rgb * _Gain * pulse * flare * fade * hullLight * matterOpacity, 1.0);
                 return output;
             }
 

@@ -134,7 +134,7 @@ namespace Liminal
             report.spearShots = submarines.SpearShots;
             report.completedPhases = submarines.CompletedPhases;
             report.submarineComplete = submarines.Complete;
-            Require(submarines.Complete && submarines.TotalHits == 160 && submarines.CompletedPhases == 3,
+            Require(submarines.Complete && submarines.TotalHits == SubmarineEncounter.TotalGoal && submarines.CompletedPhases == 3,
                 "Large hull, three craft and mechanical giant must all be beatable through normal fire");
             Require(submarines.ParticleCount == report.submarineParticles && submarines.InitializationCount == submarineInitializations,
                 "Submarine transformations must preserve their original particle identities");

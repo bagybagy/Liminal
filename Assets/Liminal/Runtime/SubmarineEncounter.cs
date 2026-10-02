@@ -11,7 +11,12 @@ namespace Liminal
         const int FleetPhase = 1;
         const int GiantPhase = 2;
         const int ReefPhase = 3;
-        const int TotalGoal = 160;
+        public const int SubmarineGoal = 48;
+        public const int FleetCraftCount = 3;
+        public const int FleetCraftGoal = 16;
+        public const int FleetGoal = FleetCraftCount * FleetCraftGoal;
+        public const int PoseidonGoal = 128;
+        public const int TotalGoal = 224;
         const float MorphSeconds = 4f;
         const float FleetWallMargin = 100f;
 
@@ -24,6 +29,10 @@ namespace Liminal
         }
 
         readonly List<LockTarget> publicTargets = new(32);
+        readonly int[] fleetCraftHits = new int[FleetCraftCount];
+        readonly bool[] fleetCraftDefeated = new bool[FleetCraftCount];
+        readonly Vector4[] fleetCloudCenters = new Vector4[FleetCraftCount];
+        readonly Vector4[] fleetCloudStates = new Vector4[FleetCraftCount];
         Encounter combat;
         ParticleWorld world;
         Flight flight;
@@ -32,14 +41,16 @@ namespace Liminal
         Material matterMaterial;
         GameObject matterObject;
         TargetSlot[] submarinePool, fleetPool, giantPool;
+        GameObject[] fleetPressureOwners;
         Matrix4x4 submarineMatrix, fleetMatrix, giantMatrix, reefMatrix;
         MaterialPropertyBlock markerProperties;
         int submarineMatrixId, fleetMatrixId, giantMatrixId, reefMatrixId;
         int formFromId, formToId, morphId, beatPositionId, songId, reducedId, tintId, spearChargeId;
+        int fleetCloudCentersId, fleetCloudStatesId;
         int activePoolCount, lastWholeBeat = -1;
         int fromForm, toForm;
         float transitionStartSong, fleetAngle;
-        bool initialized, roomIsActive, closing, morphStarted;
+        bool initialized, roomIsActive, closing, morphStarted, phaseReleaseSent;
         Vector3 submarinePosition, focus;
         Vector3 spearAim;
         int spearPattern = -1;
@@ -66,6 +77,22 @@ namespace Liminal
         public int SpearVolleys { get; private set; }
         public int SpearTelegraphs { get; private set; }
         public bool SpearCharging => spearPattern >= 0;
+        public int FleetCraftHits(int craft) => fleetCraftHits[ValidateFleetCraft(craft)];
+        public bool FleetCraftDefeated(int craft) => fleetCraftDefeated[ValidateFleetCraft(craft)];
+        public int FleetCraftIndexOf(LockTarget target)
+        {
+            if (target == null || fleetPool == null) return -1;
+            for (int i = 0; i < fleetPool.Length; i++)
+                if (fleetPool[i].target == target) return i / (fleetPool.Length / FleetCraftCount);
+            return -1;
+        }
+        public Vector3 FleetCraftCenter(int craft)
+        {
+            ValidateFleetCraft(craft);
+            if (fleetCraftDefeated[craft])
+                return new Vector3(fleetCloudCenters[craft].x, fleetCloudCenters[craft].y, fleetCloudCenters[craft].z);
+            return fleetMatrix.MultiplyPoint3x4(SubmarineGeometry.FleetLocal(craft, Vector3.zero));
+        }
 
         public void Initialize(Encounter combat, ParticleWorld world, Flight flight, MusicTransport music)
         {
@@ -96,6 +123,8 @@ namespace Liminal
             reducedId = Shader.PropertyToID("_Reduced");
             tintId = Shader.PropertyToID("_Tint");
             spearChargeId = Shader.PropertyToID("_SpearCharge");
+            fleetCloudCentersId = Shader.PropertyToID("_FleetCloudCenters");
+            fleetCloudStatesId = Shader.PropertyToID("_FleetCloudStates");
             markerProperties = new MaterialPropertyBlock();
 
             matterMesh = SubmarineGeometry.Build();
@@ -109,6 +138,13 @@ namespace Liminal
             matterRenderer.shadowCastingMode = ShadowCastingMode.Off;
             matterRenderer.receiveShadows = false;
             matterObject.SetActive(roomIsActive);
+            fleetPressureOwners = new GameObject[FleetCraftCount];
+            for (int i = 0; i < FleetCraftCount; i++)
+            {
+                fleetPressureOwners[i] = new GameObject($"Scarlet Engine / submersible {i + 1} pressure");
+                fleetPressureOwners[i].transform.SetParent(matterObject.transform, false);
+            }
+            ApplyFleetCloudData();
 
             submarinePool = CreatePool(SubmarinePhase, SubmarineGeometry.SubmarineTargets);
             fleetPool = CreatePool(FleetPhase, SubmarineGeometry.FleetTargets);
@@ -136,7 +172,7 @@ namespace Liminal
             if (leavingRoom)
             {
                 RemoveOwnedLocks();
-                combat.ClearPressureShots(this);
+                ClearOwnedPressureShots();
                 ClearSpearPattern();
             }
 
@@ -171,9 +207,9 @@ namespace Liminal
         public void ResetEncounter()
         {
             if (!initialized) return;
-            combat.ClearPressureShots(this);
             ClearSpearPattern();
             SpearShots = SpearVolleys = SpearTelegraphs = 0;
+            ClearOwnedPressureShots();
             UnregisterPool(submarinePool);
             UnregisterPool(fleetPool);
             UnregisterPool(giantPool);
@@ -185,6 +221,15 @@ namespace Liminal
             TransitionProgress = 0f;
             Phase = SubmarinePhase;
             PhaseHits = TotalHits = CompletedPhases = 0;
+            phaseReleaseSent = false;
+            for (int i = 0; i < FleetCraftCount; i++)
+            {
+                fleetCraftHits[i] = 0;
+                fleetCraftDefeated[i] = false;
+                fleetCloudCenters[i] = Vector4.zero;
+                fleetCloudStates[i] = Vector4.zero;
+            }
+            ApplyFleetCloudData();
             fleetAngle = 0f;
             fromForm = toForm = Phase;
             transitionStartSong = 0f;
@@ -273,10 +318,35 @@ namespace Liminal
         void OnTargetHit(TargetSlot slot, LockTarget target, float song)
         {
             if (!initialized || slot.phase != Phase || Complete) return;
+            int craft = -1;
+            if (Phase == FleetPhase)
+            {
+                craft = slot.index / (fleetPool.Length / FleetCraftCount);
+                if (fleetCraftDefeated[craft] || fleetCraftHits[craft] >= FleetCraftGoal)
+                {
+                    world.BurstAt(target.position, song, HitColor(Phase));
+                    if (target.hp <= 0 && target.reserved == 0) RetireFleetTarget(slot);
+                    return;
+                }
+                fleetCraftHits[craft]++;
+            }
             PhaseHits++;
             TotalHits++;
             world.BurstAt(target.position, song, HitColor(Phase), Phase == GiantPhase ? 1.3f : 1f);
-            if (PhaseHits >= GoalFor(Phase)) BeginClosing();
+            if (Phase == FleetPhase && fleetCraftHits[craft] == FleetCraftGoal)
+            {
+                DefeatFleetCraft(craft, song);
+                music.BossRelease(song, 3);
+            }
+            if (PhaseHits >= GoalFor(Phase))
+            {
+                if (Phase != FleetPhase && !phaseReleaseSent)
+                {
+                    phaseReleaseSent = true;
+                    music.BossRelease(song, 3);
+                }
+                BeginClosing();
+            }
             SetStatus();
         }
 
@@ -285,7 +355,7 @@ namespace Liminal
             if (closing || Complete) return;
             closing = true;
             ClearSpearPattern();
-            if (Phase == GiantPhase) combat.ClearPressureShots(this);
+            if (Phase == GiantPhase) ClearOwnedPressureShots();
             Transitioning = true;
             TransitionProgress = 0f;
             RemoveOwnedLocks();
@@ -297,7 +367,7 @@ namespace Liminal
         void StartMorph(float song)
         {
             UnregisterPool(CurrentPool());
-            combat.ClearPressureShots(this);
+            ClearOwnedPressureShots();
             ClearSpearPattern();
             fromForm = Phase;
             toForm = Phase == GiantPhase ? ReefPhase : Phase + 1;
@@ -315,6 +385,7 @@ namespace Liminal
             Phase = toForm;
             CompletedPhases = Phase;
             PhaseHits = 0;
+            phaseReleaseSent = false;
             Transitioning = false;
             closing = false;
             morphStarted = false;
@@ -328,13 +399,14 @@ namespace Liminal
             if (Phase == ReefPhase)
             {
                 Complete = true;
-                combat.ClearPressureShots(this);
+                ClearOwnedPressureShots();
                 SetStatus();
                 return;
             }
 
             TargetSlot[] pool = CurrentPool();
-            RegisterPool(pool, pool.Length);
+            if (Phase == FleetPhase) RegisterFleetPool();
+            else RegisterPool(pool, pool.Length);
             UpdateTargetPoses(beatPosition);
             UpdateTargetVisibility();
             SetStatus();
@@ -342,6 +414,11 @@ namespace Liminal
 
         void EvaluateRearm()
         {
+            if (Phase == FleetPhase)
+            {
+                EvaluateFleetRearm();
+                return;
+            }
             TargetSlot[] pool = CurrentPool();
             if (pool == null) return;
             int available = 0;
@@ -352,6 +429,121 @@ namespace Liminal
             int goalRemaining = GoalFor(Phase) - PhaseHits;
             if (available > 3 || available >= goalRemaining || HasReservedTargets()) return;
             RegisterPool(pool, Mathf.Min(pool.Length, goalRemaining));
+        }
+
+        void EvaluateFleetRearm()
+        {
+            if (PhaseHits >= FleetGoal) return;
+            int slotsPerCraft = fleetPool.Length / FleetCraftCount;
+            for (int craft = 0; craft < FleetCraftCount; craft++)
+            {
+                if (fleetCraftDefeated[craft]) continue;
+                int available = 0;
+                bool reserved = false;
+                for (int i = craft * slotsPerCraft; i < (craft + 1) * slotsPerCraft; i++)
+                {
+                    LockTarget target = fleetPool[i].target;
+                    if (target == null) continue;
+                    available += Mathf.Max(0, target.hp - target.reserved);
+                    reserved |= target.reserved > 0;
+                }
+                int remaining = FleetCraftGoal - fleetCraftHits[craft];
+                if (reserved || available > 3 || available >= remaining) continue;
+                RegisterFleetCraftTargets(craft);
+            }
+        }
+
+        void RegisterFleetPool()
+        {
+            if (fleetPool == null || !combat) return;
+            UnregisterPool(fleetPool);
+            for (int craft = 0; craft < FleetCraftCount; craft++)
+                RegisterFleetCraftTargets(craft);
+        }
+
+        void RegisterFleetCraftTargets(int craft)
+        {
+            if (fleetCraftDefeated[craft]) return;
+            int slotsPerCraft = fleetPool.Length / FleetCraftCount;
+            int start = craft * slotsPerCraft;
+            int end = start + slotsPerCraft;
+            for (int i = start; i < end; i++)
+            {
+                if (fleetPool[i].target != null)
+                {
+                    if (fleetPool[i].target.reserved > 0) return;
+                    RetireFleetTarget(fleetPool[i]);
+                }
+            }
+            int count = Mathf.Min(slotsPerCraft, FleetCraftGoal - fleetCraftHits[craft]);
+            for (int point = 0; point < count; point++)
+            {
+                TargetSlot slot = fleetPool[start + point];
+                EnsureVisual(slot);
+                slot.target = combat.RegisterEnvironment(slot.visual,
+                    (target, song) => OnTargetHit(slot, target, song));
+                if (slot.target == null) continue;
+                slot.target.acquireRange = 145f;
+                slot.target.position = TargetPosition(slot, 0f);
+                slot.visual.transform.position = slot.target.position;
+                slot.visual.transform.localScale = Vector3.one * 1.35f;
+                slot.visual.SetActive(roomIsActive);
+                publicTargets.Add(slot.target);
+                activePoolCount++;
+            }
+        }
+
+        void DefeatFleetCraft(int craft, float song)
+        {
+            if (fleetCraftDefeated[craft]) return;
+            fleetCraftDefeated[craft] = true;
+            Vector3 center = fleetMatrix.MultiplyPoint3x4(SubmarineGeometry.FleetLocal(craft, Vector3.zero));
+            fleetCloudCenters[craft] = new Vector4(center.x, center.y, center.z, 1f);
+            fleetCloudStates[craft] = new Vector4(song, fleetAngle, 1f, 0f);
+            if (fleetPressureOwners != null && fleetPressureOwners[craft])
+                combat.ClearPressureShots(fleetPressureOwners[craft]);
+            int slotsPerCraft = fleetPool.Length / FleetCraftCount;
+            for (int i = craft * slotsPerCraft; i < (craft + 1) * slotsPerCraft; i++)
+                RetireFleetTarget(fleetPool[i]);
+            ApplyFleetCloudData();
+        }
+
+        void RetireFleetTarget(TargetSlot slot)
+        {
+            LockTarget target = slot.target;
+            if (target == null) return;
+            if (publicTargets.Remove(target)) activePoolCount--;
+            combat.Locks.Remove(target);
+            target.hp = target.reserved;
+            if (target.reserved > 0) return;
+            bool registered = combat.Targets.Contains(target);
+            if (registered) combat.UnregisterEnvironment(target);
+            target.onHit = null;
+            slot.target = null;
+            publicTargets.Remove(target);
+            activePoolCount = Mathf.Max(0, activePoolCount - 1);
+            if (registered)
+            {
+                slot.visual = null;
+                slot.renderer = null;
+            }
+            else if (slot.visual)
+            {
+                slot.visual.SetActive(false);
+            }
+        }
+
+        void ApplyFleetCloudData()
+        {
+            if (!matterMaterial) return;
+            matterMaterial.SetVectorArray(fleetCloudCentersId, fleetCloudCenters);
+            matterMaterial.SetVectorArray(fleetCloudStatesId, fleetCloudStates);
+        }
+
+        static int ValidateFleetCraft(int craft)
+        {
+            if ((uint)craft >= FleetCraftCount) throw new ArgumentOutOfRangeException(nameof(craft));
+            return craft;
         }
 
         bool HasReservedTargets()
@@ -390,7 +582,8 @@ namespace Liminal
             float burstIn = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(4f, 4.8f, beatCycle));
             float burstOut = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(6f, 7f, beatCycle));
             float speedBurst = Mathf.Clamp01(burstIn * burstOut);
-            fleetAngle += dt * (0.055f + speedBurst * 0.68f);
+            if (roomIsActive && Phase == FleetPhase && !closing && !combat.Ended && !combat.Peaceful)
+                fleetAngle += dt * (0.055f + speedBurst * 0.68f);
             Vector3 fleetCenter = ClampFleetCenter(flight.Position);
             fleetMatrix = Matrix4x4.TRS(fleetCenter, Quaternion.Euler(0f, fleetAngle * Mathf.Rad2Deg, 0f), Vector3.one);
             giantMatrix = Matrix4x4.TRS(center, Quaternion.identity, Vector3.one);
@@ -429,6 +622,8 @@ namespace Liminal
             for (int i = 0; i < pool.Length; i++)
             {
                 TargetSlot slot = pool[i];
+                if (slot.phase == FleetPhase && fleetCraftDefeated[i / (pool.Length / FleetCraftCount)])
+                    continue;
                 Vector3 position = TargetPosition(slot, beatPosition);
                 if (slot.target != null) slot.target.position = position;
                 if (slot.visual) slot.visual.transform.position = position;
@@ -477,7 +672,7 @@ namespace Liminal
             {
                 lastWholeBeat = currentBeat;
                 ClearSpearPattern();
-                if (Phase == GiantPhase) combat.ClearPressureShots(this);
+                if (Phase == GiantPhase) ClearOwnedPressureShots();
                 return;
             }
             int first = Mathf.Max(lastWholeBeat + 1, currentBeat - 32);
@@ -501,17 +696,20 @@ namespace Liminal
             else if (Phase == FleetPhase)
             {
                 if (position == 0 || position == 2 || position == 4 || position == 6)
-                    FireCraftArc(song, beat, (beat / 2) % 3);
+                {
+                    int craft = (beat / 2) % FleetCraftCount;
+                    if (!fleetCraftDefeated[craft]) FireCraftArc(song, beat, craft);
+                }
             }
             else if (Phase == GiantPhase)
             {
-                int stage = beat % 32;
+                int stage = beat % 21;
                 if (stage == 0) TelegraphSpear(song, beat, 0);
-                else if (stage == 10) TelegraphSpear(song, beat, 1);
-                else if (stage == 22) TelegraphSpear(song, beat, 2);
+                else if (stage == 7) TelegraphSpear(song, beat, 1);
+                else if (stage == 14) TelegraphSpear(song, beat, 2);
                 else if (stage == 2 || stage == 4) FireSpearCurtain(song, beat, 0, stage == 4);
-                else if (stage == 12 || stage == 14) FireSpearCurtain(song, beat, 1, stage == 14);
-                else if (stage == 24 || stage == 26) FireSpearCurtain(song, beat, 2, stage == 26);
+                else if (stage == 9 || stage == 11) FireSpearCurtain(song, beat, 1, stage == 11);
+                else if (stage == 16 || stage == 18) FireSpearCurtain(song, beat, 2, stage == 18);
             }
         }
 
@@ -542,6 +740,7 @@ namespace Liminal
 
         void FireCraftArc(float song, int beat, int craft)
         {
+            if (fleetCraftDefeated[craft]) return;
             Vector3 aim = LeadPoint();
             for (int i = 0; i < 3; i++)
             {
@@ -550,7 +749,8 @@ namespace Liminal
                 Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
                 float spread = (i - 1) * 0.09f;
                 Vector3 direction = (forward + right * spread).normalized;
-                Launch(origin, direction, song, 22f + ((beat + i) % 6), HitColor(FleetPhase));
+                Launch(origin, direction, song, 22f + ((beat + i) % 6), HitColor(FleetPhase),
+                    fleetPressureOwners[craft]);
             }
         }
 
@@ -571,7 +771,7 @@ namespace Liminal
                 ClearSpearPattern();
                 return;
             }
-            int count = pattern == 1 ? 5 : 7;
+            int count = pattern == 0 ? 11 : pattern == 1 ? 7 : 9;
             if (combat.LivePressureShots(this) + count > 24 || !combat.CanRegisterPressureShots(count))
             {
                 if (secondLayer) ClearSpearPattern();
@@ -586,7 +786,7 @@ namespace Liminal
             Vector3 right = Vector3.Cross(reference, forward).normalized;
             Vector3 up = Vector3.Cross(forward, right).normalized;
             float layer = secondLayer ? 1f : -1f;
-            int lanes = pattern == 0 ? 9 : pattern == 1 ? 7 : 10;
+            int lanes = pattern == 0 ? 13 : pattern == 1 ? 9 : 12;
             int fired = 0;
             for (int i = 0; i < lanes; i++)
             {
@@ -594,14 +794,14 @@ namespace Liminal
                 if (pattern == 0)
                 {
                     // A broad fan with a persistent central escape lane and one side opening.
-                    if (i == 4 || i == ((beat / 32) % 2 == 0 ? 2 : 6)) continue;
-                    x = (i - 4) * 0.12f;
+                    if (i == 6 || i == ((beat / 21) % 2 == 0 ? 3 : 9)) continue;
+                    x = (i - 6) * 0.09f;
                     y = layer * 0.065f;
                 }
                 else if (pattern == 1)
                 {
-                    if (i == 3 || i == ((beat / 32) % 2 == 0 ? 1 : 5)) continue;
-                    float angle = (i - 3) * Mathf.PI / 6f;
+                    if (i == 4 || i == ((beat / 21) % 2 == 0 ? 2 : 6)) continue;
+                    float angle = (i - 4) * Mathf.PI / 8f;
                     x = Mathf.Sin(angle) * 0.38f;
                     y = Mathf.Cos(angle) * 0.22f * layer;
                 }
@@ -639,10 +839,25 @@ namespace Liminal
             if (matterMaterial) matterMaterial.SetFloat(spearChargeId, 0f);
         }
 
-        void Launch(Vector3 origin, Vector3 direction, float song, float speed, Color color)
+        void Launch(Vector3 origin, Vector3 direction, float song, float speed, Color color,
+            UnityEngine.Object owner = null)
         {
-            if (combat.LivePressureShots(this) >= 16 || !combat.CanRegisterPressureShots(1)) return;
-            combat.RegisterPressureShot(origin, direction, song, color, this, Mathf.Clamp(speed, 22f, 28f));
+            int live = combat.LivePressureShots(this);
+            if (fleetPressureOwners != null)
+                for (int i = 0; i < fleetPressureOwners.Length; i++)
+                    if (fleetPressureOwners[i]) live += combat.LivePressureShots(fleetPressureOwners[i]);
+            if (live >= 16 || !combat.CanRegisterPressureShots(1)) return;
+            combat.RegisterPressureShot(origin, direction, song, color, owner ? owner : this,
+                Mathf.Clamp(speed, 22f, 28f));
+        }
+
+        void ClearOwnedPressureShots()
+        {
+            if (!combat) return;
+            combat.ClearPressureShots(this);
+            if (fleetPressureOwners == null) return;
+            for (int i = 0; i < fleetPressureOwners.Length; i++)
+                if (fleetPressureOwners[i]) combat.ClearPressureShots(fleetPressureOwners[i]);
         }
 
         Vector3 LeadPoint()
@@ -671,8 +886,9 @@ namespace Liminal
 
         static int GoalFor(int phase)
         {
-            if (phase == SubmarinePhase || phase == FleetPhase) return 48;
-            return phase == GiantPhase ? 64 : 0;
+            if (phase == SubmarinePhase) return SubmarineGoal;
+            if (phase == FleetPhase) return FleetGoal;
+            return phase == GiantPhase ? PoseidonGoal : 0;
         }
 
         static Color HitColor(int phase)
@@ -713,7 +929,7 @@ namespace Liminal
             roomIsActive = false;
             if (matterObject) matterObject.SetActive(false);
             RemoveOwnedLocks();
-            combat.ClearPressureShots(this);
+            ClearOwnedPressureShots();
             ClearSpearPattern();
             HidePool(submarinePool);
             HidePool(fleetPool);
@@ -731,7 +947,7 @@ namespace Liminal
         {
             if (combat)
             {
-                combat.ClearPressureShots(this);
+                ClearOwnedPressureShots();
                 UnregisterPool(submarinePool);
                 UnregisterPool(fleetPool);
                 UnregisterPool(giantPool);

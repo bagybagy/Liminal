@@ -57,7 +57,7 @@ namespace Liminal
                     float y = corner == 0 || corner == 3 ? -1f : 1f;
                     vertices.Add(source);
                     colors.Add(color);
-                    corners.Add(new Vector4(x, y, size, 0f));
+                    corners.Add(new Vector4(x, y, size, i % 3));
                     identity.Add(new Vector4(seed, submarineAccent, joint, Hash(i, 71)));
                     fleet.Add(new Vector4(fleetPoint.x, fleetPoint.y, fleetPoint.z, fleetAccent));
                     giant.Add(giantPoint);
