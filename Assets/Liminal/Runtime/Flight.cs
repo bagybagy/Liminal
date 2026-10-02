@@ -9,6 +9,8 @@ namespace Liminal
         const float BoostSpeed = 52f;
         const float Acceleration = CruiseSpeed / 0.7f;
         const float BoostAcceleration = BoostSpeed / 0.7f;
+        const float TravelRampSeconds = 3f;
+        const float TravelMultiplier = 1.5f;
         const float CoastDamping = 3.53f;
         const float VrAccelerationTime = 0.7f;
         const float VrBrakingTime = 0.35f;
@@ -24,6 +26,9 @@ namespace Liminal
         public Vector2 AimScreenPosition => new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
         public bool IsCursorCaptured => ownsCursorLock;
         public bool VrEnabled => vrEnabled;
+        public float TravelProgress => travelProgress;
+        public float TravelSpeedMultiplier => 1f + (TravelMultiplier - 1f) * travelProgress;
+        public int TravelPulseCount { get; private set; }
         public bool ReducedMotion;
         public float VrCruiseMetersPerSecond = 20f;
         public float VrBoostMetersPerSecond = 40f;
@@ -40,6 +45,8 @@ namespace Liminal
         bool vrEnabled;
         float vrYawOffset;
         float vrBrakeSpeed;
+        float travelHold, travelProgress, travelSong;
+        bool travelAllowed, travelPulseSent;
         Transform previousCameraParent;
         Vector3 previousCameraLocalPosition;
         Quaternion previousCameraLocalRotation;
@@ -117,6 +124,7 @@ namespace Liminal
 
         public void SuspendInput()
         {
+            ResetTravel();
             if (vrEnabled)
             {
                 ownsCursorLock = false;
@@ -193,9 +201,11 @@ namespace Liminal
             if (direction.sqrMagnitude > 1f)
                 direction.Normalize();
 
+            UpdateTravel(dt, boost && direction.sqrMagnitude > .04f);
+
             if (direction.sqrMagnitude > 0f)
             {
-                float targetSpeed = boost ? BoostSpeed : CruiseSpeed;
+                float targetSpeed = boost ? BoostSpeed * TravelSpeedMultiplier : CruiseSpeed;
                 velocity = Vector3.MoveTowards(velocity, direction * targetSpeed,
                     (boost ? BoostAcceleration : Acceleration) * dt);
             }
@@ -217,6 +227,7 @@ namespace Liminal
         {
             if (vrEnabled == enabled)
                 return;
+            ResetTravel();
 
             if (enabled)
             {
@@ -330,15 +341,17 @@ namespace Liminal
         void StepVrMovement(float dt, Vector3 direction, bool boost)
         {
             direction = Vector3.ClampMagnitude(direction, 1f);
+            UpdateTravel(dt, boost && direction.sqrMagnitude > .04f);
 
             if (direction.sqrMagnitude > 0.0016f)
             {
                 vrBrakeSpeed = 0f;
                 float cruiseSpeed = Mathf.Max(1f, VrCruiseMetersPerSecond);
-                float targetSpeed = boost ? Mathf.Max(cruiseSpeed, VrBoostMetersPerSecond) : cruiseSpeed;
+                float baseBoostSpeed = Mathf.Max(cruiseSpeed, VrBoostMetersPerSecond);
+                float targetSpeed = boost ? baseBoostSpeed * TravelSpeedMultiplier : cruiseSpeed;
                 Vector3 targetVelocity = direction * targetSpeed;
                 velocity = Vector3.MoveTowards(velocity, targetVelocity,
-                    targetSpeed / VrAccelerationTime * dt);
+                    (boost ? baseBoostSpeed : cruiseSpeed) / VrAccelerationTime * dt);
             }
             else if (dt > 0f)
             {
@@ -371,6 +384,33 @@ namespace Liminal
             float t = Mathf.Clamp01((distance - ArenaSoftStart) / (ArenaRadius - ArenaSoftStart));
             float acceleration = Mathf.SmoothStep(0f, 1f, t) * 64f;
             velocity -= offset / distance * acceleration * dt;
+        }
+
+        public void SetTravelContext(bool allowed, float song)
+        {
+            travelAllowed = allowed;
+            travelSong = song;
+        }
+
+        void UpdateTravel(float dt, bool sustainedBoost)
+        {
+            if (travelAllowed && sustainedBoost) travelHold += dt;
+            else travelHold = 0f;
+            float desired = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((travelHold - .7f) / TravelRampSeconds));
+            travelProgress = desired > travelProgress ? desired : Mathf.MoveTowards(travelProgress, desired, dt / .65f);
+            if (travelProgress >= .98f && !travelPulseSent) {
+                travelPulseSent = true;
+                TravelPulseCount++;
+                if (world != null && velocity.sqrMagnitude > 1f)
+                    world.BurstAt(Emitter - velocity.normalized * 22f, travelSong, new Color(.08f, .62f, 1f), .18f);
+            }
+            if (travelHold == 0f && travelProgress <= .001f) travelPulseSent = false;
+        }
+
+        void ResetTravel()
+        {
+            travelHold = travelProgress = 0f;
+            travelAllowed = travelPulseSent = false;
         }
 
         void UpdateRig(float song, float dt, float yawRate)

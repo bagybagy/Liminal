@@ -51,12 +51,13 @@ namespace Liminal
             bool expansionProof=Array.IndexOf(args,"--verify-expansion")>=0;
             bool journeyProof=Array.IndexOf(args,"--verify-journey")>=0;
             bool feedbackProof=Array.IndexOf(args,"--verify-player-feedback")>=0;
+            bool encounterReview=Array.IndexOf(args,"--verify-encounter-review")>=0;
             bool capturePV=false;
 #if UNITY_EDITOR
             legacyProof|=UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false);
             capturePV=UnityEditor.EditorPrefs.GetBool("Liminal.CavernPV",false);
 #endif
-            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||capturePV;
+            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||encounterReview||capturePV;
             CavernMode=!legacyProof && Array.IndexOf(args,"--legacy-arena")<0;
             Cursor.visible=ProofActive;
             World=gameObject.AddComponent<ParticleWorld>();
@@ -89,6 +90,7 @@ namespace Liminal
             if(expansionProof) gameObject.AddComponent<ExpansionProof>().Initialize(this);
             if(journeyProof) gameObject.AddComponent<JourneyProof>().Initialize(this);
             if(feedbackProof) gameObject.AddComponent<PlayerFeedbackProof>().Initialize(this);
+            if(encounterReview) gameObject.AddComponent<EncounterReviewProof>().Initialize(this);
             if(capturePV) gameObject.AddComponent<PvDirector>().Initialize(this);
 #if UNITY_EDITOR
             if(UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false))
@@ -108,6 +110,9 @@ namespace Liminal
             if(!Ready) return;
             if(!ProofActive && Input.GetKeyDown(KeyCode.Escape)) TogglePause();
             float song=(float)Music.Time,dt=Mathf.Min(Time.unscaledDeltaTime,0.05f);
+            bool aiming=Vr && Vr.Enabled ? Vr.LockHeld : Input.GetMouseButton(0);
+            Flight.SetTravelContext(CavernMode && !Music.Paused && !Combat.Ended && !aiming &&
+                Combat.Locks.Count==0 && !Combat.HasPending && song-Combat.LastHitTime>3f,song);
             if(Vr && Vr.Enabled) {
                 Vr.Tick(song,dt,!ProofActive && !Combat.Ended && !Music.Paused);
                 if(!ProofActive && Vr.PausePressed) TogglePause();

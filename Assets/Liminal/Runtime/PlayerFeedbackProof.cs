@@ -188,7 +188,44 @@ namespace Liminal
             game.Flight.EnableVr(false);
             Check(Math.Abs(game.Combat.EffectiveAcquireRange(far) - 105) < .001,
                 "Exiting VR must restore desktop acquisition range.");
+            InspectTravel();
             Finish();
+        }
+
+        void InspectTravel()
+        {
+            Flight flight = game.Flight;
+            flight.SetPose(CaveLayout.Rooms[2].Center, Quaternion.identity);
+            flight.SetTravelContext(true, (float)game.Music.Time);
+            int pulses = flight.TravelPulseCount;
+            for (int i = 0; i < 42; i++) flight.Step(0, 1f / 60, Vector3.forward, Vector2.zero, true);
+            Check(Mathf.Abs(flight.Speed - 52f) < .02f && flight.TravelProgress < .001f,
+                "Initial dash must retain its original 0.7-second acceleration.");
+            for (int i = 0; i < 210; i++) flight.Step(0, 1f / 60, Vector3.forward, Vector2.zero, true);
+            report.desktopTravelSpeed = flight.Speed;
+            Check(Mathf.Abs(flight.Speed - 78f) < .02f && flight.TravelPulseCount == pulses + 1,
+                "Sustained peaceful boost must reach 1.5x and signal exactly once.");
+            flight.SetTravelContext(false, 0);
+            for (int i = 0; i < 60; i++) flight.Step(0, 1f / 60, Vector3.forward, Vector2.zero, true);
+            Check(Mathf.Abs(flight.Speed - 52f) < .02f && flight.TravelProgress == 0,
+                "Combat must blend cruising back to the ordinary dash speed.");
+
+            flight.SetPose(CaveLayout.Rooms[2].Center, Quaternion.identity);
+            flight.EnableVr(true);
+            flight.SetVrHeadPose(new Vector3(.1f, 1.6f, 0), Quaternion.Euler(-12, 0, 0));
+            float fov = flight.View.fieldOfView;
+            Quaternion head = flight.View.transform.localRotation;
+            flight.SetTravelContext(true, (float)game.Music.Time);
+            for (int i = 0; i < 252; i++) flight.StepVr(1f / 60, Vector2.up, 0, 0, true);
+            report.vrTravelSpeed = flight.Speed;
+            Check(Mathf.Abs(flight.Speed - 60f) < .02f &&
+                Quaternion.Angle(head, flight.View.transform.localRotation) < .002f &&
+                Mathf.Abs(fov - flight.View.fieldOfView) < .001f,
+                "VR travel must reach 1.5x without altering head pose or projection.");
+            flight.SuspendInput();
+            Check(flight.TravelSpeedMultiplier == 1, "Pause/focus transitions must cancel travel gear.");
+            flight.EnableVr(false);
+            report.travel = true;
         }
 
         void ResetPose(Vector3 position, Quaternion rotation)
@@ -249,6 +286,8 @@ namespace Liminal
             public bool passed, tidalThroughout, strafe, vertical, gazeFlight, speedCaps, continuousYaw, headPosePreserved;
             public bool gazeCone, rangeAndWalls, eightLocks, angularLockStroke, pauseUi, hardwareVrTested;
             public int scheduledHits;
+            public bool travel;
+            public float desktopTravelSpeed, vrTravelSpeed;
             public double gridError, playbackPhaseError;
             public double phaseAtStart, phaseBeforePause, phaseAfterPause, phaseAtFinish;
             public string[] errors;
