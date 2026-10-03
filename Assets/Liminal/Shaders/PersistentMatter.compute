@@ -2,6 +2,7 @@
 #pragma kernel Simulate
 #include "MatterFlow.hlsl"
 #include "WhaleAnatomy.hlsl"
+#include "AtlantisLight.hlsl"
 
 static const int WhaleRingCount = 12;
 static const int WhaleTargetsPerRing = 4;
@@ -174,6 +175,18 @@ void Simulate(uint3 id : SV_DispatchThreadID)
     bool isDolphin = kind > 3.5 && dolphinVelocity.w > 0.5;
     bool isWhale = kind > 2.5 && !isDolphin;
     float3 target = FormTarget(seed, group, _Song, id.x);
+    bool isCity = phase > 2.5 && phase < 3.5 && kind > 2.5;
+    AtlantisMatterField cityField;
+    cityField.flow = 0;
+    cityField.radiance = 1;
+    cityField.size = 1;
+    cityField.glint = 0;
+    if (isCity)
+    {
+        float3 cityLocal = seed.destination.xyz - _AtlantisOrigin;
+        cityField = EvaluateAtlantisMatterField(
+            cityLocal, seed.traits.z + id.x * 0.0001, _Song, _AuthoredBeat, 0.0);
+    }
     float3 acceleration = 0;
 
     if (phase > 4.5)
@@ -277,7 +290,7 @@ void Simulate(uint3 id : SV_DispatchThreadID)
     }
     else
     {
-        float3 destination = seed.destination.xyz;
+        float3 destination = seed.destination.xyz + cityField.flow;
         float3 offset = destination - position;
         acceleration += offset * 10.0 - velocity * 5.8;
         float3 currentOffset = position - _Current.xyz;
@@ -374,11 +387,11 @@ void Simulate(uint3 id : SV_DispatchThreadID)
         p.colorSize.rgb = lerp(p.colorSize.rgb, transitionColor*(1+flash*_MatterDeathStyle.y), 1.0 - exp(-step * 4.0));
         p.colorSize.w = seed.form.w * (1.0 + cloud * 1.8);
     }
-    else if (kind > 2.5 && phase > 2.5)
+    else if (kind > 2.5 && phase > 2.5 && phase < 3.5)
     {
         float3 local = seed.destination.xyz - _AtlantisOrigin;
         float variation = Hash(id.x + 613.0);
-        float glint = (variation >= .975 ? 1.0 : 0.0) * pow(.5 + .5 * sin(_Song * 1.7 + seed.traits.z * 37), 16);
+        float glint = cityField.glint;
         float flow = .5 + .5 * sin(local.x * .012 + sin(local.z * .009) * 1.9 - _Song * .18);
         float structure = smoothstep(18, 55, local.y);
         float pulse = .94 + .06 * cos(_AuthoredBeat * 1.5707963);
@@ -387,8 +400,8 @@ void Simulate(uint3 id : SV_DispatchThreadID)
         color = lerp(color,pearl,structure * .24 + glint * .5);
         float ornament = (Hash(floor(local.x * .13) + floor(local.z * .13) * 37) >= .94 ? 1.0 : 0.0) * structure;
         color = lerp(color,float3(1.25,.63,.15),ornament * .45);
-        p.colorSize = float4(color * (.52 + variation * .34 + glint * 1.2) * pulse,
-            .14 + variation * .09 + glint * .05);
+        p.colorSize = float4(color * (.52 + variation * .34 + glint * AtlantisMatterGlintBoost) *
+            pulse * cityField.radiance, (.14 + variation * .09 + glint * .05) * cityField.size);
     }
     else if (phase > 2.5)
         p.colorSize = float4(lerp(seed.color.rgb, float3(0.12,0.70,0.48), 0.72), seed.form.w * 1.3);

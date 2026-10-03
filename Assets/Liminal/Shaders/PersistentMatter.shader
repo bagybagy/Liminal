@@ -141,14 +141,13 @@ Shader "Liminal/Persistent Matter"
                 }
                 bool city = seed.traits.y > 2.5 && particle.identityState.z > 2.5 && particle.identityState.z < 3.5;
                 if (city) {
-                    float cityGlint = step(.975, glintHash) *
-                        pow(.5 + .5 * sin(particle.positionAge.w * 1.7 + seed.traits.z * 37), 16);
                     float physicalRadius=particle.colorSize.w;
-                    size = max(physicalRadius, pixelWorld * (.58 + cityGlint * .32));
+                    float radiusTier = clamp(physicalRadius / .19, .45, 1.8);
+                    size = max(physicalRadius, pixelWorld * .58 * radiusTier);
                     stretch = 1.0;
                     // Preserve particle energy when the minimum screen footprint exceeds its physical size.
                     silhouette = .19*lerp(min(1.0,physicalRadius*physicalRadius/max(size*size,.00001)),1,.18);
-                    sparkle = cityGlint * .065;
+                    sparkle = 0.0; // Settled-city shimmer is already encoded in the particle color and radius.
                     contour = 0.0;
                 }
                 float3 world = position + across * uv.x * size + along * uv.y * size * stretch;

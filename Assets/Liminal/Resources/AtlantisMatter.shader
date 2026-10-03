@@ -23,6 +23,7 @@ Shader "Liminal/Atlantis Matter"
             #pragma fragment Frag
             #pragma target 3.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "../Shaders/AtlantisLight.hlsl"
 
             #define ATLANTIS_TAU 6.28318530718
 
@@ -174,6 +175,22 @@ Shader "Liminal/Atlantis Matter"
                     }
                 }
 
+                float role = (_LayerKind < 0.5 || _LayerKind > 2.5) ?
+                    floor(input.data.y + 0.5) : -1.0;
+                float roleContour = step(0.5, role) * (1.0 - step(1.5, role));
+                float roleGlint = step(1.5, role);
+                bool cityLayer = _LayerKind < 0.5 || _LayerKind > 2.5;
+                AtlantisMatterField cityField;
+                cityField.flow = 0.0;
+                cityField.radiance = 1.0;
+                cityField.size = 1.0;
+                cityField.glint = 0.0;
+                if (cityLayer)
+                {
+                    cityField = EvaluateAtlantisMatterField(localAnchor, seed, _Song, _Beat, roleContour);
+                    world += mul((float3x3)unity_ObjectToWorld, cityField.flow);
+                }
+
                 float2 quad = input.uv.xy;
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;
                 float3 cameraUp = UNITY_MATRIX_V[1].xyz;
@@ -181,13 +198,9 @@ Shader "Liminal/Atlantis Matter"
                 float pixelWorld = 2.0 * depth /
                     (max(abs(UNITY_MATRIX_P[1][1]), 0.01) * max(_ScreenParams.y, 1.0));
                 float variation = frac(seed * 73.197 + input.uv.z * 29.31);
-                float role = (_LayerKind < 0.5 || _LayerKind > 2.5) ?
-                    floor(input.data.y + 0.5) : -1.0;
-                float roleContour = step(0.5, role) * (1.0 - step(1.5, role));
-                float roleGlint = step(1.5, role);
                 float sizeTier = lerp(0.78, 1.22, variation) + roleContour * 0.07 + roleGlint * 0.12;
-                float nominalSize = input.uv.z * sizeTier;
-                float size = max(nominalSize, min(pixelWorld * _PixelFloor, 0.42));
+                float nominalSize = input.uv.z * sizeTier * cityField.size;
+                float size = max(nominalSize, min(pixelWorld * _PixelFloor * cityField.size, 0.42));
                 float3 positionWS = world +
                     (cameraRight * quad.x + cameraUp * quad.y) * size;
                 output.positionCS = TransformWorldToHClip(positionWS);
@@ -197,11 +210,12 @@ Shader "Liminal/Atlantis Matter"
                 float diffuse = 0.52 + variation * 0.17;
                 float contour = roleContour * (0.73 + traveling * 0.21);
                 float pulse = saturate(0.48 + 0.52 * sin(_Song * (0.58 + variation * 0.32) + seed * 19.7));
-                float seededGlint = step(0.9975, frac(seed * 127.13 + input.uv.z * 71.7)) * pulse * 0.36;
-                float authoredGlint = roleGlint * (0.45 + pulse * 0.35);
+                float seededGlint = cityField.glint * AtlantisMatterGlintBoost;
+                float authoredGlint = roleGlint * (0.32 + pulse * 0.25);
                 float schoolRadiance = (_LayerKind > 0.5 && _LayerKind < 1.5) ? 0.78 : 1.0;
                 float radiance = max(diffuse, contour) + max(seededGlint, authoredGlint);
                 radiance *= schoolRadiance * (0.72 + formation * 0.28) * (.96 + .04 * cos(_Beat * 1.5707963));
+                radiance *= cityField.radiance;
                 float coverage = saturate(input.uv.z * input.uv.z / max(size * size, 0.00001));
                 output.color = input.color.rgb * _Gain * radiance * lerp(coverage, 1.0, 0.38);
                 float3 glintColor = lerp(float3(0.35, 0.67, 0.80), float3(0.78, 0.60, 0.34),
