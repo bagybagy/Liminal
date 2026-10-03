@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -8,7 +9,7 @@ namespace Liminal
 {
     public sealed class WhaleSplashProof : MonoBehaviour
     {
-        const float TimeoutSeconds = 90f;
+        const float TimeoutSeconds = 180f;
         const float StepSeconds = 1f / 60f;
         const int CaptureWidth = 1600;
         const int CaptureHeight = 900;
@@ -18,6 +19,7 @@ namespace Liminal
         string output;
         float started, simulationSong;
         bool finished;
+        bool combatReview;
         readonly Report report = new();
         readonly string[] captureNames =
         {
@@ -30,6 +32,7 @@ namespace Liminal
             game = owner;
             started = Time.realtimeSinceStartup;
             string[] args = Environment.GetCommandLineArgs();
+            combatReview = Array.IndexOf(args, "--combat-review") >= 0;
             int at = Array.IndexOf(args, "--output");
             output = at >= 0 && at + 1 < args.Length
                 ? args[at + 1]
@@ -54,7 +57,7 @@ namespace Liminal
         {
             if (!finished && Time.realtimeSinceStartup - started > TimeoutSeconds)
             {
-                AddError("Whale splash proof exceeded its ninety-second deadline.");
+                AddError("Whale splash proof exceeded its bounded deadline.");
                 Finish();
             }
         }
@@ -74,6 +77,7 @@ namespace Liminal
             if (report.errors.Length > 0) { Finish(); yield break; }
 
             game.Restart();
+            game.ManualProofTick = true;
             game.Tutorial.SetEnabled(false);
             var marine = game.Marine;
             var arrival = marine.Arrival;
@@ -193,7 +197,231 @@ namespace Liminal
                     "Active plume capture at age " + SplashCaptureAges[i] +
                     " must contain blue-cyan pixels and visibly differ from the after-lifetime frame.");
             }
+            if (combatReview && report.errors.Length == 0) yield return ReviewCombatAndFinale();
             Finish();
+        }
+
+        IEnumerator ReviewCombatAndFinale()
+        {
+            MarineLife marine = game.Marine;
+            float first = marine.CombatFirstActionAt;
+            Check(first > simulationSong, "Combat actions must begin only after the completed arrival has settled.");
+            float cruiseOffset = marine.Arrival.CruiseTime - simulationSong;
+            for (int cycle = 0; cycle < 12; cycle++)
+            {
+                float at = first + cycle * WhaleCombatMotion.Interval;
+                for (float age = 0; age <= WhaleCombatMotion.Duration; age += .1f)
+                {
+                    var pose = WhaleCombatMotion.Evaluate(at + age + cruiseOffset, at + age, first);
+                    for (int target = 0; target < MarineLife.WhaleOrganCount; target++)
+                    {
+                        Vector3 point = pose.Position + pose.Rotation *
+                            (WhaleAnatomy.TargetLocal(target, at + age, pose.Gesture) * 1.8f);
+                        report.allCyclesMaxRoomDistance = Mathf.Max(report.allCyclesMaxRoomDistance, CaveLayout.RoomDistance(2, point));
+                    }
+                }
+            }
+            Check(report.allCyclesMaxRoomDistance < .99f,
+                "Both leap types must remain inside the cave across twelve changing cruise approach phases.");
+            report.combatActions = new CombatReport[2];
+            Vector3 player = game.Flight.Position;
+            for (int action = 0; action < 2; action++)
+            {
+                var result = report.combatActions[action] = new CombatReport();
+                int impactsBefore = game.Horizon.ImpactSplash.ImpactCount;
+                float start = first + action * WhaleCombatMotion.Interval;
+                bool riseCaptured = false, apexCaptured = false, fallCaptured = false, splashCaptured = false;
+                Quaternion previousRotation = Quaternion.identity;
+                Vector3 previousPosition = Vector3.zero;
+                for (int step = -30; step <= (WhaleCombatMotion.Duration + .25f) / StepSeconds; step++)
+                {
+                    simulationSong = start + step * StepSeconds;
+                    marine.Tick(simulationSong, StepSeconds, player);
+                    game.Horizon.Tick(simulationSong, StepSeconds, marine.WhalePosition, marine.WhaleRotation,
+                        marine.WhaleVelocity, false);
+                    var pose = marine.CombatPose;
+                    if (step >= 0 && pose.Kind != WhaleCombatMotion.Action.Cruise)
+                    {
+                        result.kind = pose.Kind.ToString();
+                        result.maxHeightAboveWater = Mathf.Max(result.maxHeightAboveWater,
+                            marine.WhalePosition.y - game.Horizon.SurfaceHeight);
+                        result.maxSpeed = Mathf.Max(result.maxSpeed, marine.WhaleVelocity.magnitude);
+                        result.maxRoll = Mathf.Max(result.maxRoll,
+                            Mathf.Acos(Mathf.Clamp(Vector3.Dot(marine.WhaleRotation * Vector3.up, Vector3.up), -1, 1)) * Mathf.Rad2Deg);
+                    }
+                    if (step > -30)
+                    {
+                        result.maxFrameTravel = Mathf.Max(result.maxFrameTravel, Vector3.Distance(previousPosition, marine.WhalePosition));
+                        result.maxFrameRotation = Mathf.Max(result.maxFrameRotation, Quaternion.Angle(previousRotation, marine.WhaleRotation));
+                    }
+                    previousPosition = marine.WhalePosition; previousRotation = marine.WhaleRotation;
+                    foreach (LockTarget target in marine.WhaleResonatorTargets)
+                        result.maxRoomDistance = Mathf.Max(result.maxRoomDistance, CaveLayout.RoomDistance(2, target.position));
+                    for (int i = 0; i < MarineLife.WhaleOrganCount; i++)
+                    {
+                        Vector3 expected = marine.WhalePosition + marine.WhaleRotation *
+                            (WhaleAnatomy.TargetLocal(i, simulationSong, marine.WhaleGesture) * 1.8f);
+                        result.targetError = Mathf.Max(result.targetError,
+                            Vector3.Distance(expected, marine.WhaleResonatorTargets[i].position));
+                    }
+                    float age = step * StepSeconds;
+                    string prefix = action == 0 ? "breach" : "slam";
+                    if (!riseCaptured && age >= (action == 0 ? 4.7f : 4.3f))
+                    {
+                        Frame(marine.WhalePosition + new Vector3(330, 100, 310), marine.WhalePosition);
+                        result.rise = Capture(prefix + "-rise.png"); riseCaptured = true;
+                    }
+                    if (!apexCaptured && age >= (action == 0 ? 6.3f : 5.1f))
+                    {
+                        Frame(marine.WhalePosition + new Vector3(330, 70, 310), marine.WhalePosition);
+                        result.apex = Capture(prefix + "-apex.png"); apexCaptured = true;
+                    }
+                    if (!fallCaptured && age >= (action == 0 ? 7.2f : 6.1f))
+                    {
+                        Frame(marine.WhalePosition + new Vector3(330, 80, 310), marine.WhalePosition);
+                        result.fall = Capture(prefix + "-fall.png"); fallCaptured = true;
+                        MatterParticle[] particles = marine.Matter.Readback();
+                        for (int id = 0; id < particles.Length; id += 53)
+                        {
+                            MatterSeed seed = marine.SeedAt(id);
+                            if (seed.traits.y < 2.5f) continue;
+                            Vector3 expected = marine.WhalePosition + marine.WhaleRotation *
+                                (WhaleAnatomy.Deform(seed.form, simulationSong, marine.WhaleGesture) * 1.8f);
+                            result.gpuSurfaceError = Mathf.Max(result.gpuSurfaceError,
+                                Vector3.Distance(expected, particles[id].positionAge));
+                        }
+                    }
+                    if (game.Horizon.ImpactSplash.ImpactCount > impactsBefore)
+                    {
+                        if (!result.impacted)
+                        {
+                            result.impacted = true; result.impactAge = age;
+                            result.impactVelocity = game.Horizon.ImpactSplash.LastVelocity;
+                            result.impactUpDot = Vector3.Dot(marine.WhaleRotation * Vector3.up, Vector3.up);
+                            result.impactForwardY = (marine.WhaleRotation * Vector3.forward).y;
+                        }
+                        if (!splashCaptured && game.Horizon.ImpactSplash.Age >= .8f)
+                        {
+                            Vector3 origin = game.Horizon.ImpactSplash.Origin;
+                            Frame(origin + new Vector3(350, 100, 330), origin + Vector3.up * 85);
+                            result.splash = Capture(prefix + "-impact.png"); splashCaptured = true;
+                        }
+                    }
+                }
+                result.impacts = game.Horizon.ImpactSplash.ImpactCount - impactsBefore;
+                Check(result.impacted && result.impacts == 1 && result.impactVelocity.y < -30,
+                    "Each combat action must create exactly one curtain on fast descending hull contact.");
+                Check(result.maxHeightAboveWater > 85 && result.maxSpeed > 65 && result.maxRoomDistance < .99f,
+                    "The accelerating leap must clear the surface and keep the sampled whale silhouette inside the cave.");
+                Check(result.maxFrameTravel < 4 && result.maxFrameRotation < 9 && result.targetError < .001f &&
+                    result.gpuSurfaceError < 15, "Pose joins, target deformation and GPU body tracking must remain continuous.");
+                Check(action == 0 ? result.impactUpDot < -.15f : result.impactForwardY < -.45f,
+                    "Breach must land side/back first; sky slam must descend with a visibly pitched body.");
+                Check(result.rise != null && result.apex != null && result.fall != null && result.splash != null &&
+                    result.rise.nonBlank && result.fall.nonBlank && result.splash.whiteFraction < .12f,
+                    "Combat motion and impact images must be visible without a screen-filling white flash.");
+            }
+            MethodInfo release = typeof(MarineLife).GetMethod("ReleaseWhale", BindingFlags.Instance | BindingFlags.NonPublic);
+            release.Invoke(marine, new object[] { simulationSong });
+            game.Combat.EnterAfterglow();
+            game.Finale.Begin(RunProgress.OptionalBosses, simulationSong);
+            for (int step = 0; step < 440; step++)
+            {
+                simulationSong += .05f;
+                marine.Tick(simulationSong, .05f, player);
+                game.Finale.Tick(simulationSong, .05f);
+            }
+            game.Brightness.SetOffset(0);
+            game.Brightness.SetFinaleGlow(1);
+            Vector3 city = AtlantisGeometry.CityOrigin;
+            report.cityBounds = AtlantisGeometry.DestinationBounds;
+            Frame(city + new Vector3(440, 240, -500), city + Vector3.up * 65);
+            report.cityWide = Capture("atlantis-continent.png");
+            Frame(city + new Vector3(170, 105, -215), city + new Vector3(0, 70, -20));
+            report.cityTemple = Capture("atlantis-temple.png");
+            Check(game.Finale.Formation > .99f && game.Finale.LayerCount == 4 && report.cityBounds.size.x >= 500 &&
+                report.cityWide.nonBlank && report.cityTemple.nonBlank && report.cityWide.whiteFraction < .08f &&
+                report.cityTemple.whiteFraction < .12f, "The expanded full city must form without a whiteout.");
+            report.cityFishCount = AtlantisGeometry.SerpentSchoolCount * AtlantisGeometry.FishPerSchool;
+            report.desktopCityPoints = game.Finale.ActivePointCount;
+            Check(report.desktopCityPoints == game.Finale.DesktopPointCount && report.desktopCityPoints >= 300000,
+                "Full desktop city must render its declared dense geometry budget.");
+            for (int school = 0; school < AtlantisGeometry.SerpentSchoolCount; school++)
+            {
+                var a = AtlantisGeometry.EvaluateSchoolPose(school, 0);
+                var b = AtlantisGeometry.EvaluateSchoolPose(school, 6);
+                report.fishMaxTravel = Mathf.Max(report.fishMaxTravel, Vector3.Distance(a.Center, b.Center));
+                Check(new Vector2(a.Center.x, a.Center.z).magnitude < 270 && Vector3.Distance(a.Center, b.Center) > 20,
+                    "Dense fish schools must travel over the continent, not orbit at remote static centers.");
+            }
+            Check(report.cityFishCount >= 560, "The city must have dense coherent schools rather than isolated tiny fish sets.");
+            yield return MeasureFinaleFrames();
+            for (int combination = 0; combination < 8; combination++)
+            {
+                BossId mask = BossId.None;
+                if ((combination & 1) != 0) mask |= BossId.Serpent;
+                if ((combination & 2) != 0) mask |= BossId.Hermit;
+                if ((combination & 4) != 0) mask |= BossId.Submarine;
+                game.Finale.Begin(mask, simulationSong);
+                Check(game.Finale.LayerCount == 1 + RunProgress.Count(mask), "All eight ending masks must retain their optional-layer contract.");
+            }
+            game.Flight.EnableVr(true);
+            game.Finale.Begin(RunProgress.OptionalBosses, simulationSong);
+            game.Finale.Tick(simulationSong, .016f);
+            report.vrCityPoints = game.Finale.ActivePointCount;
+            Check(game.Finale.UsesReducedDensity && report.vrCityPoints == game.Finale.VrPointCount &&
+                report.vrCityPoints < 205000 && report.vrCityPoints < report.desktopCityPoints * .7f,
+                "Enabling VR after game startup must switch to actual reduced geometry, not keep desktop meshes.");
+            game.Flight.EnableVr(false);
+            game.Finale.Tick(simulationSong, .016f);
+            Check(!game.Finale.UsesReducedDensity && game.Finale.ActivePointCount == report.desktopCityPoints,
+                "Exiting VR must restore desktop detail without rebuilding or losing optional layers.");
+            game.Restart();
+            Check(marine.CombatFirstActionAt == -1 && game.Horizon.ImpactSplash.ImpactCount == 0 && !game.Finale.Active,
+                "Restart must reset leap scheduling, curtain events and every city layer.");
+        }
+
+        IEnumerator MeasureFinaleFrames()
+        {
+            var target = new RenderTexture(CaptureWidth, CaptureHeight, 24, RenderTextureFormat.ARGB32);
+            var pixel = new Texture2D(1, 1, TextureFormat.RGB24, false);
+            var samples = new float[8];
+            RenderTexture previous = RenderTexture.active;
+            target.Create();
+            try
+            {
+                for (int i = -2; i < samples.Length; i++)
+                {
+                    var timer = System.Diagnostics.Stopwatch.StartNew();
+                    simulationSong += StepSeconds;
+                    game.Marine.Tick(simulationSong, StepSeconds, game.Flight.Position);
+                    game.Finale.Tick(simulationSong, StepSeconds);
+                    game.World.Tick(simulationSong, 1f, 0f, game.ReducedMotion);
+                    RenderPipeline.SubmitRenderRequest(game.Flight.View,
+                        new RenderPipeline.StandardRequest { destination = target });
+                    RenderTexture.active = target;
+                    // Readback waits for this actual render, even when the player window is hidden.
+                    pixel.ReadPixels(new Rect(CaptureWidth / 2, CaptureHeight / 2, 1, 1), 0, 0);
+                    timer.Stop();
+                    if (i >= 0) samples[i] = (float)timer.Elapsed.TotalMilliseconds;
+                    RenderTexture.active = previous;
+                    yield return null;
+                }
+                Array.Sort(samples);
+                foreach (float ms in samples) report.renderAndReadbackMeanMs += ms / samples.Length;
+                report.renderAndReadbackP95Ms = samples[(int)(samples.Length * .95f)];
+                report.renderSamples = samples.Length;
+                report.performanceMethod = "1600x900 full-city URP render plus synchronous 1-pixel readback; not GPU-only or HMD timing";
+                report.gpu = SystemInfo.graphicsDeviceName;
+                report.actualVrMeasured = false;
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                target.Release();
+                Destroy(target);
+                Destroy(pixel);
+            }
         }
 
         void SamplePlume(WhaleImpactSplash splash, float age, out float height, out float extent)
@@ -317,6 +545,25 @@ namespace Liminal
             public CaptureReport latefallCapture;
             public CaptureReport[] captures = new CaptureReport[SplashCaptureAges.Length];
             public string[] errors = Array.Empty<string>();
+            public CombatReport[] combatActions;
+            public Bounds cityBounds;
+            public CaptureReport cityWide, cityTemple;
+            public int cityFishCount, desktopCityPoints, vrCityPoints;
+            public float fishMaxTravel, renderAndReadbackMeanMs, renderAndReadbackP95Ms, allCyclesMaxRoomDistance;
+            public int renderSamples;
+            public string gpu, performanceMethod;
+            public bool actualVrMeasured;
+        }
+
+        [Serializable] sealed class CombatReport
+        {
+            public string kind;
+            public bool impacted;
+            public int impacts;
+            public float impactAge, impactUpDot, impactForwardY, maxHeightAboveWater, maxSpeed, maxRoll;
+            public float maxFrameTravel, maxFrameRotation, maxRoomDistance, targetError, gpuSurfaceError;
+            public Vector3 impactVelocity;
+            public CaptureReport rise, apex, fall, splash;
         }
     }
 }

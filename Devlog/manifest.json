@@ -431,6 +431,21 @@
     "hardware_vr_tested": false,
     "new_video_recorded": false
   },
+  "latest_whale_atlantis": {
+    "date": "2026-10-03",
+    "version": "v0.1.6",
+    "report": "Builds/Windows/WhaleAtlantisReport.json",
+    "images": ["Devlog/images/15-whale-breach.png", "Devlog/images/15-atlantis-temple.png"],
+    "passed": true,
+    "desktop_points": 342342,
+    "vr_points": 201602,
+    "desktop_fish": 784,
+    "vr_fish": 560,
+    "impact_events_per_action": 1,
+    "performance_method": "1600x900 URP render plus synchronous readback, 8 samples; not GPU-only timing",
+    "hardware_vr_tested": false,
+    "new_video_recorded": false
+  },
   "latest_musical_balance": {
     "implementation_commit": "bac3059",
     "report": "Liminal/Verification/MusicalDolphins/report.json",
