@@ -79,6 +79,7 @@ namespace Liminal
         public void Tick(float song, float evolution, float dissolve)
         {
             if (!Ready) return;
+            ParticleTransitionSettings.Current.ApplyCompute(simulation);
             float delta = song - previousSong;
             resonanceClock = song;
             if (released) releaseClock = Mathf.Max(0, song - releaseSong);
@@ -96,9 +97,11 @@ namespace Liminal
             simulation.SetVector("_HeadVelocity", (Anatomy.Head(song + 0.02f) - Anatomy.Head(song - 0.02f)) / 0.04f);
             simulation.SetFloat("_ResonanceClock", resonanceClock);
             simulation.SetFloat("_Released", released ? 1 : 0);
+            simulation.SetFloat("_ReleaseAge",releaseClock);
             simulation.SetFloat("_ReleaseBlend", released ? Mathf.SmoothStep(0, 1, releaseClock / 12f) : 0);
             lightMaterial.SetFloat("_ResonanceClock", resonanceClock);
             lightMaterial.SetFloat("_Released", released ? 1 : 0);
+            lightMaterial.SetFloat("_ReleaseAge",releaseClock);
             skinMaterial.SetFloat("_Released", released ? 1 : 0);
             skinMaterial.SetFloat("_ReleaseBlend", released ? Mathf.SmoothStep(0, 1, releaseClock / 12f) : 0);
             UploadResonanceEvents();

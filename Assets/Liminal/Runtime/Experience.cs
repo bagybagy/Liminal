@@ -53,15 +53,17 @@ namespace Liminal
             bool feedbackProof=Array.IndexOf(args,"--verify-player-feedback")>=0;
             bool encounterReview=Array.IndexOf(args,"--verify-encounter-review")>=0;
             bool pressureProof=Array.IndexOf(args,"--verify-pressure-patterns")>=0;
+            bool finalReviewProof=Array.IndexOf(args,"--verify-final-review")>=0;
             bool capturePV=false;
 #if UNITY_EDITOR
             legacyProof|=UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false);
             capturePV=UnityEditor.EditorPrefs.GetBool("Liminal.CavernPV",false);
 #endif
-            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||encounterReview||pressureProof||capturePV;
+            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||encounterReview||pressureProof||finalReviewProof||capturePV;
             CavernMode=!legacyProof && Array.IndexOf(args,"--legacy-arena")<0;
             Cursor.visible=ProofActive;
             World=gameObject.AddComponent<ParticleWorld>();
+            ParticleTransitionSettings.Current.ApplyGlobals();
             World.particleTemplate=particles;World.ribbonMaterial=ribbons;
             World.cavernSurface=cavernSurface;World.marineLight=marineLight;
             World.matterSimulation=matterSimulation;World.matterLight=matterLight;
@@ -93,6 +95,7 @@ namespace Liminal
             if(feedbackProof) gameObject.AddComponent<PlayerFeedbackProof>().Initialize(this);
             if(encounterReview) gameObject.AddComponent<EncounterReviewProof>().Initialize(this);
             if(pressureProof) gameObject.AddComponent<PressurePatternProof>().Initialize(this);
+            if(finalReviewProof) gameObject.AddComponent<FinalReviewProof>().Initialize(this);
             if(capturePV) gameObject.AddComponent<PvDirector>().Initialize(this);
 #if UNITY_EDITOR
             if(UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false))
@@ -112,9 +115,9 @@ namespace Liminal
             if(!Ready) return;
             if(!ProofActive && Input.GetKeyDown(KeyCode.Escape)) TogglePause();
             float song=(float)Music.Time,dt=Mathf.Min(Time.unscaledDeltaTime,0.05f);
-            bool aiming=Vr && Vr.Enabled ? Vr.LockHeld : Input.GetMouseButton(0);
-            Flight.SetTravelContext(CavernMode && !Music.Paused && !Combat.Ended && !aiming &&
-                Combat.Locks.Count==0 && !Combat.HasPending && song-Combat.LastHitTime>3f,song);
+            Brightness.SetFinaleGlow(Finale && Finale.Active?Finale.Formation:0f);
+            ParticleTransitionSettings.Current.ApplyGlobals();
+            Flight.SetTravelContext(CanTravelBoost(song),song);
             if(Vr && Vr.Enabled) {
                 Vr.Tick(song,dt,!ProofActive && !Combat.Ended && !Music.Paused);
                 if(!ProofActive && Vr.PausePressed) TogglePause();
@@ -160,10 +163,15 @@ namespace Liminal
             float evolution=CavernMode?(Combat.SerpentComplete?1:.25f):Mathf.SmoothStep(0,1,Mathf.InverseLerp(104,164,song));
             float dissolve=!CavernMode && Combat.Won?Mathf.Clamp01((song-Combat.EndTime)/9):0;
             World.Tick(song,evolution,dissolve,ReducedMotion);
-            if(CavernMode && !whaleCalled && Marine.WhaleReleased) {whaleCalled=true;WhaleAwakenedAt=Music.Time;Music.WhaleCall();}
+            if(CavernMode && Marine.WhaleReleased) {
+                if(WhaleAwakenedAt<0) WhaleAwakenedAt=Music.Time;
+                if(!whaleCalled && Music.Time-WhaleAwakenedAt>=4) {whaleCalled=true;Music.WhaleCall();}
+            }
             if(ProofActive) {Cursor.lockState=CursorLockMode.None;Cursor.visible=true;}
         }
         public void SetReducedMotion(bool value) { ReducedMotion=value;Flight.ReducedMotion=value; }
+        public bool CanTravelBoost(float song) => CavernMode && !Music.Paused && !Combat.Ended &&
+            Combat.Locks.Count==0 && !Combat.HasPending && song-Combat.LastHitTime>3f;
         public void TogglePause()
         {
             Music.SetPaused(!Music.Paused);Combat.AbandonLocks();Cursor.visible=Music.Paused;
@@ -179,6 +187,7 @@ namespace Liminal
                 Hermits.ResetEncounter();Submarines.ResetEncounter();Tutorial.ResetTutorial();
                 PassageGuide.ResetShoals();
                 Finale.ResetFinale();
+                Brightness.SetFinaleGlow(0);
                 Tutorial.SetEnabled(!ProofActive && PlayerPrefs.GetInt("particleTutorialCompleted",0)==0);
                 Array.Clear(visitedRooms,0,visitedRooms.Length);RoomsVisited=0;CurrentRoom=0;whaleCalled=false;WhaleAwakenedAt=-1;
             }

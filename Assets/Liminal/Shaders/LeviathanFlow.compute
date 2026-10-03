@@ -1,11 +1,13 @@
 #pragma kernel Initialize
 #pragma kernel Simulate
 #include "Spine.hlsl"
+#include "MatterFlow.hlsl"
 
 RWStructuredBuffer<FlowParticle> _Particles;
 uint _Count;
 float _Delta, _Song, _Evolution, _Dissolve, _Pulse;
 float _ResonanceClock, _Released, _ReleaseBlend;
+float _ReleaseAge;
 uint _ResonanceEventCount;
 float3 _HeadVelocity;
 float3 _SanctumCenter, _SanctumRadius;
@@ -82,6 +84,7 @@ void Simulate(uint3 id : SV_DispatchThreadID)
         float school=floor(schoolHash*5);
         float u=p.anatomy.x;
         float t=_ResonanceClock;
+        float4 death=MatterDeathEnvelope(_ReleaseAge,true);
         float longitudinal=(u-.5)*2;
         float withinSchool=Hash(id.x*73+37);
         float phase=longitudinal*(5.2+school*.37)+t*(.48+school*.075)+(withinSchool-.5)*.5;
@@ -97,10 +100,11 @@ void Simulate(uint3 id : SV_DispatchThreadID)
             vertical+sin(crossAngle)*crossRadius,
             sin(angle)*(radius+cos(crossAngle)*crossRadius)+longitudinal*10+cos(t*.27+school)*4);
         float3 tangent=float3(-sin(angle),.12*cos(angle*1.6),cos(angle));
-        float3 currentFlow=tangent*(8+school*1.6)+Curl(p.position*.035,t*.7+p.seed*8)*3.2;
+        float3 currentFlow=tangent*(8+school*1.6)+Curl(p.position*.035,t*.7+p.seed*8)*
+            (3.2+death.y*4.0*_MatterDeathStyle.x);
         p.age+=_Delta;
-        float attraction=1-exp(-_Delta*(.7+_ReleaseBlend*1.25));
-        float3 advected=p.position+currentFlow*_Delta;
+        float attraction=1-exp(-_Delta*(.7+_ReleaseBlend*1.25)*death.y);
+        float3 advected=p.position+currentFlow*_Delta*death.y;
         p.position=lerp(advected,target,attraction);
         p.velocity=(p.position-p.previous)/max(.001,_Delta);
         _Particles[id.x]=p;

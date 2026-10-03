@@ -195,6 +195,8 @@ namespace Liminal
         void InspectTravel()
         {
             Flight flight = game.Flight;
+            Check(game.CanTravelBoost(game.Combat.LastHitTime+3.01f),
+                "Empty aiming and nearby scenery must not block peaceful travel gear.");
             flight.SetPose(CaveLayout.Rooms[2].Center, Quaternion.identity);
             flight.SetTravelContext(true, (float)game.Music.Time);
             int pulses = flight.TravelPulseCount;

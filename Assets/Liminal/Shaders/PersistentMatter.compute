@@ -235,9 +235,11 @@ void Simulate(uint3 id : SV_DispatchThreadID)
     }
     else if (phase < 2.5)
     {
+        float4 death=MatterDeathEnvelope(age,kind>2.5);
+        float buildEnd=_MatterDeathTimings.x+(kind>2.5?_MatterDeathTimings.z:_MatterDeathTimings.y);
         float release = smoothstep(0.35, 0.95, age);
-        float erupt = release * (1.0 - smoothstep(1.6, 3.8, age));
-        float settle = smoothstep(1.4, 9.6, age);
+        float erupt = death.y*(1.0-smoothstep(buildEnd,buildEnd+2.0,age));
+        float settle = smoothstep(buildEnd, max(9.6,buildEnd+4), age);
         float travel = smoothstep(1.2, 3.2, age);
         float3 toDestination = seed.destination.xyz - position;
         float3 axis = normalize(toDestination + float3(0.001, 0.002, 0.003));
@@ -261,7 +263,7 @@ void Simulate(uint3 id : SV_DispatchThreadID)
         else
             acceleration += toDestination * lerp(0.015, 12.0, settle) * travel - velocity * lerp(0.8, 5.2, settle) * release;
         acceleration += vortex * (0.7 * (1.0 - settle));
-        acceleration += MatterCurrent(position,age,seed.traits.z)*6.0*release*(1.0-settle);
+        acceleration += MatterCurrent(position,age,seed.traits.z)*10.0*erupt*_MatterDeathStyle.x;
         float3 origin = group.impulse.xyz;
         float3 burst = position - origin;
         acceleration += normalize(burst + 0.0001) * max(0.0, group.impulse.w) * erupt;
@@ -356,12 +358,13 @@ void Simulate(uint3 id : SV_DispatchThreadID)
     }
     else if (kind > 0.5 && phase > 1.5 && phase < 2.5)
     {
-        float flash = smoothstep(0.0, 0.16, age) * (1.0 - smoothstep(0.65, 1.9, age));
+        float4 death=MatterDeathEnvelope(age,kind>2.5);
+        float flash = death.z;
         float cloud = smoothstep(0.4, 2.0, age) * (1.0 - smoothstep(2.2, 5.5, age));
         float3 cloudColor = Hash(floor(seed.form.z * 0.3) + floor(seed.traits.z * 8.0)) > 0.6
             ? float3(0.24,1.50,0.65) : float3(0.08,0.80,1.55);
         float3 transitionColor = lerp(cloudColor * (0.45 + cloud * 0.55), float3(0.035,0.85,2.8), flash);
-        p.colorSize.rgb = lerp(p.colorSize.rgb, transitionColor, 1.0 - exp(-step * 4.0));
+        p.colorSize.rgb = lerp(p.colorSize.rgb, transitionColor*(1+flash*_MatterDeathStyle.y), 1.0 - exp(-step * 4.0));
         p.colorSize.w = seed.form.w * (1.0 + cloud * 1.8);
     }
     else if (phase > 2.5)

@@ -1,5 +1,17 @@
 #ifndef LIMINAL_MATTER_FLOW
 #define LIMINAL_MATTER_FLOW
+float4 _MatterDeathTimings;
+float4 _MatterDeathStyle;
+
+float4 MatterDeathEnvelope(float age, bool large)
+{
+    float charge=max(.05,_MatterDeathTimings.x);
+    float duration=max(.2,large?_MatterDeathTimings.z:_MatterDeathTimings.y);
+    float loose=smoothstep(0,charge,age);
+    float build=smoothstep(charge,charge+duration,age);
+    float fade=1-smoothstep(charge+duration,charge+duration+max(.1,_MatterDeathTimings.w),age);
+    return float4(loose,loose*lerp(.06,1,build),loose*lerp(.35,1,build)*fade,fade);
+}
 
 // A divergence-free, two-scale current keeps adjacent particles moving in eddies rather than random rays.
 float3 MatterCurrent(float3 position, float age, float seed)

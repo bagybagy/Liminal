@@ -27,6 +27,7 @@ Shader "Liminal/Luminous"
             float _Gain, _Mode;
             float4 _Burst;
             float4 _BurstVelocity;
+            float _BurstLarge;
             float4 _CaveWave;
             float _CaveWaveEnergy;
             CBUFFER_END
@@ -77,6 +78,7 @@ Shader "Liminal/Luminous"
                 else if (_Mode > 1.5)
                 {
                     float age = max(0,_Song-_Burst.w);
+                    float4 death = MatterDeathEnvelope(age,_BurstLarge>.5);
                     impactCore = 1.0 - step(0.0, input.data.y);
                     if (impactCore > 0.5) {
                         p = _Burst.xyz + p;
@@ -91,16 +93,16 @@ Shader "Liminal/Luminous"
                         float3 normal = normalize(cross(axis, side));
                         float phase = Hash(group + 1.0, 3.0) * 6.2831853;
                         float turn = age * (2.35 + Hash(group + 1.0, 4.0) * 0.8);
-                        float travel = (1.0 - exp(-age * 1.9)) * (0.9 + Hash(group + 1.0, 5.0) * 1.25);
+                        float travel = death.y * (1.8 + Hash(group + 1.0, 5.0) * 2.5);
                         float3 curl = side * (sin(turn + phase) - sin(phase)) * 0.32 +
                             normal * (cos(phase) - cos(turn + phase)) * 0.25;
-                        p = _Burst.xyz + p + axis * travel + curl;
-                        p += MatterFlowDelta(p*.45,age,group*.037)*saturate(age*2.0)*.48;
+                        p = _Burst.xyz + p + axis * travel + curl*death.y;
+                        p += MatterFlowDelta(p*.45,age,group*.037)*death.y*2.0*_MatterDeathStyle.x;
                         p += _BurstVelocity.xyz*(1.0-exp(-age*1.4))/1.4;
                         p += axis*(age*age*exp(-age*2.0))*.7;
                         p += side * sin(age * 4.2 + input.data.x * 6.2831853) * 0.045 * saturate(age * 2.0);
                     }
-                    float grainFade = exp(-age * 0.78) * (1.0 - smoothstep(1.45, 2.25, age));
+                    float grainFade = death.w*(.7+death.z*_MatterDeathStyle.y);
                     float coreFade = 0.16 * exp(-age * 1.25) + 0.88 * exp(-age * 12.0);
                     twinkle = lerp(grainFade, coreFade, impactCore);
                     size *= 1.0 + min(age * 0.16, 0.24);

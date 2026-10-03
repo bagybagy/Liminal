@@ -67,6 +67,7 @@ namespace Liminal
             whaleSeedIndices = whaleSeeds.ToArray();
 
             simulation = UnityEngine.Object.Instantiate(compute);
+            ParticleTransitionSettings.Current.ApplyCompute(simulation);
             simulation.name = compute.name + " (Persistent Matter)";
             drawMaterial = new Material(material) { name = material.name + " (Persistent Matter)" };
             seeds = new GraphicsBuffer(GraphicsBuffer.Target.Structured, ParticleCount, 64);
@@ -211,6 +212,7 @@ namespace Liminal
         public void Tick(float song, float dt)
         {
             if (!Ready) return;
+            ParticleTransitionSettings.Current.ApplyCompute(simulation);
             if (!float.IsNaN(previousSong) && song < previousSong - 0.001f)
                 initialized = false;
 

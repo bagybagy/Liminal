@@ -87,7 +87,7 @@ Shader "Liminal/Submarine Matter"
                 int craft = FleetCraftIndex(input);
                 float4 state = _FleetCloudStates[craft];
                 if (state.z < 0.5) return 0.0;
-                return smoothstep(0.0, 3.2, max(0.0, _Song - state.x));
+                return MatterDeathEnvelope(max(0.0, _Song - state.x), true).y;
             }
 
             float3 FleetMatterPosition(Input input)
@@ -98,7 +98,8 @@ Shader "Liminal/Submarine Matter"
                 if (state.z < 0.5) return live;
 
                 float age = max(0.0, _Song - state.x);
-                float dissolve = smoothstep(0.0, 3.2, age);
+                float4 death = MatterDeathEnvelope(age, true);
+                float dissolve = death.y;
                 float3 centerOffset = input.fleetPoint.xyz - FleetCraftLocalCenter(craft);
                 float3 hullOffset = RotateY(centerOffset, state.y);
                 float seed = input.data.x;
@@ -110,7 +111,7 @@ Shader "Liminal/Submarine Matter"
                 float3 drift = float3(sin(age * 0.23 + craft) * 3.5,
                     sin(age * 0.17 + craft * 2.0) * 2.2, cos(age * 0.2 + craft) * 3.5);
                 float3 cloudOffset = direction * radial + drift;
-                cloudOffset += MatterFlowDelta(hullOffset*.25,age,seed)*3.0;
+                cloudOffset += MatterFlowDelta(hullOffset*.25,age,seed)*7.0*_MatterDeathStyle.x;
                 cloudOffset += RotateY(float3(0,0,1),state.y)*(1-exp(-age*.8))*3.0;
                 return _FleetCloudCenters[craft].xyz + lerp(hullOffset, cloudOffset, dissolve);
             }
@@ -263,7 +264,10 @@ Shader "Liminal/Submarine Matter"
                 flare *= 1.0+.25*sin(morph*3.14159265);
                 float cloud=lerp(_FormFrom>.5 && _FormFrom<1.5?FleetCloudDissolve(input):0.0,
                     _FormTo>.5 && _FormTo<1.5?FleetCloudDissolve(input):0.0,morph);
-                flare *= 1.0+.3*sin(cloud*3.14159265);
+                int craft = FleetCraftIndex(input);
+                float cloudLight = _FleetCloudStates[craft].z > .5 ?
+                    MatterDeathEnvelope(max(0.0,_Song-_FleetCloudStates[craft].x),true).z : 0.0;
+                flare *= 1.0+cloudLight*cloud*_MatterDeathStyle.y;
                 float fade = exp(-distanceToCamera * 0.00165);
 
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;

@@ -10,13 +10,14 @@ namespace Liminal
         public const int MaxFish = 2;
         public const int HitPointsPerFish = 16;
         public const int LocksPerFish = 8;
-        public const int PressureBulletsPerBurst = 18;
+        public const int PressureBulletsPerBurst = 36;
         public const float SmallHermitReferenceRadius = 6.5f;
-        public const float GrowthPerHit = 0.055f;
+        public const float MaximumInflation = 3.76f;
 
         const float ShapeRadius = 1.52f;
         const float InitialScale = 1.6f;
-        const float DeathDuration = 2f;
+        static float DeathDuration => ParticleTransitionSettings.Current.Duration()+.4f;
+        public float inflationSmoothSeconds=.24f;
         const float BurstRetryWindow = 1f;
         const float BurstRetryInterval = 0.14f;
         const float SwimSpeed = 2.15f;
@@ -37,7 +38,7 @@ namespace Liminal
             public Vector3 position, velocity, driftVelocity;
             public Quaternion rotation;
             public Color tint;
-            public float age, phase, deathAge, burstDeadline, nextBurstAttempt, hitSong=-10;
+            public float age, phase, deathAge, burstDeadline, nextBurstAttempt, hitSong=-10,scaleVelocity;
             public int hits;
             public bool burstPending;
         }
@@ -65,7 +66,8 @@ namespace Liminal
 
         public static float ScaleForHits(int hits)
         {
-            return InitialScale * (1f + Mathf.Clamp(hits, 0, HitPointsPerFish) * GrowthPerHit);
+            return InitialScale * Mathf.Lerp(1,MaximumInflation,
+                Mathf.SmoothStep(0,1,Mathf.Clamp01(hits/(float)HitPointsPerFish)));
         }
 
         public static float BodyRadiusForHits(int hits)
@@ -133,6 +135,11 @@ namespace Liminal
                     AdvanceDeathCloud(puffer, song, dt);
                 else if (puffer.state == FishState.DriftCloud)
                     AdvanceDriftCloud(puffer, song, dt);
+                if(puffer.body && puffer.state!=FishState.Empty) {
+                    float scale=Mathf.SmoothDamp(puffer.body.transform.localScale.x,ScaleForHits(puffer.hits),
+                        ref puffer.scaleVelocity,Mathf.Max(.05f,inflationSmoothSeconds),float.PositiveInfinity,dt);
+                    puffer.body.transform.localScale=Vector3.one*scale;
+                }
             }
         }
 
@@ -175,6 +182,7 @@ namespace Liminal
             puffer.age = 0f;
             puffer.phase = (Spawned % 2) * Mathf.PI;
             puffer.hits = 0;
+            puffer.scaleVelocity=0;
             puffer.hitSong=song-10f;
             puffer.tint = Spawned % 2 == 0
                 ? Color.white
@@ -242,7 +250,6 @@ namespace Liminal
             puffer.hits++;
             puffer.hitSong=song;
             HitCount++;
-            puffer.body.transform.localScale = Vector3.one * ScaleForHits(puffer.hits);
             world.BurstAt(puffer.position,song,new Color(.06f,.62f,1f),.55f,puffer.velocity);
             if (target.hp > 0)
                 return;
@@ -254,9 +261,9 @@ namespace Liminal
             if (!combat.Ended && !combat.Peaceful && !combat.SerpentComplete)
             {
                 puffer.burstPending = true;
-                puffer.burstDeadline = song + BurstRetryWindow;
-                puffer.nextBurstAttempt = song;
-                TryEmitDeathBurst(puffer, song);
+                float peak=ParticleTransitionSettings.Current.Timings.x+ParticleTransitionSettings.Current.Timings.y;
+                puffer.nextBurstAttempt = song+peak;
+                puffer.burstDeadline = puffer.nextBurstAttempt+BurstRetryWindow;
             }
             SetMaterialState(puffer, 0f, song);
         }
@@ -391,6 +398,7 @@ namespace Liminal
             properties.Clear();
             properties.SetColor(TintId, puffer.tint);
             properties.SetFloat(DeathProgressId, deathProgress);
+            properties.SetFloat("_DeathAge",puffer.deathAge);
             properties.SetFloat("_HitAge",Mathf.Max(0,song-puffer.hitSong));
             properties.SetVector("_FlowVelocity",Quaternion.Inverse(puffer.rotation)*puffer.velocity);
             puffer.renderer.SetPropertyBlock(properties);

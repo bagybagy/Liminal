@@ -163,7 +163,9 @@ namespace Liminal
             var b = bursts[burstCursor++%bursts.Length];
             b.material.SetVector("_Burst",new Vector4(position.x,position.y,position.z,song));
             b.material.SetVector("_BurstVelocity",Vector3.ClampMagnitude(motion,14f));
-            b.material.SetColor("_Tint",color*scale); b.obj.SetActive(true); b.until=song+2.5f;
+            b.material.SetFloat("_BurstLarge",scale>=2f?1f:0f);
+            b.material.SetColor("_Tint",color*scale); b.obj.SetActive(true);
+            b.until=song+ParticleTransitionSettings.Current.Duration(scale>=2f);
             if (hitHalo) hitHalo.Spawn(position, song, color, scale);
         }
         public void Tick(float song, float evolution, float dissolve, bool reduced)

@@ -16,11 +16,13 @@ Shader "Liminal/Advected Light"
             #pragma target 4.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Spine.hlsl"
+            #include "MatterFlow.hlsl"
             StructuredBuffer<FlowParticle> _Particles;
             CBUFFER_START(UnityPerMaterial)
             float _Gain;
             CBUFFER_END
             float _Song,_Pulse,_Evolution,_Dissolve,_Reduced,_ResonanceClock,_Released;
+            float _ReleaseAge;
             uint _ResonanceEventCount;
             StructuredBuffer<float4> _ResonanceEvents;
             uint _OrganStateCount;
@@ -77,6 +79,7 @@ Shader "Liminal/Advected Light"
                     color=lerp(float3(.10,.55,.67),float3(.65,.94,.78),p.seed);
                     if(p.seed>.91) color=lerp(color,gold,.7);
                     brightness=fish?1.3:.05;
+                    brightness *= 1+MatterDeathEnvelope(_ReleaseAge,true).z*_MatterDeathStyle.y;
                 }
                 if(p.anatomy.w<-.5 && _Released<.5) { color=gold;brightness=2.8; }
                 float pulse=1+_Pulse*.24*(1-_Reduced);

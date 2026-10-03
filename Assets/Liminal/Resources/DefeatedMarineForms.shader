@@ -158,8 +158,8 @@ Shader "Liminal/Defeated Marine Forms"
                 float turn = max(0.0, elapsed - 0.38) * (2.5 + Hash(subgroup, 25.0) * 1.1);
                 float3 curl = curlSide * (sin(turn + phase) - sin(phase)) * (0.18 + edge * 0.46) +
                     curlNormal * (cos(phase) - cos(turn + phase)) * (0.14 + edge * 0.34);
-                float releaseStart = 0.40 + (1.0 - edge) * 0.18;
-                float scatter = smoothstep(releaseStart, releaseStart + 1.0, elapsed);
+                float4 death = MatterDeathEnvelope(elapsed, false);
+                float scatter = death.y;
                 float settle = smoothstep(2.0, max(10.0,_TransferDuration), elapsed);
                 float current = elapsed * (1.0 - saturate(elapsed / 2.0));
                 float spread = 0.8 + edge * 2.0 + Hash(input.data.x, 10.0) * 1.15;
@@ -168,7 +168,8 @@ Shader "Liminal/Defeated Marine Forms"
                 dispersed += _SourceVelocity.xyz*(1.0-exp(-elapsed*.8))/.8;
                 float3 world = lerp(dispersed, target, settle);
                 float flowEnvelope=sin(settle*3.14159265);
-                world += MatterFlowDelta(source*.3,elapsed,input.data.x)*flowEnvelope*2.2;
+                world += MatterFlowDelta(source*.3,elapsed,input.data.x)*
+                    max(flowEnvelope,death.y*(1.0-settle))*2.2*_MatterDeathStyle.x;
                 float kelp = step(0.92, Hash(input.data.x, 1.0));
                 world += _ColonyRight.xyz * sin(_Song * 0.47 + input.data.x * 19.0) * kelp * settle * 0.10;
 
@@ -186,9 +187,7 @@ Shader "Liminal/Defeated Marine Forms"
                 float cyan = saturate((sourceHue.g-sourceHue.r)*1.1);
                 float3 electricHue = lerp(float3(0.035,0.22,1.0),float3(0.015,0.76,1.0),cyan);
                 float3 startColor = lerp(electricHue * sourceLevel, rawSourceColor, warm);
-                float charge = smoothstep(0.0, 0.48, elapsed);
-                float flare = charge * exp(-max(0.0, elapsed - 0.46) * 1.15);
-                startColor *= 1.0 + flare * 0.5;
+                startColor *= 1.0 + death.z * _MatterDeathStyle.y;
                 float3 formTint = lerp(_RoomColor.rgb, _RoomAccent.rgb, accent);
                 float3 formColor = formTint * (0.92 + Hash(input.data.x, 11.0) * 0.28);
                 formColor *= 1.0+.24*exp(-pow((settle-.88)*8.0,2.0));

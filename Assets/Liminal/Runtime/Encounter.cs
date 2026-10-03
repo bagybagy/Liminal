@@ -22,6 +22,7 @@ namespace Liminal
         public Vector3 pressureAcceleration;
         public int pressurePattern;
         public float pressurePhase, pressureHelixRadius, pressureDissolveAt = -1;
+        public float pressureFinalSpeed, pressureSlowdownSeconds;
         public bool pressureCancelled;
         public Vector3 previousPlayerPosition;
         public Vector3 position, origin, destination, direction, lateral, vertical;
@@ -91,6 +92,7 @@ namespace Liminal
         static readonly Color ElectricBlue = new(0.06f,0.42f,1f);
         static readonly int TintId = Shader.PropertyToID("_Tint");
         const int MaxLivePressureShots = 24;
+        public const int RadialPressureCapacity = 48;
         const float PressureShotSpeed = 48f;
         static MaterialPropertyBlock MarkerProperties;
         Mesh bubbleMesh, bubbleRingMesh;
@@ -287,12 +289,14 @@ namespace Liminal
                         }
                         t.previousPlayerPosition=flight.Position;
                     } else if(Ended) t.hp=0;
-                    if(t.hp<=0 && t.pressurePattern!=0) BeginPressureDissolve(t,song);
+                    if(t.hp<=0) BeginPressureDissolve(t,song);
                     if(t.pressureDissolveAt>=0) {
                         var renderer=t.visual.GetComponent<Renderer>();
                         renderer.GetPropertyBlock(MarkerProperties);
-                        MarkerProperties.SetFloat("_Dissolve",Mathf.Clamp01((song-t.pressureDissolveAt)/.65f));
-                        MarkerProperties.SetVector("_FlowVelocity",Vector3.ClampMagnitude(t.direction*t.pressureSpeed,10f));
+                        float age=song-t.pressureDissolveAt;
+                        MarkerProperties.SetFloat("_Dissolve",Mathf.Clamp01(age/ParticleTransitionSettings.Current.Duration()));
+                        MarkerProperties.SetFloat("_DissolveAge",age);
+                        MarkerProperties.SetVector("_FlowVelocity",Vector3.ClampMagnitude(PressureVelocity(t,t.pressureAge),10f));
                         renderer.SetPropertyBlock(MarkerProperties);
                     }
                     t.visual.transform.localScale=Vector3.one*(t.pressureRing || t.pressureRadius>.91f?t.pressureRadius:1.4f);
@@ -309,7 +313,7 @@ namespace Liminal
                 t.visual.transform.position=t.position;
                 bool activeOrgan=t.kind==TargetKind.Organ && ExplorationMode
                     ? organsActivated && !SerpentComplete : t.hp>0;
-                bool dissolving=t.pressureDissolveAt>=0 && song-t.pressureDissolveAt<.65f;
+                bool dissolving=t.pressureDissolveAt>=0 && song-t.pressureDissolveAt<ParticleTransitionSettings.Current.Duration();
                 t.visual.SetActive((activeOrgan || dissolving) && !Ended);
                 if(t.kind!=TargetKind.Organ && t.reserved==0 && !dissolving && (t.hp<=0 || song-t.born>26)) {
                     if(Colonies && t.kind==TargetKind.Ray) Colonies.Release(t.visual);
@@ -320,7 +324,7 @@ namespace Liminal
         void SpawnWave(float song,int beat)
         {
             summonWaves++;
-            if(Puffers && summonWaves%4==0)
+            if(Puffers && summonWaves%2==1)
                 Puffers.TrySpawn(flight.Position+flight.View.transform.forward*45f+flight.View.transform.right*10f,song);
             int count=Section<=1?6:4;
             if(Colonies) count=Mathf.Min(count,Colonies.AvailableCapacity);
@@ -531,7 +535,7 @@ namespace Liminal
                     !Peaceful && !Ended)
                     podReleases.Add(new PodRelease { position=target.position,direction=target.direction,
                         color=target.pressureColor,owner=target.pressureOwner });
-                if(target.hp<=0 && target.pressurePattern!=0) BeginPressureDissolve(target,song);
+                if(target.hp<=0) BeginPressureDissolve(target,song);
             }
             if(Colonies && target.kind==TargetKind.Ray && target.hp<=0)
                 target.transformed=Colonies.TryAdopt(target.visual,song,CaveLayout.NearestRoom(target.position),target.direction*.44f);
@@ -670,10 +674,10 @@ namespace Liminal
 
         public LockTarget RegisterPressureShot(Vector3 origin,Vector3 direction,float song,Color color,
             UnityEngine.Object owner=null,float speed=PressureShotSpeed,float radius=.9f,bool bubbleRing=false,
-            Vector3? acceleration=null,float? lifetimeOverride=null)
+            Vector3? acceleration=null,float? lifetimeOverride=null,bool radialBudget=false)
         {
             if(Ended || Peaceful || !world || !flight || direction.sqrMagnitude<0.0001f) return null;
-            if(!CanRegisterPressureShots(1)) return null;
+            if(radialBudget?PressureBudget()>=RadialPressureCapacity:!CanRegisterPressureShots(1)) return null;
 
             direction.Normalize();
             speed=Mathf.Max(1f,speed);
@@ -689,16 +693,11 @@ namespace Liminal
                 pressureRadius=Mathf.Clamp(radius,.1f,12),pressureRing=bubbleRing,
                 previousPlayerPosition=flight.Position
             };
-            if(bubbleRing || radius>.91f) {
-                EnsureBubbleGeometry();
-                shot.visual=PointCloud.Place(bubbleRing?"Drifting bubble ring":"Small pressure bubble",
-                    bubbleRing?bubbleRingMesh:bubbleMesh,bubbleMaterial,transform);
-                shot.visual.transform.rotation=Quaternion.LookRotation(direction);
-                shot.visual.transform.localScale=Vector3.one*shot.pressureRadius;
-            } else {
-                shot.visual=PointCloud.Place("Pressure shot",world.NodeMesh,world.NodeMaterial,transform);
-                shot.visual.transform.localScale=Vector3.one*1.4f;
-            }
+            EnsureBubbleGeometry();
+            shot.visual=PointCloud.Place(bubbleRing?"Drifting bubble ring":"Pressure bubble matter",
+                bubbleRing?bubbleRingMesh:bubbleMesh,bubbleMaterial,transform);
+            shot.visual.transform.rotation=Quaternion.LookRotation(direction);
+            shot.visual.transform.localScale=Vector3.one*shot.pressureRadius;
             SetMarkerTint(shot.visual,color);
             shot.visual.transform.position=origin;
             Targets.Add(shot);
@@ -763,24 +762,33 @@ namespace Liminal
                 target.pressureCancelled=true;
                 target.hp=target.reserved;
                 Locks.RemoveAll(t=>t==target);
-                if(target.pressurePattern!=0 && target.reserved==0)
+                if(target.reserved==0)
                     BeginPressureDissolve(target,(float)music.Time);
-                if(target.pressurePattern==0 && target.reserved==0) {
-                    if(target.visual) Destroy(target.visual);
-                    Targets.RemoveAt(i);
-                }
             }
         }
 
         public static Vector3 PressurePosition(LockTarget target,float age)
         {
-            Vector3 position=target.origin+target.direction*(target.pressureSpeed*age)+
+            float travel=target.pressureSpeed*age;
+            if(target.pressureSlowdownSeconds>0) {
+                float slowing=Mathf.Min(age,target.pressureSlowdownSeconds);
+                travel-= (target.pressureSpeed-target.pressureFinalSpeed)*slowing*slowing/(2*target.pressureSlowdownSeconds);
+                if(age>slowing) travel-=(target.pressureSpeed-target.pressureFinalSpeed)*(age-slowing);
+            }
+            Vector3 position=target.origin+target.direction*travel+
                 target.pressureAcceleration*(.5f*age*age);
             if(target.pressurePattern==1) {
                 float angle=target.pressurePhase+age*Mathf.PI*1.3f;
                 position+=(target.lateral*Mathf.Cos(angle)+target.vertical*Mathf.Sin(angle))*target.pressureHelixRadius;
             }
             return position;
+        }
+        public static Vector3 PressureVelocity(LockTarget target,float age)
+        {
+            float speed=target.pressureSlowdownSeconds>0?
+                Mathf.Lerp(target.pressureSpeed,target.pressureFinalSpeed,Mathf.Clamp01(age/target.pressureSlowdownSeconds)):
+                target.pressureSpeed;
+            return target.direction*speed+target.pressureAcceleration*age;
         }
 
         public int RegisterSpiralPair(Vector3 origin,Vector3 direction,float song,Color first,Color second,
@@ -834,17 +842,18 @@ namespace Liminal
         }
 
         public int RegisterRadialPressureBurst(Vector3 origin,float song,Color color,UnityEngine.Object owner,
-            int count=18,float speed=20f)
+            int count=36,float speed=20f)
         {
-            int available=MaxLivePressureShots-PressureBudget();
-            count=Mathf.Min(Mathf.Clamp(count,12,24),available);
-            if(count<12 || !CanRegisterPressureShots(count)) return 0;
+            int available=RadialPressureCapacity-PressureBudget();
+            count=Mathf.Min(Mathf.Clamp(count,24,36),available);
+            if(count<24 || Ended || Peaceful) return 0;
             for(int i=0;i<count;i++) {
                 float y=1-2*(i+.5f)/count,r=Mathf.Sqrt(1-y*y),a=i*2.39996323f;
                 Vector3 direction=new(Mathf.Cos(a)*r,y,Mathf.Sin(a)*r);
-                var target=RegisterPressureShot(origin+direction*7f,direction,song,color,owner,speed,1.05f,
-                    lifetimeOverride:5f);
+                var target=RegisterPressureShot(origin+direction*12f,direction,song,color,owner,speed,1.05f,
+                    lifetimeOverride:6f,radialBudget:true);
                 target.pressurePattern=4;
+                target.pressureFinalSpeed=speed*.5f;target.pressureSlowdownSeconds=1f;
             }
             return count;
         }

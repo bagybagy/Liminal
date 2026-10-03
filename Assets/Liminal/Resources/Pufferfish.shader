@@ -25,6 +25,7 @@ Shader "Liminal/Pufferfish Particles"
             CBUFFER_START(UnityPerMaterial)
             float4 _Tint;
             float _Gain, _DeathProgress, _HitAge;
+            float _DeathAge;
             float4 _FlowVelocity;
             CBUFFER_END
             float _Song, _Pulse, _Reduced;
@@ -53,14 +54,16 @@ Shader "Liminal/Pufferfish Particles"
             {
                 Vary output;
                 float progress = saturate(_DeathProgress);
+                float4 transition=MatterDeathEnvelope(_DeathAge,false);
+                float spread=transition.y*_MatterDeathStyle.x;
                 float3 p = input.positionOS.xyz;
                 float size = input.uv.z;
                 p.y += sin(p.x * 0.8 + p.z * 0.6 + _Song * 0.8) * input.data.y;
 
                 float seed = Hash(input.data.x + input.positionOS.x * 13.7);
                 float3 radial = normalize(p + float3(0.0001, 0.0002, 0.0003));
-                p = p * (1.0 + progress * 1.25) + radial * progress * (0.12 + seed * 0.34);
-                p += MatterFlowDelta(input.positionOS.xyz,progress*2,input.data.x)*progress*.6;
+                p = p * (1.0 + spread * 1.25) + radial * spread * (0.12 + seed * 0.34);
+                p += MatterFlowDelta(input.positionOS.xyz,_DeathAge,input.data.x)*spread*.8;
                 p += _FlowVelocity.xyz*(1-exp(-progress*2))*0.3;
                 size *= 1.0 + progress * 0.48;
 
@@ -73,13 +76,13 @@ Shader "Liminal/Pufferfish Particles"
                 size *= max(1.0, distanceToCamera * 0.006);
                 worldPosition += (cameraRight * input.uv.x + cameraUp * input.uv.y) * size;
 
-                float deathFade = 1.0 - smoothstep(0.74, 1.0, progress);
+                float deathFade = transition.w;
                 float shimmer = 0.9 + 0.1 * sin(_Song * 1.7 + input.data.x * 31.0);
                 float pulse = 1.0 + _Pulse * 0.18 * (1.0 - _Reduced);
                 float3 color = input.color.rgb * _Tint.rgb * _Gain * shimmer * pulse * deathFade;
                 float flash=exp(-_HitAge*6);
                 color=lerp(color,float3(.05,.85,2.2)*deathFade,flash*.4);
-                float glow = 1.0 + sin(progress*3.14159265)*.65+flash*.22;
+                float glow = 1.0 + transition.z*_MatterDeathStyle.y+flash*.22;
 
                 output.positionCS = TransformWorldToHClip(worldPosition);
                 output.uv = input.uv.xy;

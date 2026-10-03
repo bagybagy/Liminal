@@ -197,15 +197,16 @@ Shader "Liminal/Hermit Matter"
 
             float3 ScatteredPoint(float3 source, float id, float seed, float elapsed)
             {
+                float4 death = MatterDeathEnvelope(elapsed, false);
                 float a = Hash(id, 14.0) * TAU;
                 float y = Hash(id, 15.0) * 2.0 - 1.0;
                 float ring = sqrt(max(0.0, 1.0 - y * y));
                 float3 drift = float3(cos(a) * ring, y * 0.8, sin(a) * ring);
-                float distance = min(elapsed * (1.6 + seed * 1.5), 22.0) * (0.45 + Hash(id, 16.0));
+                float distance = min(elapsed * (1.6 + seed * 1.5), 22.0) * (0.45 + Hash(id, 16.0))*death.y;
                 float sway = (sin(elapsed * 0.37 + seed * TAU) - sin(seed * TAU)) * 0.65;
                 float sway2 = (cos(elapsed * 0.29 + seed * 19.0) - cos(seed * 19.0)) * 0.48;
-                return source + drift * distance + float3(sway, sway2, -sway * 0.55)+
-                    MatterFlowDelta(source*.2,elapsed,seed)*min(elapsed*.45,1.8);
+                return source + drift * distance + float3(sway, sway2, -sway * 0.55)*death.y+
+                    MatterFlowDelta(source*.2,elapsed,seed)*death.y*3.0*_MatterDeathStyle.x;
             }
 
             float3 RefugePoint(float id, out float part, out float accent)
@@ -364,12 +365,14 @@ Shader "Liminal/Hermit Matter"
                     float3 refuge = _RefugeRoot.xyz + RefugePoint(id, refugePart, refugeAccent) * REEF_SCALE;
                     float delay = Hash(_CrabId, 41.0) * 0.10;
                     float blend = smoothstep(0.16 + delay, 1.0, _RefugeProgress);
-                    float disperse = smoothstep(0.0, 0.18, _RefugeProgress);
+                    float4 death = MatterDeathEnvelope(_RefugeProgress*7.0, true);
+                    float disperse = death.y;
                     float3 drift = UnitSphere(Hash(id, 42.0), Hash(id, 43.0), 1.0);
                     float3 stream = float3(-drift.z, 0.6 + abs(drift.y), drift.x);
                     world = lerp(source + drift * (3.8 * disperse), refuge, blend)
                         + stream * (sin(blend * PI) * 8.0);
-                    world += MatterFlowDelta(source*.15,_RefugeProgress*7.0,input.data.z)*sin(blend*PI)*3.0;
+                    world += MatterFlowDelta(source*.15,_RefugeProgress*7.0,input.data.z)*
+                        max(sin(blend*PI),death.y)*(1.0-blend)*7.0*_MatterDeathStyle.x;
                     matterScale = lerp(sourceScale, 2.4, blend);
                     color = lerp(sourceColor, RefugeColor(refugePart, refugeAccent, id), blend);
                 }
@@ -403,10 +406,10 @@ Shader "Liminal/Hermit Matter"
                 float pulse = 0.96 + 0.04 * sin(_Beat * TAU + input.data.z * TAU);
                 float distanceFade = exp(-distanceToCamera * 0.0014);
                 color *= _Tint.rgb * _Gain * 2.4 * pulse * distanceFade;
-                float transitionLight=_State>.5 && _State<1.5?exp(-max(0,_Song-_DeathSong)*1.6):
+                float transitionLight=_State>.5 && _State<1.5?MatterDeathEnvelope(max(0,_Song-_DeathSong),false).z:
                     _State<2.5 && _State>1.5?sin(saturate(_MergeProgress)*PI):
-                    _State<3.5 && _State>2.5?sin(saturate(_RefugeProgress)*PI):0;
-                color *= 1.0+transitionLight*.3;
+                    _State<3.5 && _State>2.5?MatterDeathEnvelope(_RefugeProgress*7.0,true).z:0;
+                color *= 1.0+transitionLight*_MatterDeathStyle.y;
                 color *= 1.0 + glintMask * max(0.0, sin(_Song * 3.6 + input.data.z * 29.0)) * 0.5;
 
                 output.positionCS = TransformWorldToHClip(world);

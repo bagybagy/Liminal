@@ -129,13 +129,27 @@ namespace Liminal
             for(int i=0;i<8;i++) Check(combat.Acquire(puffer),"First puffer volley must accept eight locks.");
             Check(!combat.Acquire(puffer),"Puffer volley must remain capped at eight locks.");
             combat.Release();yield return Resolve();
+            yield return new WaitForSecondsRealtime(.4f);
             Check(puffer.hp==8 && puffer.visual.transform.localScale.x>smallScale,"Each hit must inflate the same puffer body.");
+            Check(puffer.visual.transform.localScale.x<PufferfishEncounter.ScaleForHits(8)+.001f,
+                "Rapid consecutive hits must inflate smoothly without overshooting accumulated damage.");
             Capture("puffer-inflated.png");
             for(int i=0;i<8;i++) Check(combat.Acquire(puffer),"Second puffer volley must accept the remaining eight locks.");
             combat.Release();yield return Resolve();
+            float burstDeadline=Time.realtimeSinceStartup+3;
+            while(combat.Puffers.Bursts==0 && Time.realtimeSinceStartup<burstDeadline) yield return null;
             Check(combat.Hits-before==16 && combat.Puffers.Bursts==1,"Exactly sixteen real musical hits must burst one puffer.");
             report.radialShots=combat.LivePressureShots(combat.Puffers);
-            Check(report.radialShots>=12 && report.radialShots<=24,"Puffer burst must produce many bounded omnidirectional targets.");
+            Check(report.radialShots==36,"Puffer burst must produce thirty-six omnidirectional targets at twice the previous density.");
+            foreach(var shot in combat.Targets) if(shot.pressurePattern==4) {
+                Check(Mathf.Abs(Encounter.PressureVelocity(shot,0).magnitude-20)<.001f &&
+                    Mathf.Abs(Encounter.PressureVelocity(shot,1).magnitude-10)<.001f,
+                    "Puffer pressure must halve its speed over one second.");
+                Check(Vector3.Distance(Encounter.PressurePosition(shot,1),shot.origin+shot.direction*15)<.001f,
+                    "Decelerating pressure position must integrate speed continuously.");
+            }
+            Check(Mathf.Abs(PufferfishEncounter.ScaleForHits(16)-6.016f)<.001f,
+                "Fully inflated puffer must be twice its previous maximum size.");
             Capture("puffer-radial-release.png");
             report.pufferHits=16;
             report.gridError=Math.Max(report.gridError,game.Music.MaxGridError);
@@ -154,7 +168,7 @@ namespace Liminal
             Check(wave!=null,"Serpent summon hook must exist.");
             for(int i=0;i<4;i++) {
                 wave.Invoke(combat,new object[] {(float)game.Music.Time,16+i*32});
-                Check(combat.Puffers.Spawned==(i==3?1:0),"Puffer must appear only once in four serpent summons.");
+                Check(combat.Puffers.Spawned==(i<2?1:2),"Puffer must now appear once in two serpent summons, starting with the first.");
             }
             report.rareWave=true;
             ResetRoom();

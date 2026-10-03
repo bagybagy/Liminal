@@ -18,6 +18,7 @@ Shader "Liminal/Pressure Bubble"
             CBUFFER_START(UnityPerMaterial)
             float4 _Tint;
             float _Dissolve;
+            float _DissolveAge;
             float4 _FlowVelocity;
             CBUFFER_END
             float _Song;
@@ -27,18 +28,20 @@ Shader "Liminal/Pressure Bubble"
             {
                 Varyings o;
                 float phase=v.data.x*6.2831853;
+                float4 transition=MatterDeathEnvelope(_DissolveAge,false);
+                float spread=transition.y*_MatterDeathStyle.x;
                 float3 local=v.positionOS*(1+.028*sin(_Song*2.3+phase));
                 float3 drift=float3(sin(phase*1.7),cos(phase*2.1),sin(phase*2.7));
-                local=local*(1+_Dissolve*.8)+drift*_Dissolve*.65;
-                local+=MatterFlowDelta(v.positionOS,_Dissolve*.65,v.data.x)*_Dissolve*.6;
-                float age=_Dissolve*.65;
+                local=local*(1+spread*1.5)+drift*spread*.7;
+                local+=MatterFlowDelta(v.positionOS,_DissolveAge,v.data.x)*spread*.8;
+                float age=_DissolveAge;
                 float3 center=TransformObjectToWorld(local)+_FlowVelocity.xyz*(1-exp(-age*2.5))*.4;
                 float scale=length(GetObjectToWorldMatrix()[0].xyz);
                 float size=max(v.uv.z*scale,.065);
                 float3 pos=center+(UNITY_MATRIX_V[0].xyz*v.uv.x+UNITY_MATRIX_V[1].xyz*v.uv.y)*size;
                 o.positionCS=TransformWorldToHClip(pos);o.uv=v.uv.xy;
-                o.glow=(.7+.5*pow(saturate(sin(phase+_Song*3)),6))*pow(1-_Dissolve,1.3)*
-                    (1+.4*sin(_Dissolve*3.14159265));
+                o.glow=(.7+.5*pow(saturate(sin(phase+_Song*3)),6))*transition.w*
+                    (1+_MatterDeathStyle.y*transition.z);
                 return o;
             }
             half4 Frag(Varyings i):SV_Target
