@@ -1,0 +1,105 @@
+{
+    "passed": true,
+    "arrivalTriggered": true,
+    "arrivalCompleted": true,
+    "initialImpactCount": 0,
+    "impactCountAtFirstActive": 1,
+    "finalImpactCount": 1,
+    "splashParticleCount": 98304,
+    "elapsedSeconds": 1.4221129417419434,
+    "impactAge": 6.3719048500061039,
+    "latefallAge": 6.300027370452881,
+    "splashPeakHeight": 236.16001892089845,
+    "initialSplashAge": -1.0,
+    "heightAt1_2": 166.7113037109375,
+    "heightAt2_2": 250.35243225097657,
+    "extentAt1_2": 179.9915771484375,
+    "extentAt2_2": 305.2827453613281,
+    "expiredMaxHeight": 0.0,
+    "expiredLateralExtent": 681.3401489257813,
+    "splashOrigin": {
+        "x": 245.62930297851563,
+        "y": -295.0,
+        "z": 792.5804443359375
+    },
+    "lastVelocity": {
+        "x": 37.4407958984375,
+        "y": -100.61793518066406,
+        "z": -34.519046783447269
+    },
+    "latefallPosition": {
+        "x": 242.8513641357422,
+        "y": -267.9405212402344,
+        "z": 795.068359375
+    },
+    "expiredSplashActive": false,
+    "latefallCapture": {
+        "file": "whale-late-fall.png",
+        "whitePixels": 701,
+        "nonBlackPixels": 772262,
+        "blueCyanPixels": 183709,
+        "whiteFraction": 0.0004868055693805218,
+        "nonBlackFraction": 0.5362930297851563,
+        "blueCyanFraction": 0.12757569551467896,
+        "afterLifetimeDifferenceFraction": 0.0,
+        "nonBlank": true
+    },
+    "captures": [
+        {
+            "file": "splash-age-0.3.png",
+            "whitePixels": 4465,
+            "nonBlackPixels": 731143,
+            "blueCyanPixels": 173834,
+            "whiteFraction": 0.003100694390013814,
+            "nonBlackFraction": 0.5077381730079651,
+            "blueCyanFraction": 0.12071805447340012,
+            "afterLifetimeDifferenceFraction": 0.23896320164203645,
+            "nonBlank": true
+        },
+        {
+            "file": "splash-age-1.2.png",
+            "whitePixels": 0,
+            "nonBlackPixels": 986133,
+            "blueCyanPixels": 382253,
+            "whiteFraction": 0.0,
+            "nonBlackFraction": 0.6848145723342896,
+            "blueCyanFraction": 0.2654534578323364,
+            "afterLifetimeDifferenceFraction": 0.4653673470020294,
+            "nonBlank": true
+        },
+        {
+            "file": "splash-age-2.2.png",
+            "whitePixels": 0,
+            "nonBlackPixels": 1025726,
+            "blueCyanPixels": 464746,
+            "whiteFraction": 0.0,
+            "nonBlackFraction": 0.712309718132019,
+            "blueCyanFraction": 0.3227402865886688,
+            "afterLifetimeDifferenceFraction": 0.4726576507091522,
+            "nonBlank": true
+        },
+        {
+            "file": "splash-age-4.4.png",
+            "whitePixels": 4242,
+            "nonBlackPixels": 794172,
+            "blueCyanPixels": 149753,
+            "whiteFraction": 0.0029458333738148214,
+            "nonBlackFraction": 0.5515083074569702,
+            "blueCyanFraction": 0.10399513691663742,
+            "afterLifetimeDifferenceFraction": 0.0,
+            "nonBlank": true
+        },
+        {
+            "file": "splash-age-6.1.png",
+            "whitePixels": 8522,
+            "nonBlackPixels": 700063,
+            "blueCyanPixels": 41176,
+            "whiteFraction": 0.005918055772781372,
+            "nonBlackFraction": 0.48615485429763796,
+            "blueCyanFraction": 0.028594443574547769,
+            "afterLifetimeDifferenceFraction": 0.0,
+            "nonBlank": true
+        }
+    ],
+    "errors": []
+}

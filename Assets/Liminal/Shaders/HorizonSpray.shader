@@ -67,6 +67,7 @@ Shader "Liminal/Horizon Spray"
                 float age = _Song - origin.w;
                 float valid = step(0, age) * step(age, 14) * step(0.0001, motion.w);
                 float major = step(3, motion.w);
+                valid *= 1 - major;
                 float whaleVisibility = _WhaleVisibility;
                 float impact = smoothstep(0.85, 1.3, motion.w);
                 float eventEnergy = saturate(motion.w / 1.65);

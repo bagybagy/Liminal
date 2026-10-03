@@ -54,12 +54,13 @@ namespace Liminal
             bool encounterReview=Array.IndexOf(args,"--verify-encounter-review")>=0;
             bool pressureProof=Array.IndexOf(args,"--verify-pressure-patterns")>=0;
             bool finalReviewProof=Array.IndexOf(args,"--verify-final-review")>=0;
+            bool whaleSplashProof=Array.IndexOf(args,"--verify-whale-splash")>=0;
             bool capturePV=false;
 #if UNITY_EDITOR
             legacyProof|=UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false);
             capturePV=UnityEditor.EditorPrefs.GetBool("Liminal.CavernPV",false);
 #endif
-            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||encounterReview||pressureProof||finalReviewProof||capturePV;
+            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||encounterReview||pressureProof||finalReviewProof||whaleSplashProof||capturePV;
             CavernMode=!legacyProof && Array.IndexOf(args,"--legacy-arena")<0;
             Cursor.visible=ProofActive;
             World=gameObject.AddComponent<ParticleWorld>();
@@ -96,6 +97,7 @@ namespace Liminal
             if(encounterReview) gameObject.AddComponent<EncounterReviewProof>().Initialize(this);
             if(pressureProof) gameObject.AddComponent<PressurePatternProof>().Initialize(this);
             if(finalReviewProof) gameObject.AddComponent<FinalReviewProof>().Initialize(this);
+            if(whaleSplashProof) gameObject.AddComponent<WhaleSplashProof>().Initialize(this);
             if(capturePV) gameObject.AddComponent<PvDirector>().Initialize(this);
 #if UNITY_EDITOR
             if(UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false))

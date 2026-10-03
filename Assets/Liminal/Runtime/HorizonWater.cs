@@ -35,6 +35,7 @@ namespace Liminal
         public int MajorWaveCount { get; private set; }
         public Vector3 LastMajorOrigin { get; private set; }
         public float LastMajorTime { get; private set; } = -1f;
+        public WhaleImpactSplash ImpactSplash { get; private set; }
         public bool Ready => surfaceMesh != null && eventBuffer != null && surfaceMaterial != null && sprayMaterial != null;
 
         public void Initialize(Material surfaceTemplate, Material sprayTemplate)
@@ -58,6 +59,8 @@ namespace Liminal
             surfaceMaterial.SetVector("_WaterCenter", new Vector4(center.x, SurfaceHeight, center.z, 0));
             surfaceMaterial.SetVector("_WaterRadii", new Vector4(radii.x, radii.y, 0, 0));
             surfaceMesh = CreateSurface();
+            ImpactSplash = gameObject.AddComponent<WhaleImpactSplash>();
+            ImpactSplash.Initialize();
             ResetWater();
             RenderPipelineManager.beginCameraRendering += Render;
         }
@@ -67,6 +70,7 @@ namespace Liminal
             if (!Ready) return;
             if (previousSong >= 0f && song < previousSong - 0.001f) ResetWater();
             previousSong = song;
+            ImpactSplash.Tick(song);
 
             MarineLife life = GetMarineLife();
             bool whaleVisible = life != null && life.WhaleVisible;
@@ -105,7 +109,7 @@ namespace Liminal
                 DetectCrossing(previousLeftFinSide, leftFinSide, leftFin, whaleVelocity, song);
                 DetectCrossing(previousRightFinSide, rightFinSide, rightFin, whaleVelocity, song);
                 Vector2 horizontalVelocity = new Vector2(whaleVelocity.x, whaleVelocity.z);
-                if (life.WhaleEntranceComplete && Crossed(previousCenterSide, centerSide)
+                if (life.WhaleEntranceComplete && previousCenterSide > 0f && centerSide <= 0f
                     && horizontalVelocity.magnitude >= 12f
                     && (LastMajorTime < 0f || song - LastMajorTime >= 8f))
                 {
@@ -160,6 +164,7 @@ namespace Liminal
             if (life == null || !life.WhaleVisible) return;
             if (float.IsNaN(strength) || float.IsInfinity(strength)) strength = 4f;
             position.y = SurfaceHeight;
+            if (!ImpactSplash.Burst(position, velocity, song, strength)) return;
             AddEvent(position, velocity, song, Mathf.Clamp(strength, 3f, 8f));
         }
 
@@ -217,6 +222,7 @@ namespace Liminal
 
         public void ResetWater()
         {
+            if (ImpactSplash) ImpactSplash.ResetSplash();
             ClearWaveEvents();
             SurfaceCrossings = MajorWaveCount = 0;
             LastMajorOrigin = Vector3.zero;

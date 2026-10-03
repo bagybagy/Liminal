@@ -1,4 +1,4 @@
-LIMINAL v0.1.3 / Windows x64 / PCVR
+LIMINAL v0.1.4 / Windows x64 / PCVR
 
 フォルダ全体を展開して Liminal.exe を起動してください。
 Liminal_Data・DLLなどを移動したり削除しないでください。
@@ -22,6 +22,12 @@ VRのワールド空間HUDにボス残HP・形態・チャージを表示しま�
 ハリセンボンは召喚頻度・最大サイズ・破裂弾数を倍にし、膨張を滑らかにしました。
 36発の全方位弾は初速20m/sから1秒で10m/sまで減速します。
 今回の限定検査は FinalReviewReport.json、PressurePatternReport.json、PlayerFeedbackReport.json を参照してください。
+
+v0.1.4: クジラの着水に、約9.8万個の粒子による巨大な青い水幕を追加しました。
+水幕が乱流で崩れ、水滴となって落下し、6秒で水面へ戻ります。
+ジャンプ終了時刻ではなく、下降中の腹部が水面へ触れる瞬間に発生します。
+通常の航跡は維持。VRでは約6.6万個へ粒子数を抑えます。
+WhaleSplashReport.json はWindowsビルドの実描画検査結果です。VR実機の負荷は未確認です。
 
 制作: tete
 プロジェクト: https://github.com/bagybagy/Liminal

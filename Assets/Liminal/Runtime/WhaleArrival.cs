@@ -18,6 +18,7 @@ namespace Liminal
         HorizonWater water;
         float startedAt = -1f, song;
         bool slammed;
+        Vector3 impactPosition, impactVelocity;
 
         public Vector3 Origin { get; private set; }
         public bool Triggered => startedAt >= 0f;
@@ -25,6 +26,7 @@ namespace Liminal
         public bool Complete => Age >= SlamTime + JoinSeconds;
         public float CruiseTime => CruiseOffset + (Complete ? Age - SlamTime - JoinSeconds : 0f);
         public bool Slammed => slammed;
+        public float ImpactAge { get; private set; }
         public float PeakTime => ChargeSeconds;
         public bool PeakReached => Triggered && Age >= ChargeSeconds;
         public float Formation => Triggered ? Mathf.SmoothStep(0f, 1f,
@@ -39,6 +41,7 @@ namespace Liminal
             vortex = new Material(shader) { name = "Blue gyre / whale arrival" };
             Origin = CaveLayout.Rooms[2].Center + new Vector3(0f, 0f, -260f);
             Origin = new Vector3(Origin.x, CaveLayout.HorizonSurfaceY - 28f, Origin.z);
+            CalculateLanding();
             ResetArrival();
             vortex.SetVector("_Origin", Origin);
             vortex.SetFloat("_Age", -1f);
@@ -59,15 +62,35 @@ namespace Liminal
             song = musicTime;
             if (!Triggered && Vector3.Distance(player, Origin) <= 190f) startedAt = song;
             if (!water) water = GetComponent<HorizonWater>();
-            if (!slammed && Age >= SlamTime)
+            if (!slammed && Age >= ImpactAge)
             {
                 slammed = true;
-                if (water) water.MajorImpact(Origin + new Vector3(170f, -14f, -85f),
-                    new Vector3(34f, -55f, 12f), song, 4.5f);
+                if (water) water.MajorImpact(impactPosition, impactVelocity, startedAt + ImpactAge, 4.5f);
             }
             vortex.SetVector("_Origin", Origin);
             vortex.SetFloat("_Song", song);
             vortex.SetFloat("_Age", Age);
+        }
+
+        void CalculateLanding()
+        {
+            Vector3 p0 = Origin - Vector3.up * 75f;
+            Vector3 p1 = Origin + new Vector3(15f, 185f, 15f);
+            Vector3 p2 = Origin + new Vector3(150f, 155f, -45f);
+            Vector3 p3 = Origin + new Vector3(170f, -14f, -85f);
+            // First contact of the descending belly, rather than the end of the jump animation.
+            float low = .65f, high = 1f;
+            for (int i = 0; i < 20; i++)
+            {
+                float u = (low + high) * .5f;
+                if (Cubic(p0, p1, p2, p3, u).y - 20f > CaveLayout.HorizonSurfaceY) low = u;
+                else high = u;
+            }
+            float contact = (low + high) * .5f;
+            ImpactAge = ChargeSeconds + BreachSeconds * contact;
+            impactPosition = Cubic(p0, p1, p2, p3, contact);
+            impactPosition.y = CaveLayout.HorizonSurfaceY;
+            impactVelocity = CubicTangent(p0, p1, p2, p3, contact) / BreachSeconds;
         }
 
         public void Pose(out Vector3 position, out Quaternion rotation)
