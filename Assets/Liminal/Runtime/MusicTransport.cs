@@ -12,6 +12,7 @@ namespace Liminal
         const float MusicLevel = 0.83f;
         const int VoiceCount = 64;
         const double CrossfadeBars = 2;
+        const int ReleaseToneOctavesAboveRoot = 2;
 
         readonly AudioSource[] musicSources = new AudioSource[2];
         readonly AudioClip[] themeClips = new AudioClip[6];
@@ -36,6 +37,9 @@ namespace Liminal
         public int DroppedNotes { get; private set; }
         public int BossReleaseEvents { get; private set; }
         public double MaxReleaseGridError { get; private set; }
+        public AudioClip ReleaseTonePreview(int midi) => releaseTones.TryGetValue(midi, out var clip) ? clip : null;
+        public static float ReleaseToneFrequency(int midi) =>
+            (float)(440 * Math.Pow(2, (midi + 12 * ReleaseToneOctavesAboveRoot - 69) / 12.0));
         public int ThemeCount => AuthoredScore.ThemeCount;
         public bool StageMusicEnabled => stageMusicAvailable;
         public AudioClip ActiveSoundtrack => musicSources[activeMusicSource] ? musicSources[activeMusicSource].clip : null;
@@ -274,7 +278,7 @@ namespace Liminal
 
         public void LockSound() => Play(lockTone, AudioSettings.dspTime + 0.01, 0, 0.06f);
         public void DamageSound() => Play(impact, AudioSettings.dspTime + 0.01, 0, 0.6f);
-        public void WhaleCall() => Play(whaleTone, origin + Score.NextEighth(Time, .15), 0, .7f);
+        public void WhaleCall() => Play(whaleTone, origin + Score.NextEighth(Time, .15), 0, .35f);
 
         public void BossRelease(float song, int voice = 0)
         {
@@ -282,8 +286,6 @@ namespace Liminal
             double boundary = AuthoredScore.Next(Math.Max(song, Time), SchedulingLead(), false);
             int root = AuthoredScore.Note(0, boundary);
             if (!releaseTones.TryGetValue(root, out AudioClip tone)) return;
-            // A short tactile onset precedes the harmonic resolution on the authored audio grid.
-            Play(impact, AudioSettings.dspTime + .02, 0, .22f);
             if (Play(tone, origin + boundary, 0, voice == 3 ? .68f : .76f)) {
                 BossReleaseEvents++;
                 MaxReleaseGridError = Math.Max(MaxReleaseGridError, AuthoredScore.GridError(boundary));
@@ -338,19 +340,24 @@ namespace Liminal
         static AudioClip MakeReleaseTone(int midi)
         {
             const int rate = 44100;
-            const float length = 2.2f;
+            const float length = 1.9f;
             int frames = Mathf.CeilToInt(rate * length);
             var samples = new float[frames * 2];
-            double frequency = 440 * Math.Pow(2, (midi - 81) / 12.0);
+            double frequency = ReleaseToneFrequency(midi);
             for (int i = 0; i < frames; i++) {
                 double t = i / (double)rate;
-                double envelope = Math.Min(t / .012, 1) * Math.Exp(-t * 2.2) * Math.Min((length - t) / .18, 1);
+                double attack = Math.Min(t / .005, 1);
+                double release = Math.Min((length - t) / .12, 1);
                 double p = 2 * Math.PI * frequency * t;
-                double glide = .9 * Math.Exp(-t * 14);
-                double left = Math.Sin(p + glide) * .29 + Math.Sin(p * 2) * .14 +
-                    Math.Sin(p * 3) * .085 + Math.Sin(p * 4.002) * .055;
-                double right = Math.Sin(p + glide) * .29 + Math.Sin(p * 2) * .14 +
-                    Math.Sin(p * 3) * .085 + Math.Sin(p * 3.998) * .055;
+                double fundamental = Math.Sin(p) * .30 * Math.Exp(-t * 1.3);
+                double second = .16 * Math.Exp(-t * 2.2);
+                double third = .065 * Math.Exp(-t * 3.4);
+                double glassPartial = .035 * Math.Exp(-t * 5.2);
+                double left = fundamental + Math.Sin(p * 2 + .012) * second +
+                    Math.Sin(p * 3 - .024) * third + Math.Sin(p * 4.07 + .06) * glassPartial;
+                double right = fundamental + Math.Sin(p * 2 - .012) * second +
+                    Math.Sin(p * 3 + .024) * third + Math.Sin(p * 4.07 - .06) * glassPartial;
+                double envelope = attack * release;
                 samples[i * 2] = (float)(left * envelope);
                 samples[i * 2 + 1] = (float)(right * envelope);
             }
