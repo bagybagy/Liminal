@@ -6,6 +6,7 @@ namespace Liminal
     {
         public Experience Experience;
         public int VisibleCreditRows { get; private set; }
+        bool pointStudyControlsExpanded;
         GUIStyle small, regular, title, number, button, creditBody, creditHeading;
         Texture2D pixel;
         static readonly Color White=new(0.89f,0.96f,0.96f), Muted=new(0.43f,0.60f,0.65f), Cyan=new(0.4f,1,0.87f), Gold=new(1,0.7f,0.32f);
@@ -270,11 +271,15 @@ namespace Liminal
         {
             Fill(new Rect(0,0,w,h),new Color(0.004f,0.009f,0.014f,0.08f));
             Matrix4x4 previous=GUI.matrix;
-            float scale=Mathf.Min(1,w/360,(h-24)/522);
+            var study=Experience.PointStudy;
+            bool studyControls=Experience.CavernMode && study;
+            bool expanded=studyControls && pointStudyControlsExpanded;
+            float contentHeight=expanded?638:494;
+            float scale=Mathf.Min(1,w/360,(h-24)/(expanded?662:518));
             GUI.matrix=previous*Matrix4x4.Scale(new Vector3(scale,scale,1));
             w/=scale;h/=scale;
-            float x=w*0.5f-150,y=(h-494)*.5f;
-            Fill(new Rect(x-20,y-12,340,518),new Color(0.004f,0.009f,0.014f,0.92f));
+            float x=w*0.5f-150,y=(h-contentHeight)*.5f;
+            Fill(new Rect(x-20,y-12,340,contentHeight+24),new Color(0.004f,0.009f,0.014f,0.92f));
             Text(new Rect(x,y,300,42),"PAUSED",title,White,TextAnchor.MiddleCenter);
             if(GUI.Button(new Rect(x,y+58,300,36),"RESUME",button)) Experience.TogglePause();
             Text(new Rect(x,y+113,100,23),"MUSIC",small,Muted);
@@ -304,6 +309,30 @@ namespace Liminal
                 Text(new Rect(x,y+422,300,20),Experience.Vr.Status,small,Muted,TextAnchor.MiddleCenter);
             }
             if(GUI.Button(new Rect(x,y+450,300,36),"EXIT",button)) Experience.Quit();
+            if(studyControls) {
+                expanded=GUI.Toggle(new Rect(x,y+494,300,24),pointStudyControlsExpanded,pointStudyControlsExpanded?"  POINT STUDY  -":"  POINT STUDY  +");
+                pointStudyControlsExpanded=expanded;
+                if(expanded) {
+                    bool visible=GUI.Toggle(new Rect(x,y+520,300,22),study.Visible,"  VISIBLE");
+                    if(visible!=study.Visible) study.SetVisible(visible);
+                    bool native=study.Mode==PointStudy.RenderMode.NativePoint;
+                    bool chooseNative=GUI.Toggle(new Rect(x,y+544,144,24),native,"NATIVE POINT");
+                    bool chooseQuad=GUI.Toggle(new Rect(x+150,y+544,150,24),!native,"SHARP QUAD");
+                    if(chooseNative&&!native) study.SetMode(PointStudy.RenderMode.NativePoint);
+                    else if(chooseQuad&&native) study.SetMode(PointStudy.RenderMode.SharpQuad);
+                    bool density3=study.DensityMultiplier==3;
+                    bool choose3=GUI.Toggle(new Rect(x+150,y+570,150,22),density3,"3X DENSITY");
+                    bool choose1=GUI.Toggle(new Rect(x,y+570,144,22),!density3,"1X DENSITY");
+                    if(choose3&&!density3) study.SetDensity(3);
+                    else if(choose1&&density3) study.SetDensity(1);
+                    Text(new Rect(x,y+594,44,20),"GAIN",small,Muted);
+                    float gain=GUI.HorizontalSlider(new Rect(x+48,y+596,252,18),study.Gain,.25f,12f);
+                    if(!Mathf.Approximately(gain,study.Gain)) study.SetGain(gain);
+                    Text(new Rect(x,y+614,44,20),"FLOW",small,Muted);
+                    float flow=GUI.HorizontalSlider(new Rect(x+48,y+616,252,18),study.Flow,0f,2f);
+                    if(!Mathf.Approximately(flow,study.Flow)) study.SetFlow(flow);
+                }
+            }
             GUI.matrix=previous;
         }
         void Results(float w,float h)
