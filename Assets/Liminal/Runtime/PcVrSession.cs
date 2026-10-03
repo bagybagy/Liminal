@@ -45,6 +45,7 @@ namespace Liminal
         {
             return menu || secondary || stick;
         }
+        public static bool MenuInputActive(bool paused, bool gameOver) => paused || gameOver;
 
         public void Initialize(Experience owner)
         {
@@ -109,6 +110,8 @@ namespace Liminal
 
             bool hasPose = UpdateHeadPose();
             bool paused = experience.Music != null && experience.Music.Paused;
+            bool gameOver = experience.Combat != null && experience.Combat.Lost;
+            bool menuInput = MenuInputActive(paused, gameOver);
             ReadControllerInput(out Vector2 leftAxis, out Vector2 rightAxis,
                 out float leftGrip, out float rightTrigger,
                 out bool leftPrimary, out bool rightPrimary, out bool menuDown,
@@ -119,8 +122,8 @@ namespace Liminal
             pauseWasDown = pauseDown;
 
             bool triggerDown = triggerWasDown ? rightTrigger > 0.42f : rightTrigger >= 0.62f;
-            MenuConfirmPressed = paused && triggerDown && !triggerWasDown;
-            MenuAxis = paused ? ApplyDeadzone(rightAxis, 0.28f) : Vector2.zero;
+            MenuConfirmPressed = menuInput && triggerDown && !triggerWasDown;
+            MenuAxis = menuInput ? ApplyDeadzone(rightAxis, 0.28f) : Vector2.zero;
             triggerWasDown = triggerDown;
 
             bool activeControls = controls && !paused && hasPose;

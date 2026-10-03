@@ -104,8 +104,8 @@ namespace Liminal
             }
             if(Experience.CavernMode && Experience.WhaleAwakenedAt>=0 && t-Experience.WhaleAwakenedAt<7 && !music.Paused)
                 Text(new Rect(20,h*.74f,w-40,46),"HORIZON RELEASED",title,White,TextAnchor.MiddleCenter);
-            if(music.Paused) PausePanel(w,h);
-            else if(e.Ended && t-e.EndTime>4) Results(w,h);
+            if(e.Ended && (music.Paused || t-e.EndTime>4)) Results(w,h);
+            else if(music.Paused) PausePanel(w,h);
             var finale=Experience.Finale;
             var credits=finale?finale.Credits:null;
             if(ShouldShowCredits(credits,music.Paused,vr)) DrawCredits(credits,w,h);
@@ -308,14 +308,29 @@ namespace Liminal
         }
         void Results(float w,float h)
         {
+            if(!Experience.BackgroundProof) {
+                Cursor.lockState=CursorLockMode.None;
+                Cursor.visible=true;
+            }
             Fill(new Rect(0,0,w,h),new Color(0.003f,0.008f,0.012f,0.62f));
+            Matrix4x4 previous=GUI.matrix;
+            float scale=Mathf.Max(.1f,Mathf.Min(1f,Mathf.Min(w/480f,h/470f)));
+            GUI.matrix=previous*Matrix4x4.Scale(new Vector3(scale,scale,1));
+            w/=scale;h/=scale;
             var e=Experience.Combat;
             float x=w*0.5f-220,y=Mathf.Max(100,h*0.5f-140);
             Text(new Rect(x,y,440,50),e.Won?"RESONANCE COMPLETE":"SIGNAL LOST",title,White,TextAnchor.MiddleCenter);
             Text(new Rect(x,y+69,440,45),e.Points.ToString("D7"),title,Cyan,TextAnchor.MiddleCenter);
             Text(new Rect(x,y+127,440,25),"BEST CHAIN   "+e.BestCombo.ToString("D3")+"     /     HITS   "+e.Hits.ToString("D3"),small,Muted,TextAnchor.MiddleCenter);
-            if(GUI.Button(new Rect(w*0.5f-150,y+191,300,38),"REENTER",button)) Experience.Restart();
-            if(GUI.Button(new Rect(w*0.5f-150,y+243,300,34),"EXIT",button)) Experience.Quit();
+            float buttonY=y+191;
+            if(Experience.CanRetryRoom) {
+                string room=CaveLayout.Rooms[Experience.RoomCheckpointRoom].Name;
+                if(GUI.Button(new Rect(w*0.5f-150,buttonY,300,38),"RETRY  "+room,button)) Experience.RetryCurrentRoom();
+                buttonY+=48;
+            }
+            if(GUI.Button(new Rect(w*0.5f-150,buttonY,300,38),"RESTART RUN",button)) Experience.Restart();
+            if(GUI.Button(new Rect(w*0.5f-150,buttonY+48,300,34),"EXIT",button)) Experience.Quit();
+            GUI.matrix=previous;
         }
         void Text(Rect r,string value,GUIStyle style,Color color,TextAnchor align=TextAnchor.UpperLeft)
         {

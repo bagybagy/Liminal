@@ -41,6 +41,12 @@ namespace Liminal
         public bool ManualProofTick { get; set; }
         public bool ReducedMotion { get; private set; }
         readonly bool[] visitedRooms=new bool[CaveLayout.Rooms.Length];
+        readonly bool[] occupiedRooms=new bool[CaveLayout.Rooms.Length];
+        bool hasRoomCheckpoint;
+        int checkpointRoom;
+        Vector3 checkpointPosition;
+        Quaternion checkpointRotation;
+        BossId checkpointBossMask;
         bool whaleCalled;
         bool tutorialSaved;
         void Awake()
@@ -57,12 +63,13 @@ namespace Liminal
             bool pressureProof=Array.IndexOf(args,"--verify-pressure-patterns")>=0;
             bool finalReviewProof=Array.IndexOf(args,"--verify-final-review")>=0;
             bool whaleSplashProof=Array.IndexOf(args,"--verify-whale-splash")>=0;
+            bool roomRetryProof=Array.IndexOf(args,"--verify-room-retry")>=0;
             bool capturePV=false;
 #if UNITY_EDITOR
             legacyProof|=UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false);
             capturePV=UnityEditor.EditorPrefs.GetBool("Liminal.CavernPV",false);
 #endif
-            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||encounterReview||pressureProof||finalReviewProof||whaleSplashProof||capturePV;
+            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||encounterReview||pressureProof||finalReviewProof||whaleSplashProof||roomRetryProof||capturePV;
             BackgroundProof=ProofActive && Application.isBatchMode && Array.IndexOf(args,"--background-proof")>=0;
             if(BackgroundProof) AudioListener.volume=0f;
             CavernMode=!legacyProof && Array.IndexOf(args,"--legacy-arena")<0;
@@ -94,6 +101,10 @@ namespace Liminal
             var hud=gameObject.AddComponent<Hud>();hud.Experience=this;
             SetReducedMotion(PlayerPrefs.GetInt("reducedMotion",0)==1);
             Vr=gameObject.AddComponent<PcVrSession>();Vr.Initialize(this);
+            if(CavernMode) {
+                SyncRoomOccupancy(Flight.Position);
+                SaveRoomCheckpoint(0,Flight.Position,Flight.transform.rotation);
+            }
             if(legacyProof) gameObject.AddComponent<RuntimeProof>().Initialize(this);
             if(cavernProof) gameObject.AddComponent<CavernProof>().Initialize(this);
             if(expansionProof) gameObject.AddComponent<ExpansionProof>().Initialize(this);
@@ -103,6 +114,7 @@ namespace Liminal
             if(pressureProof) gameObject.AddComponent<PressurePatternProof>().Initialize(this);
             if(finalReviewProof) gameObject.AddComponent<FinalReviewProof>().Initialize(this);
             if(whaleSplashProof) gameObject.AddComponent<WhaleSplashProof>().Initialize(this);
+            if(roomRetryProof) gameObject.AddComponent<RoomRetryProof>().Initialize(this);
             if(capturePV) gameObject.AddComponent<PvDirector>().Initialize(this);
 #if UNITY_EDITOR
             if(UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false))
@@ -138,6 +150,7 @@ namespace Liminal
                 if(Combat.SerpentComplete) Progress.Record(BossId.Serpent);
                 if(Hermits.Complete) Progress.Record(BossId.Hermit);
                 if(Submarines.Complete) Progress.Record(BossId.Submarine);
+                TrackRoomEntry(Flight.Position);
                 Marine.ConfigureInheritance(Progress.Defeated & RunProgress.OptionalBosses);
                 PassageGuide.Tick(song);
                 Tutorial.Tick(song,dt,!ProofActive && !Combat.Ended);
@@ -197,9 +210,75 @@ namespace Liminal
                 Brightness.SetFinaleGlow(0);
                 Tutorial.SetEnabled(!ProofActive && PlayerPrefs.GetInt("particleTutorialCompleted",0)==0);
                 Array.Clear(visitedRooms,0,visitedRooms.Length);RoomsVisited=0;CurrentRoom=0;whaleCalled=false;WhaleAwakenedAt=-1;
+                SyncRoomOccupancy(Flight.Position);
+                SaveRoomCheckpoint(0,CaveLayout.Spawn,CaveLayout.SpawnRotation);
             }
             if(!BackgroundProof) Cursor.visible=ProofActive;
             if(Vr && Vr.Enabled) Vr.ResetPose();
+        }
+        public bool HasRoomCheckpoint => hasRoomCheckpoint;
+        public int RoomCheckpointRoom => checkpointRoom;
+        public Vector3 RoomCheckpointPosition => checkpointPosition;
+        public Quaternion RoomCheckpointRotation => checkpointRotation;
+        public BossId RoomCheckpointBossMask => checkpointBossMask;
+        public bool CanRetryRoom => CavernMode && hasRoomCheckpoint && Combat != null && Combat.Lost && !Progress.EndingStarted;
+
+        public bool RetryCurrentRoom()
+        {
+            if(!CanRetryRoom) return false;
+            int room=checkpointRoom;
+            Vector3 position=checkpointPosition;
+            Quaternion rotation=checkpointRotation;
+            BossId defeated=checkpointBossMask;
+
+            Combat.ClearPressureShots(Marine.Inheritance);
+            Combat.ClearPressureShots(Marine.Dolphins);
+            Combat.Restart();
+            Progress.RestoreCheckpoint(defeated);
+            Marine.ResetLife();
+            Horizon.ResetWater();
+            if((defeated & BossId.Hermit)==0) Hermits.ResetEncounter();
+            if((defeated & BossId.Submarine)==0) Submarines.ResetEncounter();
+            if((defeated & BossId.Serpent)!=0) Combat.RestoreCompletedSerpent((float)Music.Time);
+            Marine.ConfigureInheritance(defeated & RunProgress.OptionalBosses);
+            Flight.SetPose(position,rotation);
+            if(Music.Paused) Music.SetPaused(false);
+            WhaleAwakenedAt=-1;
+            whaleCalled=false;
+            CurrentRoom=room;
+            Combat.ActiveRoom=room;
+            SyncRoomOccupancy(position);
+            return true;
+        }
+
+        void TrackRoomEntry(Vector3 current)
+        {
+            if(!CavernMode || Combat.Lost || Progress.EndingStarted) return;
+            int entered=-1;
+            float best=float.MaxValue;
+            for(int room=0;room<CaveLayout.Rooms.Length;room++) {
+                float distance=CaveLayout.RoomDistance(room,current);
+                bool occupied=distance<=1f;
+                if(occupied && !occupiedRooms[room] && distance<best) {entered=room;best=distance;}
+            }
+            if(entered>=0)
+                SaveRoomCheckpoint(entered,current,Flight.transform.rotation);
+            SyncRoomOccupancy(current);
+        }
+
+        void SyncRoomOccupancy(Vector3 position)
+        {
+            for(int room=0;room<CaveLayout.Rooms.Length;room++)
+                occupiedRooms[room]=CaveLayout.RoomDistance(room,position)<=1f;
+        }
+
+        void SaveRoomCheckpoint(int room,Vector3 position,Quaternion rotation)
+        {
+            hasRoomCheckpoint=true;
+            checkpointRoom=room;
+            checkpointPosition=position;
+            checkpointRotation=rotation;
+            checkpointBossMask=Progress.Defeated & RunProgress.OptionalBosses;
         }
         public void Quit() { SaveSettings();Application.Quit(); }
         public void ReplayTutorial()

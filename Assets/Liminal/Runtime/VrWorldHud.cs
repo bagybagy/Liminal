@@ -37,7 +37,7 @@ namespace Liminal
         float nextBrightnessStepAt;
         int selectedMenuItem;
         bool active;
-        bool wasPaused;
+        bool wasMenuVisible;
         public bool PauseMenuVisible => active && pauseTitle != null && pauseTitle.gameObject.activeInHierarchy;
         public string BossStatusText { get; private set; } = string.Empty;
         public string PauseButtonLabel => "Y / LEFT STICK CLICK / MENU";
@@ -127,7 +127,7 @@ namespace Liminal
             active = value;
             hudRoot.gameObject.SetActive(value);
             passageLabelsRoot.gameObject.SetActive(value);
-            wasPaused = false;
+            wasMenuVisible = false;
             pauseTitle.gameObject.SetActive(false);
             pauseItems.gameObject.SetActive(false);
             if (!value)
@@ -160,20 +160,22 @@ namespace Liminal
                 return;
 
             bool paused = experience.Music != null && experience.Music.Paused;
-            if (paused != wasPaused)
+            bool gameOver=experience.Combat != null && experience.Combat.Lost;
+            bool menuVisible=paused || gameOver;
+            if (menuVisible != wasMenuVisible)
             {
-                PositionPanel(paused ? 2f : 1.65f, paused ? 0f : -.12f);
-                wasPaused = paused;
+                PositionPanel(menuVisible ? 2f : 1.65f, menuVisible ? 0f : -.12f);
+                wasMenuVisible = menuVisible;
             }
-            stageText.gameObject.SetActive(!paused);
+            stageText.gameObject.SetActive(!menuVisible);
             UpdateReadouts(song);
             if (statusText != null)
-                statusText.gameObject.SetActive(!paused);
+                statusText.gameObject.SetActive(!menuVisible);
             UpdateReticle();
-            reticle.enabled = !paused;
-            UpdateLockRings(paused);
-            UpdatePassageLabels(paused);
-            UpdateOnboarding(paused);
+            reticle.enabled = !menuVisible;
+            UpdateLockRings(menuVisible);
+            UpdatePassageLabels(menuVisible);
+            UpdateOnboarding(menuVisible);
             UpdatePauseMenu(paused);
         }
 
@@ -460,19 +462,23 @@ namespace Liminal
             if (pauseTitle == null || pauseItems == null)
                 return;
 
-            pauseTitle.gameObject.SetActive(paused);
-            pauseItems.gameObject.SetActive(paused);
-            if (!paused)
+            bool gameOver=experience.Combat != null && experience.Combat.Lost;
+            bool retryAvailable=experience.CanRetryRoom;
+            bool visible=paused || gameOver;
+            pauseTitle.gameObject.SetActive(visible);
+            pauseItems.gameObject.SetActive(visible);
+            if (!visible)
                 return;
 
             Vector2 axis = session != null ? session.MenuAxis : Vector2.zero;
+            int itemCount=gameOver?(retryAvailable?3:2):MenuItemCount;
             if (Mathf.Abs(axis.y) > 0.62f && Time.unscaledTime >= nextMenuMoveAt)
             {
-                selectedMenuItem = (selectedMenuItem + (axis.y > 0f ? MenuItemCount - 1 : 1)) % MenuItemCount;
+                selectedMenuItem = (selectedMenuItem + (axis.y > 0f ? itemCount - 1 : 1)) % itemCount;
                 nextMenuMoveAt = Time.unscaledTime + 0.24f;
             }
 
-            if (selectedMenuItem == 4 && Mathf.Abs(axis.x) > 0.55f && Time.unscaledTime >= nextBrightnessStepAt &&
+            if (!gameOver && selectedMenuItem == 4 && Mathf.Abs(axis.x) > 0.55f && Time.unscaledTime >= nextBrightnessStepAt &&
                 experience.Brightness != null && experience.Brightness.Available)
             {
                 float next = experience.Brightness.Offset + Mathf.Sign(axis.x) * 0.1f;
@@ -485,20 +491,16 @@ namespace Liminal
             string brightness = experience.Brightness != null && experience.Brightness.Available
                 ? experience.Brightness.Offset.ToString("+0.0;-0.0;0.0") + " EV"
                 : "UNAVAILABLE";
-            string[] labels =
-            {
-                "RESUME",
-                "RESTART RUN",
-                "RECENTER VIEW",
-                "EXIT PCVR",
-                "BRIGHTNESS  " + brightness + "  LEFT/RIGHT ADJUST"
-            };
+            string[] labels=gameOver
+                ? retryAvailable ? new[] {"RETRY CURRENT ROOM", "RESTART RUN", "EXIT PCVR"} : new[] {"RESTART RUN", "EXIT PCVR"}
+                : new[] {"RESUME", "RESTART RUN", "RECENTER VIEW", "EXIT PCVR", "BRIGHTNESS  " + brightness + "  LEFT/RIGHT ADJUST"};
+            if(selectedMenuItem>=itemCount) selectedMenuItem=0;
             string menu = "RIGHT STICK: SELECT   RIGHT TRIGGER: CONFIRM\n";
             for (int i = 0; i < labels.Length; i++)
                 menu += (i == selectedMenuItem ? "> " : "  ") + labels[i] + (i + 1 < labels.Length ? "\n" : "");
             pauseItems.text = menu;
             FitText(pauseItems, 1.8f, .38f);
-            pauseTitle.text = "PAUSED";
+            pauseTitle.text = gameOver ? "SIGNAL LOST" : "PAUSED";
             FitText(pauseTitle, 1.2f, .09f);
 
             if (session != null && session.MenuConfirmPressed)
@@ -507,6 +509,18 @@ namespace Liminal
 
         void ConfirmMenuSelection()
         {
+            if(experience.Combat != null && experience.Combat.Lost)
+            {
+                if(experience.CanRetryRoom) {
+                    if(selectedMenuItem==0) experience.RetryCurrentRoom();
+                    else if(selectedMenuItem==1) experience.Restart();
+                    else if(selectedMenuItem==2) session.RequestDisable();
+                } else {
+                    if(selectedMenuItem==0) experience.Restart();
+                    else if(selectedMenuItem==1) session.RequestDisable();
+                }
+                return;
+            }
             switch (selectedMenuItem)
             {
                 case 0:

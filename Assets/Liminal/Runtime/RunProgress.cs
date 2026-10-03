@@ -13,6 +13,12 @@ namespace Liminal
         public bool EndingStarted { get; private set; }
         public int OptionalCount => Count(Defeated & OptionalBosses);
         public bool Has(BossId boss) => (Defeated & boss)==boss;
+        public void RestoreCheckpoint(BossId defeated)
+        {
+            Defeated=defeated & OptionalBosses;
+            EndingMask=BossId.None;
+            EndingStarted=false;
+        }
         public bool Record(BossId boss)
         {
             if(EndingStarted || boss==BossId.None || Has(boss)) return false;

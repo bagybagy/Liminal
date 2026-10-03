@@ -167,6 +167,20 @@ namespace Liminal
             organsActivated=false;hostilesCleared=false;SerpentRound=0;organWaveResetAt=-1;
             world.ResetEffects(); flight.ResetFlight();
         }
+        public void RestoreCompletedSerpent(float song)
+        {
+            if(!ExplorationMode) return;
+            BossDamage=BossDamageGoal;
+            SerpentRound=5;
+            organsActivated=true;
+            hostilesCleared=true;
+            organWaveResetAt=-1;
+            foreach(var target in Targets) if(target.kind==TargetKind.Organ) {
+                target.hp=target.reserved=0;
+                target.visual.SetActive(false);
+            }
+            world.Serpent.SetResonance(1f,true,song);
+        }
         public void Tick(float dt,bool input)
         {
             float song=(float)music.Time;
