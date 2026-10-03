@@ -1,4 +1,4 @@
-LIMINAL v0.1.8 / Windows x64 / PCVR
+LIMINAL v0.1.9 / Windows x64 / PCVR / Point comparison prototype
 
 フォルダ全体を展開して Liminal.exe を起動してください。
 Liminal_Data・DLLなどを移動したり削除しないでください。
@@ -64,4 +64,12 @@ VRでは右スティックと右トリガーでリトライを選択します。
 今回は粒子レンダラー、遺跡の明滅、BGMを変更していません。
 
 制作: tete
+v0.1.9: 射撃できないPoint比較個体を追加しました。既存の敵・進行・BGMは維持しています。
+最初の部屋の開始位置から右25m・上12m・前32m付近にPointクラゲ。
+海蛇の部屋には、中心から左40m・上38mへずらした軌道のPoint海蛇がいます。
+Escapeメニューの POINT STUDY + で表示・Native Point / Sharp Quad・1x / 3x・Gain・Flowを比較できます。
+初期設定: Native Point、3x密度、Gain 4、Flow 1。クラゲ5,118粒、海蛇786,432粒。
+Direct3Dでは点は基本1ピクセルです。近景の粒感・視差を比較する試案であり、美術の完成版ではありません。
+PointStudyReport.json に無音バックグラウンドの実描画検査を同梱。実HMD・VR負荷は未確認です。
+
 プロジェクト: https://github.com/bagybagy/Liminal

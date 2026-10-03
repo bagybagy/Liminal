@@ -492,6 +492,26 @@
     "hardware_vr_tested": false,
     "new_video_recorded": false
   },
+  "latest_point_study": {
+    "date": "2026-10-04",
+    "version": "v0.1.9",
+    "source_commits": ["da74fea"],
+    "report": "Builds/Windows/PointStudyReport.json",
+    "passed": true,
+    "source_folder": "Verification/PointStudy",
+    "capture_method": "Silent batch-mode offscreen 1600x900 URP, isolated layer 30; additional no-postprocessing captures; no desktop capture or active XR loader",
+    "jelly_native_points": 5118,
+    "serpent_native_points": 786432,
+    "topology": "Points",
+    "images": [
+      { "path": "Devlog/images/18-point-jelly-near.png", "source": "jelly-near.png" },
+      { "path": "Devlog/images/18-point-serpent-near.png", "source": "serpent-near.png" },
+      { "path": "Devlog/images/18-point-serpent-mid.png", "source": "serpent-mid.png" },
+      { "path": "Devlog/images/18-point-jelly-no-postprocess.png", "source": "nativepoint-no-postprocess-jelly-near.png" }
+    ],
+    "hardware_vr_tested": false,
+    "new_video_recorded": false
+  },
   "latest_musical_balance": {
     "implementation_commit": "bac3059",
     "report": "Liminal/Verification/MusicalDolphins/report.json",

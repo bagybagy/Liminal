@@ -6,6 +6,12 @@
 
 ## 投稿案
 
+### 18 | 2026-10-04 | 点そのものを描く比較実験
+> LIMINALの近景を見直すため、クラゲと海蛇に1粒1頂点のPoint描画を試作。粒子数を3倍にし、表面の流れと独立したきらめきを追加。均等な高輝度はPointでも面になるため、静かな光と少数の強い粒へ調整。
+
+画像: `images/18-point-jelly-near.png`、`images/18-point-serpent-near.png`、`images/18-point-serpent-mid.png`。1600x900のWindows実ビルドのURP描画。`images/18-point-jelly-no-postprocess.png` は後処理なしの点描画です。
+根拠: `Builds/Windows/PointStudyReport.json`、`POINT_STUDY.md`。元データは `Verification/PointStudy`。無音のバックグラウンド描画で保存し、通常PC操作やHMDには介入していません。既存の戦闘は維持した比較用個体で、VR実機・GPU単独の負荷は未検証です。
+
 ### 12 | 2026-10-03 | 光の大きさと撃破の余韻
 > LIMINALの神殿の白飛びを修正。粒子が輪郭を保ち、撃破は光が育って渦流にほどける演出へ。ハリセンボンの膨張と36発の減速弾、VRのメニューとボスHPも改善。
 

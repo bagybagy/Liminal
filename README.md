@@ -18,6 +18,8 @@ v0.1.7では、アトランティスに形を保つ緩い流れ、独立した�
 
 ## リポジトリ
 
+v0.1.9はPoint描画の比較用ビルドです。最初の部屋にクラゲ、2番目に海蛇の非戦闘の比較個体を追加。1粒1頂点のNative Pointを初期設定にし、粒子数を3倍、表面流動と独立した明滅を加えています。Escapeの `POINT STUDY +` で極小Quad・密度・輝度・流動と比較できます。既存の敵はそのままです。場所・制約・実描画検査は [POINT_STUDY.md](POINT_STUDY.md)。VR実機は未検証です。
+
 このフォルダーが単独のUnityプロジェクト兼リポジトリです。
 開発は `C:/repos/Antigravity/Liminal` と `bagybagy/Liminal` で継続します。
 旧AgentRezは履歴保管用に残し、移行の内容は `REPOSITORY_MIGRATION.md` に記録しています。
