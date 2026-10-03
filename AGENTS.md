@@ -31,6 +31,12 @@ contours. Gameplay telegraphs and projectile patterns may favor uniformity when
 that improves readability. Perceived change in actual rendering matters more
 than merely having a time-dependent formula.
 
+Particle rendering references must account for free flight, close approach,
+travel through the particle field, and VR depth. Fixed-distance top-down VFX
+guides are general composition references, not evidence that this renderer is
+adequate. Judge near/mid/far views and camera motion before choosing Quad, Point,
+splat, or mixed geometry; preserve particle identities and world-state history.
+
 Whale motion may intentionally be slower than reality. Preserve the calm cruise
 and emphasize continuous momentum and delayed follow-through rather than
 replacing every movement with a complicated skeletal or fluid simulation.

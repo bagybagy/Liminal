@@ -471,6 +471,27 @@
     "hardware_vr_tested": false,
     "new_video_recorded": false
   },
+  "latest_whale_flow_retry": {
+    "date": "2026-10-04",
+    "version": "v0.1.8",
+    "source_commits": ["da1f3d5", "3ecb8dc"],
+    "reports": ["Builds/Windows/WhaleFlowReport.json", "Builds/Windows/RoomRetryReport.json"],
+    "passed": true,
+    "whale_action_seconds": 22,
+    "music_clock_changed": false,
+    "particle_renderer_changed": false,
+    "atlantis_shimmer_changed": false,
+    "source_folder": "Verification/WhaleFlow",
+    "capture_method": "Silent batch-mode offscreen 1600x900 URP; no cursor capture, active XR loader, desktop capture, or new video",
+    "images": [
+      { "path": "Devlog/images/17-whale-rise.png", "source": "breach-rise.png", "sha256": "7881a530f1eaf5cfb74468a7df3c443b68a48b157bc7b824098221e8a5d4aeb3" },
+      { "path": "Devlog/images/17-whale-roll-1.png", "source": "breach-followthrough-1.png", "action_age_seconds": 10.2327, "sha256": "3044a85435815a16e765ed478a7417ee1d3a5320708adeb8a87a32b6e22b76d1" },
+      { "path": "Devlog/images/17-whale-roll-2.png", "source": "breach-followthrough-2.png", "action_age_seconds": 12.8327, "sha256": "68933ad4bd7c8449a6bdc824245edde6a3c14739cb299aef768c84b2a2cf7386" },
+      { "path": "Devlog/images/17-whale-roll-3.png", "source": "breach-followthrough-3.png", "action_age_seconds": 20, "sha256": "b9980738abd18eb257973019544cfe333d0d22f735e508903635502be5f2768e" }
+    ],
+    "hardware_vr_tested": false,
+    "new_video_recorded": false
+  },
   "latest_musical_balance": {
     "implementation_commit": "bac3059",
     "report": "Liminal/Verification/MusicalDolphins/report.json",

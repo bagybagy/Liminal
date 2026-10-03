@@ -1,0 +1,386 @@
+{
+    "passed": true,
+    "arrivalTriggered": true,
+    "arrivalCompleted": true,
+    "initialImpactCount": 0,
+    "impactCountAtFirstActive": 1,
+    "finalImpactCount": 1,
+    "splashParticleCount": 98304,
+    "elapsedSeconds": 3.0045783519744875,
+    "impactAge": 6.3719048500061039,
+    "latefallAge": 6.300027370452881,
+    "splashPeakHeight": 236.16001892089845,
+    "initialSplashAge": -1.0,
+    "heightAt1_2": 166.7113037109375,
+    "heightAt2_2": 250.35243225097657,
+    "extentAt1_2": 179.9915771484375,
+    "extentAt2_2": 305.2827453613281,
+    "expiredMaxHeight": 0.0,
+    "expiredLateralExtent": 681.3401489257813,
+    "splashOrigin": {
+        "x": 245.62930297851563,
+        "y": -295.0,
+        "z": 792.5804443359375
+    },
+    "lastVelocity": {
+        "x": 37.4407958984375,
+        "y": -100.61793518066406,
+        "z": -34.519046783447269
+    },
+    "latefallPosition": {
+        "x": 242.8513641357422,
+        "y": -267.9405212402344,
+        "z": 795.068359375
+    },
+    "expiredSplashActive": false,
+    "latefallCapture": {
+        "file": "whale-late-fall.png",
+        "whitePixels": 738,
+        "nonBlackPixels": 771381,
+        "blueCyanPixels": 182813,
+        "whiteFraction": 0.000512500002514571,
+        "nonBlackFraction": 0.5356812477111816,
+        "blueCyanFraction": 0.12695346772670747,
+        "afterLifetimeDifferenceFraction": 0.0,
+        "nonBlank": true
+    },
+    "captures": [
+        {
+            "file": "splash-age-0.3.png",
+            "whitePixels": 5156,
+            "nonBlackPixels": 721596,
+            "blueCyanPixels": 164276,
+            "whiteFraction": 0.0035805555526167156,
+            "nonBlackFraction": 0.5011083483695984,
+            "blueCyanFraction": 0.11408055573701859,
+            "afterLifetimeDifferenceFraction": 0.2202243059873581,
+            "nonBlank": true
+        },
+        {
+            "file": "splash-age-1.2.png",
+            "whitePixels": 0,
+            "nonBlackPixels": 986114,
+            "blueCyanPixels": 382273,
+            "whiteFraction": 0.0,
+            "nonBlackFraction": 0.6848013997077942,
+            "blueCyanFraction": 0.2654673755168915,
+            "afterLifetimeDifferenceFraction": 0.46524304151535036,
+            "nonBlank": true
+        },
+        {
+            "file": "splash-age-2.2.png",
+            "whitePixels": 0,
+            "nonBlackPixels": 1025726,
+            "blueCyanPixels": 464745,
+            "whiteFraction": 0.0,
+            "nonBlackFraction": 0.712309718132019,
+            "blueCyanFraction": 0.3227395713329315,
+            "afterLifetimeDifferenceFraction": 0.47254306077957156,
+            "nonBlank": true
+        },
+        {
+            "file": "splash-age-4.4.png",
+            "whitePixels": 4242,
+            "nonBlackPixels": 794529,
+            "blueCyanPixels": 150644,
+            "whiteFraction": 0.0029458333738148214,
+            "nonBlackFraction": 0.5517562627792358,
+            "blueCyanFraction": 0.10461388528347016,
+            "afterLifetimeDifferenceFraction": 0.0,
+            "nonBlank": true
+        },
+        {
+            "file": "splash-age-6.1.png",
+            "whitePixels": 8611,
+            "nonBlackPixels": 700790,
+            "blueCyanPixels": 41034,
+            "whiteFraction": 0.005979861132800579,
+            "nonBlackFraction": 0.4866597354412079,
+            "blueCyanFraction": 0.02849583327770233,
+            "afterLifetimeDifferenceFraction": 0.0,
+            "nonBlank": true
+        }
+    ],
+    "errors": [],
+    "combatActions": [
+        {
+            "kind": "BackBreach",
+            "impacted": true,
+            "impacts": 1,
+            "impactAge": 9.416666984558106,
+            "impactUpDot": -0.299838125705719,
+            "impactForwardY": -0.24192193150520326,
+            "maxHeightAboveWater": 85.5,
+            "maxSpeed": 60.91559982299805,
+            "maxRoll": 107.44788360595703,
+            "maxFrameTravel": 1.015260100364685,
+            "maxFrameRotation": 1.584082841873169,
+            "maxRoomDistance": 0.8646325469017029,
+            "targetError": 0.00013647876039613038,
+            "gpuSurfaceError": 0.7167773246765137,
+            "recoveryHorizontalTravel": 189.65560913085938,
+            "recoveryVerticalTravel": 225.43206787109376,
+            "delayedTailTorsion": 0.11439675837755203,
+            "launchAge": 3.815319538116455,
+            "apexAge": 7.532711029052734,
+            "submergedAge": 12.332711219787598,
+            "impactVelocity": {
+                "x": 1.4135740995407105,
+                "y": -34.01641845703125,
+                "z": 11.572264671325684
+            },
+            "rise": {
+                "file": "breach-rise.png",
+                "whitePixels": 8928,
+                "nonBlackPixels": 782248,
+                "blueCyanPixels": 20583,
+                "whiteFraction": 0.006200000178068876,
+                "nonBlackFraction": 0.5432277917861939,
+                "blueCyanFraction": 0.014293749816715718,
+                "afterLifetimeDifferenceFraction": 0.0,
+                "nonBlank": true
+            },
+            "apex": {
+                "file": "breach-apex.png",
+                "whitePixels": 16778,
+                "nonBlackPixels": 785133,
+                "blueCyanPixels": 15661,
+                "whiteFraction": 0.011651389300823212,
+                "nonBlackFraction": 0.5452312231063843,
+                "blueCyanFraction": 0.010875694453716278,
+                "afterLifetimeDifferenceFraction": 0.0,
+                "nonBlank": true
+            },
+            "fall": {
+                "file": "breach-fall.png",
+                "whitePixels": 10595,
+                "nonBlackPixels": 731670,
+                "blueCyanPixels": 7774,
+                "whiteFraction": 0.007357638794928789,
+                "nonBlackFraction": 0.508104145526886,
+                "blueCyanFraction": 0.005398611072450876,
+                "afterLifetimeDifferenceFraction": 0.0,
+                "nonBlank": true
+            },
+            "splash": {
+                "file": "breach-impact.png",
+                "whitePixels": 29285,
+                "nonBlackPixels": 737128,
+                "blueCyanPixels": 58195,
+                "whiteFraction": 0.020336804911494256,
+                "nonBlackFraction": 0.5118944644927979,
+                "blueCyanFraction": 0.04041319340467453,
+                "afterLifetimeDifferenceFraction": 0.0,
+                "nonBlank": true
+            },
+            "followThrough": [
+                {
+                    "file": "breach-followthrough-1.png",
+                    "whitePixels": 37320,
+                    "nonBlackPixels": 904622,
+                    "blueCyanPixels": 133386,
+                    "whiteFraction": 0.02591666579246521,
+                    "nonBlackFraction": 0.6282097101211548,
+                    "blueCyanFraction": 0.09262916445732117,
+                    "afterLifetimeDifferenceFraction": 0.0,
+                    "nonBlank": true
+                },
+                {
+                    "file": "breach-followthrough-2.png",
+                    "whitePixels": 2305,
+                    "nonBlackPixels": 1024911,
+                    "blueCyanPixels": 190993,
+                    "whiteFraction": 0.0016006944933906198,
+                    "nonBlackFraction": 0.7117437720298767,
+                    "blueCyanFraction": 0.1326340287923813,
+                    "afterLifetimeDifferenceFraction": 0.0,
+                    "nonBlank": true
+                },
+                {
+                    "file": "breach-followthrough-3.png",
+                    "whitePixels": 0,
+                    "nonBlackPixels": 636558,
+                    "blueCyanPixels": 19686,
+                    "whiteFraction": 0.0,
+                    "nonBlackFraction": 0.4420541524887085,
+                    "blueCyanFraction": 0.01367083378136158,
+                    "afterLifetimeDifferenceFraction": 0.0,
+                    "nonBlank": true
+                }
+            ]
+        },
+        {
+            "kind": "SkySlam",
+            "impacted": true,
+            "impacts": 1,
+            "impactAge": 12.716667175292969,
+            "impactUpDot": 0.624683678150177,
+            "impactForwardY": -0.7788939476013184,
+            "maxHeightAboveWater": 85.49998474121094,
+            "maxSpeed": 66.60306549072266,
+            "maxRoll": 76.4647216796875,
+            "maxFrameTravel": 1.110051155090332,
+            "maxFrameRotation": 1.584082841873169,
+            "maxRoomDistance": 0.9861434698104858,
+            "targetError": 0.0001398491149302572,
+            "gpuSurfaceError": 0.5681487917900086,
+            "recoveryHorizontalTravel": 0.0,
+            "recoveryVerticalTravel": 0.0,
+            "delayedTailTorsion": 0.0,
+            "launchAge": 9.407224655151368,
+            "apexAge": 12.13198471069336,
+            "submergedAge": 16.931983947753908,
+            "impactVelocity": {
+                "x": -9.504546165466309,
+                "y": -12.909850120544434,
+                "z": 2.05078125
+            },
+            "rise": {
+                "file": "slam-rise.png",
+                "whitePixels": 2021,
+                "nonBlackPixels": 794928,
+                "blueCyanPixels": 17102,
+                "whiteFraction": 0.001403472269885242,
+                "nonBlackFraction": 0.5520333051681519,
+                "blueCyanFraction": 0.01187638845294714,
+                "afterLifetimeDifferenceFraction": 0.0,
+                "nonBlank": true
+            },
+            "apex": {
+                "file": "slam-apex.png",
+                "whitePixels": 11264,
+                "nonBlackPixels": 820332,
+                "blueCyanPixels": 34792,
+                "whiteFraction": 0.007822222076356411,
+                "nonBlackFraction": 0.5696750283241272,
+                "blueCyanFraction": 0.024161111563444139,
+                "afterLifetimeDifferenceFraction": 0.0,
+                "nonBlank": true
+            },
+            "fall": {
+                "file": "slam-fall.png",
+                "whitePixels": 26223,
+                "nonBlackPixels": 940714,
+                "blueCyanPixels": 196817,
+                "whiteFraction": 0.01821041665971279,
+                "nonBlackFraction": 0.6532735824584961,
+                "blueCyanFraction": 0.13667847216129304,
+                "afterLifetimeDifferenceFraction": 0.0,
+                "nonBlank": true
+            },
+            "splash": {
+                "file": "slam-impact.png",
+                "whitePixels": 21907,
+                "nonBlackPixels": 833376,
+                "blueCyanPixels": 90087,
+                "whiteFraction": 0.01521319430321455,
+                "nonBlackFraction": 0.5787333250045776,
+                "blueCyanFraction": 0.06256041675806046,
+                "afterLifetimeDifferenceFraction": 0.0,
+                "nonBlank": true
+            },
+            "followThrough": [
+                {
+                    "file": "",
+                    "whitePixels": 0,
+                    "nonBlackPixels": 0,
+                    "blueCyanPixels": 0,
+                    "whiteFraction": 0.0,
+                    "nonBlackFraction": 0.0,
+                    "blueCyanFraction": 0.0,
+                    "afterLifetimeDifferenceFraction": 0.0,
+                    "nonBlank": false
+                },
+                {
+                    "file": "",
+                    "whitePixels": 0,
+                    "nonBlackPixels": 0,
+                    "blueCyanPixels": 0,
+                    "whiteFraction": 0.0,
+                    "nonBlackFraction": 0.0,
+                    "blueCyanFraction": 0.0,
+                    "afterLifetimeDifferenceFraction": 0.0,
+                    "nonBlank": false
+                },
+                {
+                    "file": "",
+                    "whitePixels": 0,
+                    "nonBlackPixels": 0,
+                    "blueCyanPixels": 0,
+                    "whiteFraction": 0.0,
+                    "nonBlackFraction": 0.0,
+                    "blueCyanFraction": 0.0,
+                    "afterLifetimeDifferenceFraction": 0.0,
+                    "nonBlank": false
+                }
+            ]
+        }
+    ],
+    "cityBounds": {
+        "m_Center": {
+            "x": 90.0,
+            "y": -625.0,
+            "z": 1120.0
+        },
+        "m_Extent": {
+            "x": 310.0,
+            "y": 53.0,
+            "z": 310.0
+        }
+    },
+    "cityWide": {
+        "file": "atlantis-continent.png",
+        "whitePixels": 0,
+        "nonBlackPixels": 314885,
+        "blueCyanPixels": 53956,
+        "whiteFraction": 0.0,
+        "nonBlackFraction": 0.21867014467716218,
+        "blueCyanFraction": 0.037469442933797839,
+        "afterLifetimeDifferenceFraction": 0.0,
+        "nonBlank": true
+    },
+    "cityTemple": {
+        "file": "atlantis-temple.png",
+        "whitePixels": 0,
+        "nonBlackPixels": 474123,
+        "blueCyanPixels": 130406,
+        "whiteFraction": 0.0,
+        "nonBlackFraction": 0.32925209403038027,
+        "blueCyanFraction": 0.09055972099304199,
+        "afterLifetimeDifferenceFraction": 0.0,
+        "nonBlank": true
+    },
+    "cityShimmer": {
+        "file": "atlantis-shimmer-6s.png",
+        "whitePixels": 0,
+        "nonBlackPixels": 465145,
+        "blueCyanPixels": 124077,
+        "whiteFraction": 0.0,
+        "nonBlackFraction": 0.3230173587799072,
+        "blueCyanFraction": 0.08616458624601364,
+        "afterLifetimeDifferenceFraction": 0.0,
+        "nonBlank": true
+    },
+    "cityFishCount": 784,
+    "desktopCityPoints": 342342,
+    "vrCityPoints": 201602,
+    "sampledCityParticles": 6243,
+    "stableCityParticleIds": true,
+    "cityMeanLightChange": 0.19714350998401643,
+    "cityMeanParticleTravel": 0.2739659547805786,
+    "cityMaxParticleTravel": 0.5382943749427795,
+    "cityRadiusVariation": 0.3589850962162018,
+    "cityVisibleChange": 0.1856430619955063,
+    "maxKnotAccelerationGap": 0.8370088934898377,
+    "maxPrepSpeed": 35.821861267089847,
+    "maxLaunchSpeed": 63.353336334228519,
+    "fishMaxTravel": 51.13615798950195,
+    "renderAndReadbackMeanMs": 6.393700122833252,
+    "renderAndReadbackP95Ms": 7.241000175476074,
+    "allCyclesMaxRoomDistance": 0.9947580099105835,
+    "renderSamples": 8,
+    "gpu": "NVIDIA GeForce RTX 5070 Ti",
+    "performanceMethod": "1600x900 full-city URP render plus synchronous 1-pixel readback; not GPU-only or HMD timing",
+    "actualVrMeasured": false,
+    "backgroundCapture": true
+}

@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "date": "2026-10-04",
+  "version": "v0.1.8",
+  "implementation_commit": "3ecb8dc",
+  "command": "Liminal.exe -batchmode --background-proof --verify-room-retry",
+  "source_log": "Verification/RoomRetry/player.log",
+  "result_marker": "[ROOM RETRY PROOF] PASS",
+  "checks": [
+    "entry and re-entry capture an immutable optional-boss mask and entrance pose",
+    "death before the next Experience update retains the checkpoint",
+    "repeated retries refill health and clear locks, pending attacks and incoming shots",
+    "current encounter damage, whale arrival and water impact state reset",
+    "later boss flags roll back; previously defeated serpent stays quiet",
+    "saved optional bosses configure whale inheritance",
+    "PCVR menu-input contract is available at game over",
+    "ending does not replace checkpoints or allow room retry",
+    "whole-run restart clears progression and returns to initial spawn"
+  ],
+  "hardware_vr_tested": false,
+  "human_menu_interaction_tested": false,
+  "new_video_recorded": false
+}
