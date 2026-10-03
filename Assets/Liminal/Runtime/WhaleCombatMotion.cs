@@ -4,9 +4,9 @@ namespace Liminal
 {
     public static class WhaleCombatMotion
     {
-        const float AuthoredDuration = 20f;
-        public const float MotionStretch = 1.2f;
-        public const float Duration = AuthoredDuration * MotionStretch;
+        public const float MotionStretch = 1f;
+        public const float Duration = 22f;
+        public const float ApexHeight = 85.5f;
         public static float Interval => (AuthoredScore.Data.beats[64] - AuthoredScore.Data.beats[0]) /
             (float)AuthoredScore.Data.sampleRate;
         public enum Action { Cruise, BackBreach, SkySlam }
@@ -36,6 +36,27 @@ namespace Liminal
             { Time = time; Position = position; Velocity = velocity; }
         }
 
+        public readonly struct Sequence
+        {
+            public readonly float Prep, Launch, Apex, Submerged, LaunchSpeed, PrepHeight;
+            public Sequence(float startHeight)
+            {
+                Prep = 2.5f;
+                PrepHeight = Mathf.Min(startHeight - 12f, CaveLayout.HorizonSurfaceY - 28f);
+                float rise = CaveLayout.HorizonSurfaceY - PrepHeight;
+                LaunchSpeed = Mathf.Clamp(40f + rise * .105f, 46f, 64f);
+                Launch = Prep + rise * 2f / LaunchSpeed;
+                Apex = Launch + 2f * ApexHeight / LaunchSpeed;
+                Submerged = Apex + 4.8f;
+            }
+        }
+
+        public static Sequence Describe(float startCruise)
+        {
+            MarineLife.EvaluateWhalePose(startCruise, out Vector3 start, out _);
+            return new Sequence(start.y);
+        }
+
         public static Pose Evaluate(float cruise, float song, float firstActionAt)
         {
             MarineLife.EvaluateWhalePose(cruise, out Vector3 ordinary, out Quaternion ordinaryRotation);
@@ -50,111 +71,108 @@ namespace Liminal
 
             Action kind = (index & 1) == 0 ? Action.BackBreach : Action.SkySlam;
             float startCruise = cruise - age;
-            float actualAge = age;
-            age /= MotionStretch;
             MarineLife.EvaluateWhalePose(startCruise, out Vector3 start, out _);
             Vector3 startVelocity = CruiseVelocity(startCruise);
-            Vector3 direction = Vector3.ProjectOnPlane(startVelocity, Vector3.up).normalized;
-            Vector3 anchor = Vector3.Lerp(start, CaveLayout.Rooms[2].Center, .52f);
-            anchor.y = CaveLayout.HorizonSurfaceY;
-            int count = kind == Action.BackBreach ? 7 : 6;
-            Key from = GetKey(0, kind, startCruise, start, startVelocity, anchor, direction);
-            Key to = from;
-            int segment = 0;
-            for (int i = 1; i < count; i++)
-            {
-                to = GetKey(i, kind, startCruise, start, startVelocity, anchor, direction);
-                if (age <= to.Time) { segment = i - 1; break; }
-                from = to;
-            }
-            Vector3 accelerationFrom = KeyAcceleration(segment, count, kind, startCruise,
-                start, startVelocity, anchor, direction);
-            Vector3 accelerationTo = KeyAcceleration(segment + 1, count, kind, startCruise,
-                start, startVelocity, anchor, direction);
-            Quintic(from, to, accelerationFrom, accelerationTo, age, out Vector3 position, out Vector3 velocity);
-            velocity /= MotionStretch;
+            Sequence sequence = new Sequence(start.y);
+            // Ease the cruise orbit inward during the leap, without relocating to a separate anchor.
+            Vector3 position = ordinary, velocity = ordinaryVelocity;
+            float inward = Smooth(sequence.Prep, sequence.Apex, age);
+            float outward = Smooth(sequence.Submerged, Duration, age);
+            float envelope = inward * (1 - outward);
+            float envelopeSpeed = SmoothSpeed(sequence.Prep, sequence.Apex, age) * (1 - outward) -
+                inward * SmoothSpeed(sequence.Submerged, Duration, age);
+            Vector3 radial = Vector3.ProjectOnPlane(ordinary - CaveLayout.Rooms[2].Center, Vector3.up);
+            position -= radial * (.35f * envelope);
+            velocity -= Vector3.ProjectOnPlane(ordinaryVelocity, Vector3.up) * (.35f * envelope) +
+                radial * (.35f * envelopeSpeed);
+            Height(startCruise, age, sequence, out position.y, out velocity.y);
             Vector3 heading = Vector3.ProjectOnPlane(velocity, Vector3.up);
-            if (heading.sqrMagnitude < .001f) heading = direction;
+            if (heading.sqrMagnitude < .001f) heading = Vector3.ProjectOnPlane(startVelocity, Vector3.up);
             float pitch = Mathf.Atan2(velocity.y, heading.magnitude) * Mathf.Rad2Deg;
             float roll;
             Vector4 gesture;
             bool canImpact;
             if (kind == Action.BackBreach)
             {
-                float landing = Smooth(5.8f, 7.4f, age) * (1 - Smooth(8.4f, 13.2f, age));
+                float landing = Smooth(sequence.Launch, sequence.Apex, age) *
+                    (1 - Smooth(sequence.Submerged, Duration - .8f, age));
                 pitch = Mathf.Lerp(pitch, -14f, landing);
-                float frontUnwind = Smooth(8.6f, 15.8f, age);
-                float tailUnwind = Smooth(10f, 18.2f, age);
-                roll = 112f * Smooth(4.2f, 7.1f, age) * (1 - frontUnwind);
-                float thrust = Smooth(.3f, 2.5f, age) * (1 - Smooth(5.1f, 6.3f, age));
-                float recoveryStroke = Smooth(10.4f, 13f, age) * (1 - Smooth(17f, 19.5f, age));
-                float followThrough = Smooth(7.3f, 9.6f, age) * (1 - Smooth(12f, 16.5f, age));
-                float arch = .8f * Mathf.Sin(Smooth(2.8f, 6.5f, age) * Mathf.PI) - landing * .35f + followThrough * .35f;
-                // Fins regain control first; rear torsion persists while the body unwinds.
-                gesture = new Vector4(thrust + recoveryStroke * .42f, arch,
-                    roll / 112f + (frontUnwind - tailUnwind) * 1.5f,
-                    .7f * Smooth(3.1f, 5.9f, age) * (1 - Smooth(8.1f, 12.8f, age)));
-                canImpact = age > 6.3f && age < 12.5f;
+                float frontUnwind = Smooth(sequence.Apex + 2.5f, Duration - 2f, age);
+                float tailUnwind = Smooth(sequence.Apex + 3.4f, Duration - .7f, age);
+                roll = 108f * Smooth(sequence.Launch - .3f, sequence.Apex + 1.3f, age) * (1 - frontUnwind);
+                float thrust = .28f * Smooth(sequence.Prep, sequence.Launch - .7f, age) *
+                    (1 - Smooth(sequence.Launch - .7f, sequence.Launch + .3f, age));
+                // Post-impact follow-through stays on the longitudinal roll axis, not a new sagittal bend.
+                gesture = new Vector4(thrust, 0,
+                    roll / 108f + (frontUnwind - tailUnwind) * .7f,
+                    .35f * Smooth(sequence.Launch - .8f, sequence.Apex, age) *
+                    (1 - Smooth(sequence.Apex + 2f, sequence.Submerged + 1f, age)));
             }
             else
             {
-                roll = -16f * Mathf.Sin(Smooth(3f, 15f, age) * Mathf.PI);
-                float thrust = Smooth(1.8f, 3.8f, age) * (1 - Smooth(5.1f, 7.1f, age));
-                float recoveryStroke = Smooth(9.3f, 12.3f, age) * (1 - Smooth(17f, 19.5f, age));
-                gesture = new Vector4(thrust + recoveryStroke * .35f,
-                    -.65f * Smooth(5.1f, 6.4f, age) * (1 - Smooth(9.3f, 16f, age)),
-                    -.25f * Mathf.Sin(Smooth(3f, 17.5f, age) * Mathf.PI), thrust * .5f);
-                canImpact = age > 5.1f && age < 11.5f;
+                roll = -12f * Mathf.Sin(Smooth(sequence.Launch, Duration - 1f, age) * Mathf.PI);
+                float recover = Smooth(sequence.Submerged, Duration - .8f, age);
+                pitch = Mathf.Lerp(pitch, 0, recover);
+                gesture = new Vector4(0, 0, roll / 108f,
+                    .18f * Smooth(sequence.Launch, sequence.Apex, age) *
+                    (1 - Smooth(sequence.Apex + 2f, sequence.Submerged + 1f, age)));
             }
+            canImpact = age > sequence.Apex && age < sequence.Submerged;
             Quaternion rotation = Quaternion.LookRotation(heading.normalized, Vector3.up) * Quaternion.Euler(-pitch, 0, roll);
-            float join = Smooth(0, .8f, age) * (1 - Smooth(AuthoredDuration - 1.5f, AuthoredDuration, age));
+            float join = Smooth(0, .8f, age) * (1 - Smooth(Duration - 1.5f, Duration, age));
             rotation = Quaternion.Slerp(ordinaryRotation, rotation, join);
             gesture *= join;
-            return new Pose(position, velocity, rotation, gesture, kind, index, actualAge, canImpact);
+            return new Pose(position, velocity, rotation, gesture, kind, index, age, canImpact);
         }
 
-        static Key GetKey(int index, Action kind, float cruise, Vector3 start, Vector3 startVelocity,
-            Vector3 anchor, Vector3 direction)
+        static void Height(float cruise, float age, Sequence s, out float height, out float speed)
         {
-            if (index == 0) return new Key(0, start, startVelocity * MotionStretch);
-            if (kind == Action.BackBreach)
+            float surface = CaveLayout.HorizonSurfaceY;
+            if (age >= s.Prep && age <= s.Launch)
             {
-                switch (index)
-                {
-                    case 1: return new Key(2.5f, anchor + direction * 50 - Vector3.up * 132, direction * 18 - Vector3.up * 5);
-                    case 2: return new Key(4.2f, anchor + direction * 90 - Vector3.up * 28, direction * 30 + Vector3.up * 90);
-                    case 3: return new Key(6.3f, anchor + direction * 135 + Vector3.up * 94, direction * 30);
-                    case 4: return new Key(8.2f, anchor + direction * 170 - Vector3.up * 44, direction * 30 - Vector3.up * 54);
-                    case 5: return new Key(12.5f, anchor + direction * 225 - Vector3.up * 112 +
-                        Vector3.Cross(Vector3.up, direction) * 22, direction * 15 - Vector3.up * 7 +
-                        Vector3.Cross(Vector3.up, direction) * 5);
-                }
+                float duration = s.Launch - s.Prep;
+                float t = Mathf.Clamp01((age - s.Prep) / duration);
+                float t2 = t * t, t4 = t2 * t2;
+                // Integral of smootherstep: ascent velocity rises monotonically until the surface.
+                height = s.PrepHeight + s.LaunchSpeed * duration * t4 * (2.5f + t * (-3f + t));
+                speed = s.LaunchSpeed * t * t2 * (10f + t * (-15f + 6f * t));
+                return;
+            }
+            MarineLife.EvaluateWhalePose(cruise, out Vector3 start, out _, out Vector3 startVelocity, out Vector3 startAcceleration);
+            MarineLife.EvaluateWhalePose(cruise + Duration, out Vector3 finish, out _, out Vector3 finishVelocity, out Vector3 finishAcceleration);
+            Key a, b;
+            float aa, ab;
+            float gravity = -s.LaunchSpeed / (s.Apex - s.Launch);
+            if (age < s.Prep)
+            {
+                a = HeightKey(0, start.y, startVelocity.y);
+                b = HeightKey(s.Prep, s.PrepHeight, 0);
+                aa = startAcceleration.y; ab = 0;
+            }
+            else if (age < s.Apex)
+            {
+                a = HeightKey(s.Launch, surface, s.LaunchSpeed);
+                b = HeightKey(s.Apex, surface + ApexHeight, 0);
+                aa = 0; ab = gravity;
+            }
+            else if (age < s.Submerged)
+            {
+                a = HeightKey(s.Apex, surface + ApexHeight, 0);
+                b = HeightKey(s.Submerged, surface - 55f, -28f);
+                aa = gravity; ab = 7f;
             }
             else
             {
-                switch (index)
-                {
-                    case 1: return new Key(3f, anchor + direction * 55 + Vector3.up * 40, direction * 19 + Vector3.up * 8);
-                    case 2: return new Key(5.1f, anchor + direction * 105 + Vector3.up * 104, direction * 32);
-                    case 3: return new Key(7.1f, anchor + direction * 170 - Vector3.up * 60, direction * 25 - Vector3.up * 90);
-                    case 4: return new Key(11.5f, anchor + direction * 220 - Vector3.up * 120 +
-                        Vector3.Cross(Vector3.up, direction) * 18, direction * 15 - Vector3.up * 2 +
-                        Vector3.Cross(Vector3.up, direction) * 4);
-                }
+                a = HeightKey(s.Submerged, surface - 55f, -28f);
+                b = HeightKey(Duration, finish.y, finishVelocity.y);
+                aa = 7f; ab = finishAcceleration.y;
             }
-            MarineLife.EvaluateWhalePose(cruise + Duration, out Vector3 finish, out _);
-            return new Key(AuthoredDuration, finish, CruiseVelocity(cruise + Duration) * MotionStretch);
+            Quintic(a, b, Vector3.up * aa, Vector3.up * ab, age, out Vector3 p, out Vector3 v);
+            height = p.y; speed = v.y;
         }
 
-        static Vector3 KeyAcceleration(int index, int count, Action kind, float cruise, Vector3 start,
-            Vector3 startVelocity, Vector3 anchor, Vector3 direction)
-        {
-            if (index == 0) return CruiseAcceleration(cruise) * (MotionStretch * MotionStretch);
-            if (index == count - 1) return CruiseAcceleration(cruise + Duration) * (MotionStretch * MotionStretch);
-            Key before = GetKey(index - 1, kind, cruise, start, startVelocity, anchor, direction);
-            Key after = GetKey(index + 1, kind, cruise, start, startVelocity, anchor, direction);
-            return (after.Velocity - before.Velocity) / (after.Time - before.Time);
-        }
+        static Key HeightKey(float time, float height, float speed) =>
+            new Key(time, Vector3.up * height, Vector3.up * speed);
 
         // Matching acceleration at each knot avoids a new force impulse at every segment boundary.
         static void Quintic(Key a, Key b, Vector3 accelerationA, Vector3 accelerationB, float age,
@@ -171,12 +189,6 @@ namespace Liminal
             Vector3 c5 = d * 6 - v * 3 + acc * .5f;
             position = c0 + t * (c1 + t * (c2 + t * (c3 + t * (c4 + t * c5))));
             velocity = (c1 + t * (c2 * 2 + t * (c3 * 3 + t * (c4 * 4 + t * c5 * 5)))) / duration;
-        }
-
-        static Vector3 CruiseAcceleration(float cruise)
-        {
-            MarineLife.EvaluateWhalePose(cruise, out _, out _, out _, out Vector3 acceleration);
-            return acceleration;
         }
 
         static Vector3 CruiseVelocity(float cruise)
@@ -208,6 +220,12 @@ namespace Liminal
         {
             float t = Mathf.InverseLerp(start, end, age);
             return t * t * t * (10 + t * (-15 + 6 * t));
+        }
+
+        static float SmoothSpeed(float start, float end, float age)
+        {
+            float t = Mathf.InverseLerp(start, end, age);
+            return 30f * t * t * (1 - t) * (1 - t) / (end - start);
         }
     }
 }

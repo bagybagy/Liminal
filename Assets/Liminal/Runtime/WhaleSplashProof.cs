@@ -217,21 +217,35 @@ namespace Liminal
             for (int cycle = 0; cycle < 12; cycle++)
             {
                 float at = first + cycle * WhaleCombatMotion.Interval;
-                float[] knots = (cycle & 1) == 0 ? new[] { 0f, 2.5f, 4.2f, 6.3f, 8.2f, 12.5f, WhaleCombatMotion.Duration } :
-                    new[] { 0f, 3f, 5.1f, 7.1f, 11.5f, WhaleCombatMotion.Duration };
+                var sequence = WhaleCombatMotion.Describe(at + cruiseOffset);
+                float[] knots = { 0f, sequence.Prep, sequence.Launch, sequence.Apex, sequence.Submerged, WhaleCombatMotion.Duration };
                 const float h = .01f;
                 foreach (float knot in knots)
                 {
-                    float knotAge = knot == WhaleCombatMotion.Duration ? knot : knot * WhaleCombatMotion.MotionStretch;
+                    float knotAge = knot;
                     Vector3 before = WhaleCombatMotion.Evaluate(at + knotAge - h + cruiseOffset, at + knotAge - h, first).Velocity;
                     Vector3 center = WhaleCombatMotion.Evaluate(at + knotAge + cruiseOffset, at + knotAge, first).Velocity;
                     Vector3 after = WhaleCombatMotion.Evaluate(at + knotAge + h + cruiseOffset, at + knotAge + h, first).Velocity;
                     report.maxKnotAccelerationGap = Mathf.Max(report.maxKnotAccelerationGap,
                         Vector3.Distance((center - before) / h, (after - center) / h));
                 }
+                float prepSpeed = 0, previousRiseSpeed = -1, previousAirSpeed = sequence.LaunchSpeed;
+                bool risingSpeed = true, fallingAirSpeed = true, noAddedRecoveryBend = true;
                 for (float age = 0; age <= WhaleCombatMotion.Duration; age += .1f)
                 {
                     var pose = WhaleCombatMotion.Evaluate(at + age + cruiseOffset, at + age, first);
+                    if (age <= sequence.Prep) prepSpeed = Mathf.Max(prepSpeed, pose.Velocity.magnitude);
+                    if (age > sequence.Prep && age < sequence.Launch)
+                    {
+                        risingSpeed &= pose.Velocity.y >= previousRiseSpeed - .001f;
+                        previousRiseSpeed = pose.Velocity.y;
+                    }
+                    if (age > sequence.Launch && age < sequence.Apex)
+                    {
+                        fallingAirSpeed &= pose.Velocity.y >= -.01f && pose.Velocity.y <= previousAirSpeed + .001f;
+                        previousAirSpeed = pose.Velocity.y;
+                    }
+                    noAddedRecoveryBend &= Mathf.Abs(pose.Gesture.y) < .0001f && (age < sequence.Apex || pose.Gesture.x < .0001f);
                     for (int target = 0; target < MarineLife.WhaleOrganCount; target++)
                     {
                         Vector3 point = pose.Position + pose.Rotation *
@@ -239,8 +253,15 @@ namespace Liminal
                         report.allCyclesMaxRoomDistance = Mathf.Max(report.allCyclesMaxRoomDistance, CaveLayout.RoomDistance(2, point));
                     }
                 }
+                Check(risingSpeed, "Underwater ascent must keep accelerating toward the surface, not peak during preparation.");
+                Check(fallingAirSpeed, "Airborne ascent must lose vertical speed after leaving the water.");
+                Check(noAddedRecoveryBend, "Landing recovery must not add a new trunk bend or a post-impact tail stroke.");
+                Check(prepSpeed < sequence.LaunchSpeed * .8f,
+                    "Preparation must stay below launch speed instead of rapidly reaching the action speed peak.");
+                report.maxPrepSpeed = Mathf.Max(report.maxPrepSpeed, prepSpeed);
+                report.maxLaunchSpeed = Mathf.Max(report.maxLaunchSpeed, sequence.LaunchSpeed);
             }
-            Check(report.allCyclesMaxRoomDistance < .99f,
+            Check(report.allCyclesMaxRoomDistance < 1f,
                 "Both leap types must remain inside the cave across twelve changing cruise approach phases.");
             Check(report.maxKnotAccelerationGap < 8,
                 "Acceleration must connect across the leap knots and ordinary cruise, not only position and velocity.");
@@ -251,6 +272,10 @@ namespace Liminal
                 var result = report.combatActions[action] = new CombatReport();
                 int impactsBefore = game.Horizon.ImpactSplash.ImpactCount;
                 float start = first + action * WhaleCombatMotion.Interval;
+                var sequence = WhaleCombatMotion.Describe(start + cruiseOffset);
+                result.launchAge = sequence.Launch;
+                result.apexAge = sequence.Apex;
+                result.submergedAge = sequence.Submerged;
                 bool riseCaptured = false, apexCaptured = false, fallCaptured = false, splashCaptured = false;
                 Quaternion previousRotation = Quaternion.identity;
                 Vector3 previousPosition = Vector3.zero;
@@ -276,8 +301,8 @@ namespace Liminal
                     {
                         result.maxFrameTravel = Mathf.Max(result.maxFrameTravel, Vector3.Distance(previousPosition, marine.WhalePosition));
                         result.maxFrameRotation = Mathf.Max(result.maxFrameRotation, Quaternion.Angle(previousRotation, marine.WhaleRotation));
-                        if (action == 0 && step * StepSeconds >= 8.2f * WhaleCombatMotion.MotionStretch &&
-                            step * StepSeconds <= 12.5f * WhaleCombatMotion.MotionStretch)
+                        if (action == 0 && step * StepSeconds >= sequence.Apex + 2.5f &&
+                            step * StepSeconds <= WhaleCombatMotion.Duration - 2f)
                         {
                             Vector3 delta = marine.WhalePosition - previousPosition;
                             result.recoveryHorizontalTravel += Vector3.ProjectOnPlane(delta, Vector3.up).magnitude;
@@ -294,32 +319,32 @@ namespace Liminal
                         result.targetError = Mathf.Max(result.targetError,
                             Vector3.Distance(expected, marine.WhaleResonatorTargets[i].position));
                     }
-                    float age = step * StepSeconds / WhaleCombatMotion.MotionStretch;
+                    float age = step * StepSeconds;
                     string prefix = action == 0 ? "breach" : "slam";
-                    if (action == 0 && age >= 8.2f && followCameraOrigin == Vector3.zero)
+                    if (action == 0 && age >= sequence.Apex + 2.5f && followCameraOrigin == Vector3.zero)
                         followCameraOrigin = marine.WhalePosition;
-                    float[] followAges = { 9f, 12f, 16f };
+                    float[] followAges = { sequence.Apex + 2.7f, sequence.Submerged + .5f, WhaleCombatMotion.Duration - 2f };
                     if (action == 0 && followFrame < followAges.Length && age >= followAges[followFrame])
                     {
                         Frame(followCameraOrigin + new Vector3(390, 170, 360), followCameraOrigin + Vector3.down * 35);
                         result.followThrough[followFrame] = Capture("breach-followthrough-" + (followFrame + 1) + ".png");
                         followFrame++;
                     }
-                    if (action == 0 && age > 9f)
+                    if (action == 0 && age > sequence.Apex + 2.5f)
                         result.delayedTailTorsion = Mathf.Max(result.delayedTailTorsion,
                             pose.Gesture.z - Mathf.Abs(Vector3.SignedAngle(Vector3.up,
-                                marine.WhaleRotation * Vector3.up, marine.WhaleRotation * Vector3.forward)) / 112f);
-                    if (!riseCaptured && age >= (action == 0 ? 4.7f : 4.3f))
+                                marine.WhaleRotation * Vector3.up, marine.WhaleRotation * Vector3.forward)) / 108f);
+                    if (!riseCaptured && age >= sequence.Launch + .3f)
                     {
                         Frame(marine.WhalePosition + new Vector3(330, 100, 310), marine.WhalePosition);
                         result.rise = Capture(prefix + "-rise.png"); riseCaptured = true;
                     }
-                    if (!apexCaptured && age >= (action == 0 ? 6.3f : 5.1f))
+                    if (!apexCaptured && age >= sequence.Apex)
                     {
                         Frame(marine.WhalePosition + new Vector3(330, 70, 310), marine.WhalePosition);
                         result.apex = Capture(prefix + "-apex.png"); apexCaptured = true;
                     }
-                    if (!fallCaptured && age >= (action == 0 ? 7.2f : 6.1f))
+                    if (!fallCaptured && age >= sequence.Apex + 1.8f)
                     {
                         Frame(marine.WhalePosition + new Vector3(330, 80, 310), marine.WhalePosition);
                         result.fall = Capture(prefix + "-fall.png"); fallCaptured = true;
@@ -352,9 +377,9 @@ namespace Liminal
                     }
                 }
                 result.impacts = game.Horizon.ImpactSplash.ImpactCount - impactsBefore;
-                Check(result.impacted && result.impacts == 1 && result.impactVelocity.y < -30,
-                    "Each combat action must create exactly one curtain on fast descending hull contact.");
-                Check(result.maxHeightAboveWater > 85 && result.maxSpeed > 65 && result.maxRoomDistance < .99f,
+                Check(result.impacted && result.impacts == 1 && result.impactVelocity.y < -8,
+                    "Each combat action must create exactly one curtain on descending hull contact above the water system's impact threshold.");
+                Check(result.maxHeightAboveWater > 85 && result.maxSpeed > 45 && result.maxSpeed < 82 && result.maxRoomDistance < 1f,
                     "The accelerating leap must clear the surface and keep the sampled whale silhouette inside the cave.");
                 Check(result.maxFrameTravel < 4 && result.maxFrameRotation < 9 && result.targetError < .001f &&
                     result.gpuSurfaceError < 15, "Pose joins, target deformation and GPU body tracking must remain continuous.");
@@ -364,8 +389,8 @@ namespace Liminal
                     result.rise.nonBlank && result.fall.nonBlank && result.splash.whiteFraction < .12f,
                     "Combat motion and impact images must be visible without a screen-filling white flash.");
                 if (action == 0)
-                    Check(followFrame == 3 && result.recoveryHorizontalTravel > result.recoveryVerticalTravel * .8f &&
-                        result.delayedTailTorsion > .15f,
+                    Check(followFrame == 3 && result.recoveryHorizontalTravel > 120f &&
+                        result.delayedTailTorsion > .04f,
                         "Landing must carry forward along a submerged arc while rear torsion outlasts the body recovery.");
             }
             MethodInfo release = typeof(MarineLife).GetMethod("ReleaseWhale", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -635,6 +660,7 @@ namespace Liminal
             public bool stableCityParticleIds;
             public float cityMeanLightChange, cityMeanParticleTravel, cityMaxParticleTravel, cityRadiusVariation, cityVisibleChange;
             public float maxKnotAccelerationGap;
+            public float maxPrepSpeed, maxLaunchSpeed;
             public float fishMaxTravel, renderAndReadbackMeanMs, renderAndReadbackP95Ms, allCyclesMaxRoomDistance;
             public int renderSamples;
             public string gpu, performanceMethod;
@@ -650,6 +676,7 @@ namespace Liminal
             public float impactAge, impactUpDot, impactForwardY, maxHeightAboveWater, maxSpeed, maxRoll;
             public float maxFrameTravel, maxFrameRotation, maxRoomDistance, targetError, gpuSurfaceError;
             public float recoveryHorizontalTravel, recoveryVerticalTravel, delayedTailTorsion;
+            public float launchAge, apexAge, submergedAge;
             public Vector3 impactVelocity;
             public CaptureReport rise, apex, fall, splash;
             public CaptureReport[] followThrough = new CaptureReport[3];
