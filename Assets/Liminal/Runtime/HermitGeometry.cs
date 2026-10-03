@@ -8,7 +8,7 @@ namespace Liminal
     {
         public const int SwarmSize = 24;
         public const int MergeSourceCount = 8;
-        public const int ParticlesPerCrab = 3200;
+        public const int ParticlesPerCrab = 4800;
         public const int BossPointCount = 16;
         public const float GiantScale = 11.25f;
         public const float ReefScale = 2.5f;

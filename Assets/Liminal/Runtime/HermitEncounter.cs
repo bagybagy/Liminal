@@ -185,6 +185,7 @@ namespace Liminal
 
             matterMaterial = new Material(shader) { name = "Hermit encounter matter" };
             matterMaterial.SetFloat("_Gain", 1.75f);
+            matterMaterial.SetFloat("_ParticlesPerCrab", HermitGeometry.ParticlesPerCrab);
             matterMaterial.SetColor("_Tint", Color.white);
             swarmMesh = HermitGeometry.BuildSwarmMesh();
             markerMesh = HermitGeometry.BuildMarkerMesh();

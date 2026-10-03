@@ -17,6 +17,7 @@ namespace Liminal
         readonly Report report = new();
         float started;
         bool finished;
+        float lastWhiteFraction;
 
         public void Initialize(Experience value)
         {
@@ -46,6 +47,8 @@ namespace Liminal
         {
             yield return null;
             bool review=Array.IndexOf(Environment.GetCommandLineArgs(),"--review-only")>=0;
+            bool hermitOnly=Array.IndexOf(Environment.GetCommandLineArgs(),"--hermit-only")>=0;
+            review|=hermitOnly;
             if(review) report.mode="visual-review";
             if(Array.IndexOf(Environment.GetCommandLineArgs(),"--brightness-only")>=0) {
                 yield return InspectBrightness();yield break;
@@ -53,13 +56,15 @@ namespace Liminal
             if(Array.IndexOf(Environment.GetCommandLineArgs(),"--navigation-only")>=0) {
                 yield return InspectNavigation();yield break;
             }
-            report.connectedRooms = TravelRoutes();
-            Require(report.connectedRooms, "All five chambers must have traversable open passages");
+            if(!hermitOnly) {
+                report.connectedRooms = TravelRoutes();
+                Require(report.connectedRooms, "All five chambers must have traversable open passages");
+            }
             experience.Restart();
             yield return new WaitForSecondsRealtime(.4f);
             if(!review) yield return InspectTutorial();
             experience.Tutorial.SetEnabled(false);
-            if(review) yield return InspectReviewedNavigation();
+            if(review && !hermitOnly) yield return InspectReviewedNavigation();
 
             var hermits = experience.Hermits;
             report.hermitParticles = hermits.ParticleCount;
@@ -83,6 +88,21 @@ namespace Liminal
                 Capture("hermit-bubble-rings.png");
             }
             Capture("03-giant-hermit.png");
+            if(hermitOnly) {
+                report.giantParticles=HermitGeometry.ParticlesPerCrab*HermitGeometry.MergeSourceCount;
+                report.hermitWideWhiteFraction=lastWhiteFraction;
+                Require(report.giantParticles==38400,"The giant must combine 38,400 original crab particles.");
+                Require(report.hermitWideWhiteFraction<.04f,"The full-pipeline giant image must not wash out.");
+                Frame(hermits.BossPosition+Vector3.up*48,new Vector3(0,8,-125));
+                yield return null;
+                foreach(var target in hermits.BossTargets) if(experience.Combat.CanAcquire(target)) report.giantAcquirable++;
+                Require(report.giantAcquirable>=8,"Desktop viewpoint must have at least eight acquirable giant points.");
+                Frame(hermits.BossTargets[0].position,new Vector3(24,16,-36));
+                yield return null;
+                Capture("hermit-near-detail.png");
+                report.hermitNearWhiteFraction=lastWhiteFraction;
+                Require(report.hermitNearWhiteFraction<.08f,"Nearby giant particles must retain their colored shape.");
+            }
             float deadline = Time.realtimeSinceStartup + 35;
             while (!hermits.Complete && !experience.Combat.Ended && Time.realtimeSinceStartup < deadline) {
                 if (HasAvailable(hermits.BossTargets)) yield return HitBatch(hermits.BossTargets, 8);
@@ -93,6 +113,13 @@ namespace Liminal
             Require(hermits.Complete && hermits.BossHits == 48, "Giant must finish after forty-eight normally scheduled impacts");
             Require(hermits.ParticleCount == report.hermitParticles && hermits.InitializationCount == hermitInitializations,
                 "Hermit state changes must retain their original particle pool");
+            if(hermitOnly) {
+                report.gridError=experience.Music.MaxGridError;
+                experience.Restart();
+                report.restartClean=!hermits.Complete && hermits.BossHits==0 && hermits.SmallDefeated==0;
+                Require(report.restartClean,"Restart must clear giant progress without replacing the matter pool.");
+                Finish();yield break;
+            }
             Frame(hermits.BossPosition, new Vector3(60, 45, -100));
             yield return new WaitForSecondsRealtime(review?8f:2f);
             Capture("04-shell-refuge.png");
@@ -432,8 +459,12 @@ namespace Liminal
         void Capture(string name)
         {
             var pixels = Render(experience.Flight.View, 1600, 900,report.mode=="visual-review");
-            int lit = 0;
-            foreach (var color in pixels.GetPixels32()) if (Mathf.Max(color.r, Mathf.Max(color.g, color.b)) > 60) lit++;
+            int lit = 0, white=0;
+            foreach (var color in pixels.GetPixels32()) {
+                if (Mathf.Max(color.r, Mathf.Max(color.g, color.b)) > 60) lit++;
+                if(color.r>245 && color.g>245 && color.b>245) white++;
+            }
+            lastWhiteFraction=white/(float)(pixels.width*pixels.height);
             visibleFractions.Add(lit / (float)(pixels.width * pixels.height));
             File.WriteAllBytes(Path.Combine(directory, name), pixels.EncodeToPNG()); Destroy(pixels);
         }
@@ -488,6 +519,8 @@ namespace Liminal
             public float originalLuminance,brightLuminance,restoredLuminance;
             public float reefProgress,stanceDrift;
             public int reefGroups,smallBubbles,giantRings,spearShots;
+            public int giantParticles,giantAcquirable;
+            public float hermitWideWhiteFraction,hermitNearWhiteFraction;
             public double gridError;
             public float[] visibleFractions;
             public string gpu;

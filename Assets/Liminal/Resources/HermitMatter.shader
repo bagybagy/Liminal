@@ -11,6 +11,7 @@ Shader "Liminal/Hermit Matter"
         _DeathBeat ("Scatter Beat", Float) = 0
         _GaitOffset ("Gait Offset", Float) = 0
         _CrabId ("Persistent Crab ID", Float) = 0
+        _ParticlesPerCrab ("Matter Samples Per Crab", Float) = 4800
         _MergeSlot ("Merge Slot", Float) = -1
         _MergeProgress ("Merge Progress", Float) = 0
         _RefugeProgress ("Refuge Progress", Float) = 0
@@ -42,7 +43,7 @@ Shader "Liminal/Hermit Matter"
             CBUFFER_START(UnityPerMaterial)
             float4 _Tint;
             float _Gain, _Song, _Beat, _State;
-            float _DeathSong, _DeathBeat, _GaitOffset, _CrabId;
+            float _DeathSong, _DeathBeat, _GaitOffset, _CrabId, _ParticlesPerCrab;
             float _MergeSlot, _MergeProgress, _RefugeProgress;
             float _RefugeSourceState, _RefugeSourceElapsed, _ReefBeat;
             float4 _BossRoot, _BossRight, _BossForward, _RefugeRoot;
@@ -320,7 +321,7 @@ Shader "Liminal/Hermit Matter"
                 Varyings output;
                 float3 world;
                 float3 color = input.color.rgb;
-                float id = _CrabId * 3200.0 + input.data.x;
+                float id = _CrabId * _ParticlesPerCrab + input.data.x;
                 float matterScale = 1.0;
                 float3 giantColor = GiantColor(input.data.y, saturate(input.extra.x));
                 if (input.data.y < 0.5 && input.extra.x >= 0.98)
@@ -398,14 +399,22 @@ Shader "Liminal/Hermit Matter"
                         smoothstep(0.16 + Hash(_CrabId, 41.0) * 0.10, 1.0, _RefugeProgress));
                 float size = input.uv.z * matterScale * max(1.0, distanceToCamera * 0.0028);
                 float glintMask = step(0.992, Hash(id, 47.0));
+                float giantWeight = _State > 1.5 && _State < 2.5 ? smoothstep(0, 1, _MergeProgress) :
+                    _State > 2.5 && _State < 3.5 && _RefugeSourceState > 1.5 ?
+                    1 - smoothstep(0.16 + Hash(_CrabId, 41.0) * 0.10, 1, _RefugeProgress) : 0;
+                // Enlarge the animal with more samples, not overlapping metre-wide billboards.
+                size = lerp(size, min(size, .32 + glintMask * .08), giantWeight);
                 float4 centerClip = TransformWorldToHClip(world);
                 float pixelsPerWorldUnit = abs(UNITY_MATRIX_P._m11) * _ScreenParams.y * 0.5 /
                     max(abs(centerClip.w), 0.001);
-                size = max(size, lerp(1.15, 1.9, glintMask) / max(pixelsPerWorldUnit, 0.001));
+                float minimumPixels = lerp(lerp(1.15, 1.9, glintMask), lerp(.72, 1.15, glintMask), giantWeight);
+                size = max(size, minimumPixels / max(pixelsPerWorldUnit, 0.001));
                 world += (UNITY_MATRIX_V[0].xyz * input.uv.x + UNITY_MATRIX_V[1].xyz * input.uv.y) * size;
                 float pulse = 0.96 + 0.04 * sin(_Beat * TAU + input.data.z * TAU);
                 float distanceFade = exp(-distanceToCamera * 0.0014);
                 color *= _Tint.rgb * _Gain * 2.4 * pulse * distanceFade;
+                float sampleGain = _State < 3.5 ? 3200.0 / max(1, _ParticlesPerCrab) : 1;
+                color *= sampleGain * lerp(1, .7, giantWeight);
                 float transitionLight=_State>.5 && _State<1.5?MatterDeathEnvelope(max(0,_Song-_DeathSong),false).z:
                     _State<2.5 && _State>1.5?sin(saturate(_MergeProgress)*PI):
                     _State<3.5 && _State>2.5?MatterDeathEnvelope(_RefugeProgress*7.0,true).z:0;

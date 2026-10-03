@@ -75,6 +75,7 @@ namespace Liminal
 
             Camera camera = game.Flight.View;
             float fov = camera.fieldOfView, aspect = camera.aspect;
+            float desktopLockRadius = game.Combat.LockRadiusPixels;
             var headPosition = new Vector3(.12f, 1.65f, .08f);
             var headRotation = Quaternion.Euler(-18, 35, 0);
             game.Flight.SetPose(CaveLayout.Rooms[2].Center, Quaternion.identity);
@@ -186,10 +187,85 @@ namespace Liminal
             camera.fieldOfView = fov; camera.aspect = aspect;
             hud.SetVrActive(false);
             game.Flight.EnableVr(false);
-            Check(Math.Abs(game.Combat.EffectiveAcquireRange(far) - 105) < .001,
-                "Exiting VR must restore desktop acquisition range.");
+            var desktopFar = AddTarget(game.Flight.Position + camera.transform.forward * 121f);
+            Check(Mathf.Abs(game.Combat.EffectiveAcquireRange(desktopFar) - 121) < .001f && game.Combat.CanAcquire(desktopFar),
+                "Desktop aiming must acquire a normal105-range target at121m.");
+            desktopFar.position = game.Flight.Position + camera.transform.forward * 122f;
+            Check(!game.Combat.CanAcquire(desktopFar), "Desktop aiming must reject a normal105-range target at122m.");
+            Check(Mathf.Abs(game.Combat.LockRadiusPixels - desktopLockRadius) < .001f,
+                "Desktop acquisition distance must not change the existing view-space lock width.");
+            yield return VerifyBossReleaseAudio();
             InspectTravel();
             Finish();
+        }
+
+        IEnumerator VerifyBossReleaseAudio()
+        {
+            BossAudioSettings settings = BossAudioSettings.Current;
+            AudioClip savedDefault = settings.defaultRelease;
+            AudioClip savedSerpent = settings.serpentRelease;
+            AudioClip savedHermit = settings.hermitRelease;
+            AudioClip savedWhale = settings.whaleRelease;
+            AudioClip savedSubmarine = settings.submarineRelease;
+            float savedVolume = settings.volume;
+            AudioClip testClip = AudioClip.Create("PlayerFeedbackBossRelease", 4410, 1, 44100, false);
+            try
+            {
+                int root = AuthoredScore.Note(0, game.Music.Time);
+                AudioClip fallback = game.Music.ReleaseTonePreview(root);
+                Check(fallback, "The authored generated release-tone fallback must remain available.");
+                Check(BossAudioSettings.SelectReleaseClip(null, 0, fallback, out bool configured) == fallback && !configured,
+                    "A missing boss-audio settings asset must retain the generated release tone.");
+
+                settings.defaultRelease = null;
+                for (int voice = 0; voice < 4; voice++)
+                {
+                    settings.serpentRelease = voice == 0 ? testClip : null;
+                    settings.hermitRelease = voice == 1 ? testClip : null;
+                    settings.whaleRelease = voice == 2 ? testClip : null;
+                    settings.submarineRelease = voice == 3 ? testClip : null;
+                    Check(BossAudioSettings.SelectReleaseClip(settings, voice, fallback, out configured) == testClip && configured,
+                        "Boss release voices0-3 must select serpent, hermit, whale, and submarine clips in order.");
+                }
+                settings.serpentRelease = settings.hermitRelease = settings.whaleRelease = settings.submarineRelease = null;
+                Check(BossAudioSettings.SelectReleaseClip(settings, 1, fallback, out configured) == fallback && !configured,
+                    "Unset boss and default clips must fall back to the generated release tone.");
+                settings.defaultRelease = testClip;
+                Check(BossAudioSettings.SelectReleaseClip(settings, 1, fallback, out configured) == testClip && configured,
+                    "The shared default release clip must be used when a boss-specific clip is unset.");
+
+                settings.defaultRelease = null;
+                settings.serpentRelease = testClip;
+                settings.volume = .42f;
+                int releasesBefore = game.Music.BossReleaseEvents;
+                int notesBefore = game.Music.ScheduledNotes;
+                double gridBefore = game.Music.MaxGridError;
+                int transitionsBefore = game.Music.TransitionCount;
+                double originBefore = game.Music.DspOrigin;
+                game.Music.BossRelease((float)game.Music.Time, 0);
+                AudioSource scheduledSource = null;
+                foreach (var source in game.Music.GetComponents<AudioSource>())
+                    if (source.clip == testClip) { scheduledSource = source; break; }
+                Check(scheduledSource && Mathf.Abs(scheduledSource.pitch - 1f) < .001f &&
+                    Mathf.Abs(scheduledSource.volume - settings.volume) < .001f,
+                    "A configured boss clip must be scheduled at native pitch and settings volume.");
+                Check(game.Music.BossReleaseEvents == releasesBefore + 1 && game.Music.ScheduledNotes == notesBefore &&
+                    game.Music.MaxGridError == gridBefore && game.Music.TransitionCount == transitionsBefore &&
+                    game.Music.DspOrigin == originBefore && game.Music.MaxReleaseGridError <= 1.0 / AuthoredScore.Data.sampleRate,
+                    "Boss release audio must preserve the authored clock and note counters while staying on-grid.");
+                report.bossAudio = true;
+                yield return new WaitForSecondsRealtime(testClip.length + .25f);
+            }
+            finally
+            {
+                settings.defaultRelease = savedDefault;
+                settings.serpentRelease = savedSerpent;
+                settings.hermitRelease = savedHermit;
+                settings.whaleRelease = savedWhale;
+                settings.submarineRelease = savedSubmarine;
+                settings.volume = savedVolume;
+                if (testClip) Destroy(testClip);
+            }
         }
 
         void InspectTravel()
@@ -286,7 +362,7 @@ namespace Liminal
         [Serializable] sealed class Report
         {
             public bool passed, tidalThroughout, strafe, vertical, gazeFlight, speedCaps, continuousYaw, headPosePreserved;
-            public bool gazeCone, rangeAndWalls, eightLocks, angularLockStroke, pauseUi, hardwareVrTested;
+            public bool gazeCone, rangeAndWalls, eightLocks, angularLockStroke, pauseUi, bossAudio, hardwareVrTested;
             public int scheduledHits;
             public bool travel;
             public float desktopTravelSpeed, vrTravelSpeed;

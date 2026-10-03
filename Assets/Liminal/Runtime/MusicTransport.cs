@@ -285,8 +285,12 @@ namespace Liminal
             if (!playbackStarted || Paused) return;
             double boundary = AuthoredScore.Next(Math.Max(song, Time), SchedulingLead(), false);
             int root = AuthoredScore.Note(0, boundary);
-            if (!releaseTones.TryGetValue(root, out AudioClip tone)) return;
-            if (Play(tone, origin + boundary, 0, voice == 3 ? .68f : .76f)) {
+            releaseTones.TryGetValue(root, out AudioClip fallback);
+            BossAudioSettings settings = BossAudioSettings.Current;
+            AudioClip tone = BossAudioSettings.SelectReleaseClip(settings, voice, fallback, out bool configured);
+            if (!tone) return;
+            float volume = configured ? settings.volume : voice == 3 ? .68f : .76f;
+            if (Play(tone, origin + boundary, 0, volume)) {
                 BossReleaseEvents++;
                 MaxReleaseGridError = Math.Max(MaxReleaseGridError, AuthoredScore.GridError(boundary));
             }
@@ -299,6 +303,7 @@ namespace Liminal
             if (voice < 0 || dspTime < AudioSettings.dspTime) return false;
             var source = voices[voice];
             source.clip = clip;
+            source.pitch = 1f;
             source.panStereo = Mathf.Clamp(pan, -0.75f, 0.75f);
             source.volume = volume;
             source.PlayScheduled(dspTime);

@@ -68,6 +68,7 @@ namespace Liminal
         public float DamageFlash { get; private set; }
         public float LastHitTime { get; private set; } = -10;
         public const float LockRange = 105f;
+        public const float DesktopAcquireRangeMultiplier = 1.15f;
         // The accepted gaze ellipse is 70% of full horizontal and vertical FOV, centered on the camera's forward axis.
         public const float VrLockFieldOfViewFraction = 0.7f;
         public float LockRadiusPixels => Mathf.Clamp(Screen.height * 0.09f, 64f, 110f);
@@ -391,7 +392,8 @@ namespace Liminal
             bool vr=flight.VrEnabled;
             if(vr && target.reserved>0) return false;
             Vector3 origin=vr?flight.Emitter:flight.Position;
-            if(Vector3.Distance(origin,target.position)>(vr?EffectiveAcquireRange(target):target.acquireRange)) return false;
+            float rangeTolerance=!vr && ExplorationMode?0.001f:0f;
+            if(Vector3.Distance(origin,target.position)>EffectiveAcquireRange(target)+rangeTolerance) return false;
             if(vr) {
                 if(ExplorationMode && !CaveLayout.LineOfSight(origin,target.position)) return false;
                 return TryGetVrGazeScore(target.position,out _);
@@ -405,7 +407,10 @@ namespace Liminal
         public float EffectiveAcquireRange(LockTarget target)
         {
             if(target==null) return 0f;
-            return target.acquireRange*(flight!=null && flight.VrEnabled?2f:1f);
+            bool vr=flight!=null && flight.VrEnabled;
+            if(vr) return target.acquireRange*2f;
+            if(!ExplorationMode) return target.acquireRange;
+            return Mathf.Ceil(target.acquireRange*DesktopAcquireRangeMultiplier);
         }
 
         public bool TryGetVrGazeScore(Vector3 targetPosition,out float score)

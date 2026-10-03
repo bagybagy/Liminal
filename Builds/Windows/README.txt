@@ -1,4 +1,4 @@
-LIMINAL v0.1.4 / Windows x64 / PCVR
+LIMINAL v0.1.5 / Windows x64 / PCVR
 
 フォルダ全体を展開して Liminal.exe を起動してください。
 Liminal_Data・DLLなどを移動したり削除しないでください。
@@ -28,6 +28,15 @@ v0.1.4: クジラの着水に、約9.8万個の粒子による巨大な青い水
 ジャンプ終了時刻ではなく、下降中の腹部が水面へ触れる瞬間に発生します。
 通常の航跡は維持。VRでは約6.6万個へ粒子数を抑えます。
 WhaleSplashReport.json はWindowsビルドの実描画検査結果です。VR実機の負荷は未確認です。
+
+v0.1.5: 大ヤドカリの粒子を25,600個から38,400個へ増やし、一粒の大きさと発光を抑えました。
+非VRのロック距離のみ約15%緩和しました。照準の幅、VRの距離・範囲は維持しています。
+ボス別・共通の撃破SEをUnityのBossAudio.assetで指定できます。未指定なら従来音を再生します。
+新しいSEは採用していません。BGMはTidalMemoryのままです。
+HermitReviewReport.json は小型から大型への合流、48ヒット攻略と描画検査の結果です。
+PlayerFeedbackReport.json は射程境界、VRの範囲、8連射の拍同期、SE差し替えを確認しています。
+クジラの戦闘跳躍とアトランティスの改築は相談案に留め、この版では変更していません。
+VR実機による今回の変更の再確認は未実施です。
 
 制作: tete
 プロジェクト: https://github.com/bagybagy/Liminal
