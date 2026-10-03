@@ -21,6 +21,10 @@ namespace Liminal
         private VolumeProfile previousProfile;
         private VolumeProfile runtimeProfile;
         private ColorAdjustments runtimeAdjustments;
+        private Bloom runtimeBloom;
+        float bloomIntensity,bloomScatter,bloomClamp;
+        bool bloomClampOverride;
+        public float FinaleGlow { get; private set; }
         private List<VolumeComponent> runtimeComponents;
         private bool hadPreviousProfile;
 
@@ -121,6 +125,12 @@ namespace Liminal
             runtimeComponents = clonedComponents;
             BaseExposure = baseExposure;
             targetVolume.profile = runtimeProfile;
+            if(runtimeProfile.TryGet<Bloom>(out runtimeBloom)) {
+                bloomIntensity=runtimeBloom.intensity.value;
+                bloomScatter=runtimeBloom.scatter.value;
+                bloomClamp=runtimeBloom.clamp.value;
+                bloomClampOverride=runtimeBloom.clamp.overrideState;
+            }
             Available = true;
             ApplyOffset();
         }
@@ -129,6 +139,15 @@ namespace Liminal
         {
             Offset = NormalizeOffset(offset, "brightness offset");
             ApplyOffset();
+        }
+        public void SetFinaleGlow(float amount)
+        {
+            FinaleGlow=Mathf.Clamp01(amount);
+            if(runtimeBloom==null) return;
+            runtimeBloom.intensity.value=Mathf.Lerp(bloomIntensity,Mathf.Min(.75f,bloomIntensity),FinaleGlow);
+            runtimeBloom.scatter.value=Mathf.Lerp(bloomScatter,Mathf.Min(.58f,bloomScatter),FinaleGlow);
+            runtimeBloom.clamp.value=Mathf.Lerp(bloomClamp,12f,FinaleGlow);
+            runtimeBloom.clamp.overrideState=FinaleGlow>0 || bloomClampOverride;
         }
 
         public void Save()
@@ -180,6 +199,7 @@ namespace Liminal
             previousProfile = null;
             runtimeProfile = null;
             runtimeAdjustments = null;
+            runtimeBloom = null;FinaleGlow=0;
             runtimeComponents = null;
             hadPreviousProfile = false;
         }

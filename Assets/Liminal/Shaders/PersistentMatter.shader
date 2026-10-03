@@ -141,9 +141,11 @@ Shader "Liminal/Persistent Matter"
                 }
                 bool city = seed.traits.y > 2.5 && particle.identityState.z > 2.5 && particle.identityState.z < 3.5;
                 if (city) {
-                    size = max(particle.colorSize.w * 0.7, pixelWorld * 1.0);
+                    float physicalRadius=particle.colorSize.w*.55;
+                    size = max(physicalRadius, pixelWorld * .6);
                     stretch = 1.0;
-                    silhouette = 0.48;
+                    // Preserve particle energy when the minimum screen footprint exceeds its physical size.
+                    silhouette = .13*min(1.0,physicalRadius*physicalRadius/max(size*size,.00001));
                     sparkle = contour = 0.0;
                 }
                 float3 world = position + across * uv.x * size + along * uv.y * size * stretch;

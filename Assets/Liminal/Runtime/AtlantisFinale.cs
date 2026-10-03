@@ -46,11 +46,11 @@ namespace Liminal
             cityRoot = root.transform;
 
             BuildOptionalLayer("Atlantis / Hermit palace",
-                AtlantisGeometry.BuildPalace(), cityShader, 0f, 3.4f);
+                AtlantisGeometry.BuildPalace(), cityShader, 0f, .85f);
             BuildOptionalLayer("Atlantis / Serpent shoals",
                 AtlantisGeometry.BuildSerpentSchools(), cityShader, 1f, 3.0f);
             BuildOptionalLayer("Atlantis / observation craft",
-                AtlantisGeometry.BuildSubmarines(), cityShader, 2f, 3.1f);
+                AtlantisGeometry.BuildSubmarines(), cityShader, 2f, 1.2f);
 
             int auxiliaryCount = 0;
             foreach (Mesh mesh in meshes) auxiliaryCount += mesh.vertexCount / 4;

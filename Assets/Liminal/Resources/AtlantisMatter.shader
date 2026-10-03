@@ -134,12 +134,15 @@ Shader "Liminal/Atlantis Matter"
                 float depth = max(0.01, -TransformWorldToView(world).z);
                 float pixelWorld = 2.0 * depth /
                     (max(abs(UNITY_MATRIX_P[1][1]), 0.01) * max(_ScreenParams.y, 1.0));
-                float size = max(input.uv.z, pixelWorld * 1.2);
+                float minimumRadius=_LayerKind<.5?.6:1.0;
+                float size = max(input.uv.z, pixelWorld * minimumRadius);
                 float3 positionWS = world + (cameraRight * quad.x + cameraUp * quad.y) * size;
                 output.positionCS = TransformWorldToHClip(positionWS);
                 output.uv = quad;
                 float schoolRadiance = _LayerKind > 0.5 && _LayerKind < 1.5 ? 0.48 : 1.0;
-                output.color = input.color.rgb * _Gain * schoolRadiance * (0.58 + formation * 0.42);
+                float coverage=min(1.0,input.uv.z*input.uv.z/max(size*size,.00001));
+                output.color = input.color.rgb * _Gain * schoolRadiance * (0.58 + formation * 0.42)*
+                    lerp(coverage,1.0,_LayerKind>.5?1.0:.25);
                 output.alpha = input.color.a * formation;
                 return output;
             }

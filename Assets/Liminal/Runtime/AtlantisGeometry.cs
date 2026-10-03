@@ -195,10 +195,10 @@ namespace Liminal
                 }
             }
 
-            AddSquareRing(cloud, 48f, 2f, 5f, Aqua, ref seed);
-            AddSquareRing(cloud, 43f, 14f, 4f, highlight, ref seed);
-            AddSquareRing(cloud, 35f, 38f, 5f, limestone, ref seed);
-            AddSquareRing(cloud, 26f, 51f, 4f, highlight, ref seed);
+            AddSquareRing(cloud, 48f, 2f, .18f, Aqua, ref seed);
+            AddSquareRing(cloud, 43f, 14f, .16f, highlight, ref seed);
+            AddSquareRing(cloud, 35f, 38f, .20f, limestone, ref seed);
+            AddSquareRing(cloud, 26f, 51f, .18f, highlight, ref seed);
             AddBrokenColumns(cloud, ref seed);
             return cloud.Build("Atlantis / Hermit palace", 600f);
         }
@@ -356,7 +356,7 @@ namespace Liminal
                     Add(cloud, p, 0.115f, level % 6 == 0 ? accent : color, ref seed);
                 }
             }
-            AddSquareRing(cloud, 1.25f, bottom + height, radius * 1.45f, accent, ref seed,
+            AddSquareRing(cloud, 1.25f, bottom + height, .09f, accent, ref seed,
                 new Vector2(center.x, center.z));
         }
 
@@ -385,7 +385,7 @@ namespace Liminal
             }
         }
 
-        static void AddSquareRing(PointCloud cloud, float halfSize, float y, float width,
+        static void AddSquareRing(PointCloud cloud, float halfSize, float y, float particleRadius,
             Color color, ref int seed, Vector2 center = default)
         {
             int count = Mathf.Max(24, Mathf.CeilToInt(halfSize * 2.4f));
@@ -397,7 +397,7 @@ namespace Liminal
                 new(center.x - halfSize, y, center.y - halfSize)
             };
             for (int side = 0; side < 4; side++)
-                AddSegment(cloud, corners[side], corners[side + 1], count, color, width, ref seed);
+                AddSegment(cloud, corners[side], corners[side + 1], count, color, particleRadius, ref seed);
         }
 
         static void AddSegment(PointCloud cloud, Vector3 from, Vector3 to, int count,
