@@ -95,6 +95,13 @@ namespace Liminal
         bool whalePoseStarted, playerPoseStarted;
         bool whalePeakEffectsPlayed;
         Matrix4x4 whaleReleaseMatrix;
+        float whaleCombatStartedAt = -1f;
+        public WhaleCombatMotion.Pose CombatPose { get; private set; }
+        public Vector4 WhaleGesture => whaleReleased ? Vector4.zero : CombatPose.Gesture;
+        public float CombatFirstActionAt => whaleCombatStartedAt;
+        public Vector3 WhaleHullContact => WhaleCombatMotion.ContactPoint(whalePosition, whaleRotation,
+            lastWhalePoseSong, WhaleGesture);
+        float lastWhalePoseSong;
         float lastWhaleHitSong = -1f;
         bool lastWhaleHitValidity;
         string lastWhaleHitCondition = "No resonator hit this run";
@@ -427,7 +434,7 @@ namespace Liminal
             return anchor;
         }
 
-        static Vector3 WhaleTargetLocal(int index, float song) => WhaleAnatomy.TargetLocal(index, song);
+        Vector3 WhaleTargetLocal(int index, float song) => WhaleAnatomy.TargetLocal(index, song, WhaleGesture);
 
         void RegisterTargets()
         {
@@ -602,6 +609,9 @@ namespace Liminal
             jellyImpactIndex = -1; jellyImpactAge = -100; whalePulse = 0; whaleReleaseAt = 0;
             fishScatteringCount = fishRegroupingCount = 0;
             whaleVelocity = Vector3.zero;
+            whaleCombatStartedAt = -1f;
+            CombatPose = default;
+            lastWhalePoseSong = 0f;
             WhaleSurfaceActivity = 0f;
             whaleSurfaceColorBlend = 0f;
             whaleTurn = 0f;
@@ -640,6 +650,7 @@ namespace Liminal
                 matter.SetGroup(i, initialMatrices[i], MatterPhase.Form, 0, 0, Vector3.zero, 0);
             matter.SetCurrent(whalePosition, Vector3.zero, 180f, 0);
             matter.SetWhaleMotion(Vector3.zero, 0f, 0f);
+            matter.SetWhaleGesture(Vector4.zero, Vector3.zero);
             matter.SetWhaleVisibility(0f);
             matter.SetWhalePatches(whaleOrganPatches);
             matter.SetPlayer(CaveLayout.Spawn, Vector3.zero);
@@ -797,6 +808,7 @@ namespace Liminal
 
         void TickWhale(float song, float dt)
         {
+            lastWhalePoseSong = song;
             if (whaleReleased)
             {
                 float releaseAge = Mathf.Max(0, song - whaleReleaseAt);
@@ -805,13 +817,29 @@ namespace Liminal
                     releasedPhase == MatterPhase.Settled ? 0.35f : 2.5f, whalePosition, 0);
                 matter.SetGroup(ambientGroup, Matrix4x4.identity, MatterPhase.Form, 0, 0.6f, whalePosition, 0);
                 whaleVelocity = Vector3.zero;
+                matter.SetWhaleGesture(Vector4.zero, Vector3.zero);
                 return;
             }
             Vector3 previous = whalePosition;
-            if (arrival.Complete) EvaluateWhalePose(arrival.CruiseTime, out whalePosition, out whaleRotation);
-            else arrival.Pose(out whalePosition, out whaleRotation);
+            Quaternion previousRotation = whaleRotation;
+            if (arrival.Complete) {
+                if (whaleCombatStartedAt < 0f) whaleCombatStartedAt = (float)AuthoredScore.Next(song + 8f, 0, true);
+                CombatPose = WhaleCombatMotion.Evaluate(arrival.CruiseTime, song, whaleCombatStartedAt);
+                whalePosition = CombatPose.Position;
+                // A massive swimmer turns into its trajectory rather than snapping to its instantaneous tangent.
+                whaleRotation = Quaternion.RotateTowards(previousRotation, CombatPose.Rotation, 95f * dt);
+            }
+            else { CombatPose = default; arrival.Pose(out whalePosition, out whaleRotation); }
             whaleVelocity = whalePoseStarted && dt > 0 ? Vector3.ClampMagnitude((whalePosition - previous) / dt, 200f) : Vector3.zero;
             whalePoseStarted = true;
+            Vector3 angularVelocity = Vector3.zero;
+            if (arrival.Complete && dt > 0f) {
+                Quaternion delta = whaleRotation * Quaternion.Inverse(previousRotation);
+                delta.ToAngleAxis(out float angle, out Vector3 axis);
+                if (angle > 180f) angle -= 360f;
+                if (Mathf.Abs(angle) > .0001f && !float.IsNaN(axis.x)) angularVelocity = axis * (angle * Mathf.Deg2Rad / dt);
+            }
+            matter.SetWhaleGesture(WhaleGesture, Vector3.ClampMagnitude(angularVelocity, 2f));
             whaleRoot.transform.SetPositionAndRotation(whalePosition, whaleRotation);
             whaleRoot.transform.localScale = Vector3.one * 1.8f;
             float phase = song * 0.045f;

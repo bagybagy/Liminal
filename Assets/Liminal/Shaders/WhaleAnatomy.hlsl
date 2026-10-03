@@ -78,7 +78,7 @@ float3 WhaleFluke(float u, float angle, int side)
 }
 
 // Keep constants, branches and arithmetic order identical to WhaleAnatomy.Deform.
-float3 WhaleDeform(float3 p, float song)
+float3 WhaleDeform(float3 p, float song, float4 gesture)
 {
     float3 form = p;
     float phase = song * 0.42;
@@ -97,8 +97,23 @@ float3 WhaleDeform(float3 p, float song)
     p.z += fin * 1.2 * cos(phase - 1.1);
     float roll = 0.037 * bank;
     float cr = cos(roll), sr = sin(roll);
-    return float3(p.x * cr - p.y * sr, p.x * sr + p.y * cr, p.z);
+    p = float3(p.x * cr - p.y * sr, p.x * sr + p.y * cr, p.z);
+    float rear = 1.0 - WhaleSmooth(-60.0, 42.0, form.z);
+    float bend = gesture.y * .11 * rear;
+    float cb = cos(bend), sb = sin(bend);
+    float dz = p.z - 24.0;
+    p = float3(p.x, p.y * cb - dz * sb, 24.0 + p.y * sb + dz * cb);
+    p.y += gesture.x * 2.3 * tail * tail * sin(song * 1.8 - tail * .4);
+    float twist = gesture.z * .12 * tail;
+    float ct = cos(twist), st = sin(twist);
+    p = float3(p.x * ct - p.y * st, p.x * st + p.y * ct, p.z);
+    float fold = gesture.w * side * .28 * fin;
+    float cf = cos(fold), sf = sin(fold);
+    float dx = p.x - side * 17.0, dy = p.y + 6.0;
+    return float3(side * 17.0 + dx * cf - dy * sf, -6.0 + dx * sf + dy * cf, p.z);
 }
+
+float3 WhaleDeform(float3 p, float song) { return WhaleDeform(p, song, float4(0, 0, 0, 0)); }
 
 int WhaleSurfaceFrame(float3 p, out float u, out float angle, out int side)
 {

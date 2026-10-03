@@ -37,6 +37,7 @@ namespace Liminal
         public double WhaleAwakenedAt { get; private set; }=-1;
         public bool Ready { get; private set; }
         public bool ProofActive { get; private set; }
+        public bool ManualProofTick { get; set; }
         public bool ReducedMotion { get; private set; }
         readonly bool[] visitedRooms=new bool[CaveLayout.Rooms.Length];
         bool whaleCalled;
@@ -114,7 +115,7 @@ namespace Liminal
         }
         void Update()
         {
-            if(!Ready) return;
+            if(!Ready || (ProofActive && ManualProofTick)) return;
             if(!ProofActive && Input.GetKeyDown(KeyCode.Escape)) TogglePause();
             float song=(float)Music.Time,dt=Mathf.Min(Time.unscaledDeltaTime,0.05f);
             Brightness.SetFinaleGlow(Finale && Finale.Active?Finale.Formation:0f);

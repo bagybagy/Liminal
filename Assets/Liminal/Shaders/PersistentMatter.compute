@@ -42,6 +42,10 @@ float _Delta, _Song, _CurrentEnergy;
 float4 _Current;
 float3 _CurrentVelocity, _Player, _PlayerVelocity;
 float3 _WhaleVelocity;
+float3 _WhaleAngularVelocity;
+float4 _WhaleGesture;
+float3 _AtlantisOrigin;
+float _AuthoredBeat;
 float _WhaleSurfaceActivity, _WhaleTurn, _WhaleArrival;
 float3 _ArrivalOrigin;
 float _WhaleFormation;
@@ -77,7 +81,7 @@ float3 Deform(float3 p, float3 localForm, float seed, float kind, float tail, fl
     }
     else if (kind > 2.5)
     {
-        p = WhaleDeform(localForm, song);
+        p = WhaleDeform(localForm, song, _WhaleGesture);
     }
     return p;
 }
@@ -186,7 +190,7 @@ void Simulate(uint3 id : SV_DispatchThreadID)
     else if (phase > 3.5)
     {
         float morph = smoothstep(0.2, 1.65, age);
-        float3 source = mul(_BirthMatrices[(uint)p.identityState.y], float4(WhaleDeform(seed.form.xyz, _Song), 1)).xyz;
+        float3 source = mul(_BirthMatrices[(uint)p.identityState.y], float4(WhaleDeform(seed.form.xyz, _Song, _WhaleGesture), 1)).xyz;
         float3 peel = normalize(source - group.impulse.xyz + float3(0.001,0.002,0.003));
         source += peel * sin(saturate(age / 1.65) * 3.14159265) * 9;
         float3 forming = lerp(source, target, morph);
@@ -208,8 +212,11 @@ void Simulate(uint3 id : SV_DispatchThreadID)
         {
             float stiffness = kind > 1.5 && kind < 2.5 ? 78.0 : kind > 2.5 ? 100.0 : 54.0;
             float damping = 2.0 * sqrt(stiffness);
-            if (kind > 2.5)
-                acceleration += offset * stiffness - (velocity - _WhaleVelocity) * damping;
+            if (kind > 2.5) {
+                float3 root = mul(group.localToWorld, float4(0,0,0,1)).xyz;
+                float3 surfaceVelocity = _WhaleVelocity + cross(_WhaleAngularVelocity, target - root);
+                acceleration += offset * stiffness - (velocity - surfaceVelocity) * damping;
+            }
             else
                 acceleration += offset * stiffness - velocity * damping;
             acceleration += Curl(position * 0.12, _Song * 0.45 + seed.traits.z * 9.0) * (0.10 + energy * 0.22);
@@ -297,7 +304,7 @@ void Simulate(uint3 id : SV_DispatchThreadID)
     float step = min(_Delta, 1.0 / 60.0);
     velocity += acceleration * step;
     velocity *= exp(-step * (phase > 1.5 ? 0.65 : 1.0));
-    float maxSpeed = phase > 4.5 ? 360 : phase > 3.5 ? 130 : phase > 1.5 && phase < 2.5 ? (kind > 2.5 ? 112.0 : 46.0) : kind > 2.5 && phase < 0.5 ? 200.0 : 24.0;
+    float maxSpeed = phase > 4.5 ? 360 : phase > 3.5 ? 130 : phase > 1.5 && phase < 2.5 ? (kind > 2.5 ? 112.0 : 46.0) : kind > 2.5 && phase < 0.5 ? 360.0 : 24.0;
     velocity = clamp(length(velocity), 0.0, maxSpeed) * normalize(velocity + 0.000001);
     position += velocity * step;
 
@@ -366,6 +373,22 @@ void Simulate(uint3 id : SV_DispatchThreadID)
         float3 transitionColor = lerp(cloudColor * (0.45 + cloud * 0.55), float3(0.035,0.85,2.8), flash);
         p.colorSize.rgb = lerp(p.colorSize.rgb, transitionColor*(1+flash*_MatterDeathStyle.y), 1.0 - exp(-step * 4.0));
         p.colorSize.w = seed.form.w * (1.0 + cloud * 1.8);
+    }
+    else if (kind > 2.5 && phase > 2.5)
+    {
+        float3 local = seed.destination.xyz - _AtlantisOrigin;
+        float variation = Hash(id.x + 613.0);
+        float glint = (variation >= .975 ? 1.0 : 0.0) * pow(.5 + .5 * sin(_Song * 1.7 + seed.traits.z * 37), 16);
+        float flow = .5 + .5 * sin(local.x * .012 + sin(local.z * .009) * 1.9 - _Song * .18);
+        float structure = smoothstep(18, 55, local.y);
+        float pulse = .94 + .06 * cos(_AuthoredBeat * 1.5707963);
+        float3 azure = float3(.035,.28,.82), aqua = float3(.025,.80,.88), pearl = float3(.58,1.06,1.30);
+        float3 color = lerp(azure,aqua,flow * .68);
+        color = lerp(color,pearl,structure * .24 + glint * .5);
+        float ornament = (Hash(floor(local.x * .13) + floor(local.z * .13) * 37) >= .94 ? 1.0 : 0.0) * structure;
+        color = lerp(color,float3(1.25,.63,.15),ornament * .45);
+        p.colorSize = float4(color * (.52 + variation * .34 + glint * 1.2) * pulse,
+            .14 + variation * .09 + glint * .05);
     }
     else if (phase > 2.5)
         p.colorSize = float4(lerp(seed.color.rgb, float3(0.12,0.70,0.48), 0.72), seed.form.w * 1.3);

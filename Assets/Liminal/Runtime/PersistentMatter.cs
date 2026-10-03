@@ -23,7 +23,8 @@ namespace Liminal
         bool initialized, disposed, whaleDestinationsSet;
         float previousSong = float.NaN;
         Vector3 currentCenter, currentVelocity, playerPosition, playerVelocity;
-        Vector3 whaleVelocity;
+        Vector3 whaleVelocity, whaleAngularVelocity;
+        Vector4 whaleGesture;
         Vector4[] whalePatches = new Vector4[WhalePatchCount];
         float whaleSurfaceActivity, whaleTurn;
         int whaleGroup = -1;
@@ -97,6 +98,7 @@ namespace Liminal
             birthMatrices.SetData(birthData);
             groupVelocities.SetData(groupVelocityData);
             seeds.SetData(seedData);
+            simulation.SetVector("_AtlantisOrigin", AtlantisGeometry.CityOrigin);
             whalePatchBuffer.SetData(whalePatches);
 
             initializeKernel = simulation.FindKernel("Initialize");
@@ -155,6 +157,9 @@ namespace Liminal
             whaleTurn = Mathf.Clamp01(turn);
             whaleArriving = arriving;
         }
+
+        public void SetWhaleGesture(Vector4 gesture, Vector3 angularVelocity)
+        { whaleGesture = gesture; whaleAngularVelocity = angularVelocity; }
 
         public void SetWhaleVisibility(float visibility)
         {
@@ -220,12 +225,15 @@ namespace Liminal
             birthMatrices.SetData(birthData);
             groupVelocities.SetData(groupVelocityData);
             simulation.SetFloat("_Song", song);
+            simulation.SetFloat("_AuthoredBeat", (float)AuthoredScore.BeatPosition(song));
             simulation.SetVector("_Current", new Vector4(currentCenter.x, currentCenter.y, currentCenter.z, currentRadius));
             simulation.SetVector("_CurrentVelocity", currentVelocity);
             simulation.SetFloat("_CurrentEnergy", currentEnergy);
             simulation.SetVector("_Player", playerPosition);
             simulation.SetVector("_PlayerVelocity", playerVelocity);
             simulation.SetVector("_WhaleVelocity", whaleVelocity);
+            simulation.SetVector("_WhaleGesture", whaleGesture);
+            simulation.SetVector("_WhaleAngularVelocity", whaleAngularVelocity);
             simulation.SetFloat("_WhaleSurfaceActivity", whaleSurfaceActivity);
             simulation.SetFloat("_WhaleTurn", whaleTurn);
             simulation.SetFloat("_WhaleArrival", whaleArriving ? 1f : 0f);

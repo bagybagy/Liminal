@@ -28,6 +28,8 @@ namespace Liminal
         Vector3 lastBirthPosition;
         float previousBowSide, previousSternSide, previousLeftFinSide, previousRightFinSide;
         bool haveBirthPosition, havePreviousPose, whaleWasVisible;
+        Vector3 previousHullContact;
+        int lastCombatImpact = -1;
 
         public float SurfaceHeight { get; private set; }
         public int WaveEventCount => activeEvents;
@@ -108,16 +110,17 @@ namespace Liminal
                 DetectCrossing(previousSternSide, sternSide, stern, whaleVelocity, song);
                 DetectCrossing(previousLeftFinSide, leftFinSide, leftFin, whaleVelocity, song);
                 DetectCrossing(previousRightFinSide, rightFinSide, rightFin, whaleVelocity, song);
-                Vector2 horizontalVelocity = new Vector2(whaleVelocity.x, whaleVelocity.z);
-                if (life.WhaleEntranceComplete && previousCenterSide > 0f && centerSide <= 0f
-                    && horizontalVelocity.magnitude >= 12f
-                    && (LastMajorTime < 0f || song - LastMajorTime >= 8f))
+                Vector3 contact = life.WhaleHullContact;
+                float before = previousHullContact.y - SurfaceHeight;
+                float after = contact.y - SurfaceHeight;
+                if (life.WhaleEntranceComplete && life.CombatPose.CanImpact && life.CombatPose.Index != lastCombatImpact &&
+                    before > 0f && after <= 0f && whaleVelocity.y < -8f)
                 {
-                    float sideTravel = Mathf.Abs(previousCenterSide) + Mathf.Abs(centerSide);
-                    float crossingT = sideTravel > 0.0001f ? Mathf.Abs(previousCenterSide) / sideTravel : 0.5f;
-                    Vector3 crossing = Vector3.Lerp(previousWhalePosition, whalePosition, crossingT);
+                    float crossingT = before / Mathf.Max(.0001f, before - after);
+                    Vector3 crossing = Vector3.Lerp(previousHullContact, contact, crossingT);
                     crossing.y = SurfaceHeight;
-                    MajorImpact(crossing, whaleVelocity, song);
+                    MajorImpact(crossing, whaleVelocity, song - dt * (1 - crossingT));
+                    lastCombatImpact = life.CombatPose.Index;
                 }
             }
             previousBowSide = bowSide;
@@ -126,6 +129,7 @@ namespace Liminal
             previousRightFinSide = rightFinSide;
             previousCenterSide = centerSide;
             previousWhalePosition = whalePosition;
+            previousHullContact = life.WhaleHullContact;
             havePreviousPose = true;
 
             Vector3 samplePosition = whalePosition;
@@ -225,6 +229,7 @@ namespace Liminal
             if (ImpactSplash) ImpactSplash.ResetSplash();
             ClearWaveEvents();
             SurfaceCrossings = MajorWaveCount = 0;
+            lastCombatImpact = -1;
             LastMajorOrigin = Vector3.zero;
             LastMajorTime = -1f;
             previousSong = -1f;

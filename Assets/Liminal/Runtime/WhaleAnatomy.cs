@@ -148,7 +148,7 @@ namespace Liminal
         }
 
         // Mirror this operation order in WhaleAnatomy.hlsl; all seeds and targets use this same field.
-        public static Vector3 Deform(Vector3 p, float song)
+        public static Vector3 Deform(Vector3 p, float song, Vector4 gesture = default)
         {
             Vector3 form = p;
             float phase = song * 0.42f;
@@ -167,10 +167,23 @@ namespace Liminal
             p.z += fin * 1.2f * Mathf.Cos(phase - 1.1f);
             float roll = 0.037f * bank;
             float cr = Mathf.Cos(roll), sr = Mathf.Sin(roll);
-            return new Vector3(p.x * cr - p.y * sr, p.x * sr + p.y * cr, p.z);
+            p = new Vector3(p.x * cr - p.y * sr, p.x * sr + p.y * cr, p.z);
+            float rear = 1f - Smooth(-60f, 42f, form.z);
+            float bend = gesture.y * .11f * rear;
+            float cb = Mathf.Cos(bend), sb = Mathf.Sin(bend);
+            float dz = p.z - 24f;
+            p = new Vector3(p.x, p.y * cb - dz * sb, 24f + p.y * sb + dz * cb);
+            p.y += gesture.x * 2.3f * tail * tail * Mathf.Sin(song * 1.8f - tail * .4f);
+            float twist = gesture.z * .12f * tail;
+            float ct = Mathf.Cos(twist), st = Mathf.Sin(twist);
+            p = new Vector3(p.x * ct - p.y * st, p.x * st + p.y * ct, p.z);
+            float fold = gesture.w * side * .28f * fin;
+            float cf = Mathf.Cos(fold), sf = Mathf.Sin(fold);
+            float dx = p.x - side * 17f, dy = p.y + 6f;
+            return new Vector3(side * 17f + dx * cf - dy * sf, -6f + dx * sf + dy * cf, p.z);
         }
 
-        public static Vector3 TargetLocal(int index, float song)
+        public static Vector3 TargetLocal(int index, float song, Vector4 gesture = default)
         {
             if (index < 0 || index >= TargetCount) throw new ArgumentOutOfRangeException(nameof(index));
             int ring = index / 4, quadrant = index % 4;
@@ -181,7 +194,7 @@ namespace Liminal
             else if ((ring == 5 || ring == 6) && lateral)
                 p = Flipper(ring == 5 ? 0.65f : 0.32f, Tau * 0.25f, side);
             else p = Body(-68f + 136f * ring / 11f, quadrant * Tau * 0.25f);
-            return Deform(p + Normal(p) * 0.12f, song);
+            return Deform(p + Normal(p) * 0.12f, song, gesture);
         }
 
         static int SurfaceFrame(Vector3 p, out float u, out float angle, out int side)
