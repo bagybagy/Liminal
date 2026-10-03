@@ -37,6 +37,7 @@ namespace Liminal
         public double WhaleAwakenedAt { get; private set; }=-1;
         public bool Ready { get; private set; }
         public bool ProofActive { get; private set; }
+        public bool BackgroundProof { get; private set; }
         public bool ManualProofTick { get; set; }
         public bool ReducedMotion { get; private set; }
         readonly bool[] visitedRooms=new bool[CaveLayout.Rooms.Length];
@@ -62,8 +63,10 @@ namespace Liminal
             capturePV=UnityEditor.EditorPrefs.GetBool("Liminal.CavernPV",false);
 #endif
             ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||encounterReview||pressureProof||finalReviewProof||whaleSplashProof||capturePV;
+            BackgroundProof=ProofActive && Application.isBatchMode && Array.IndexOf(args,"--background-proof")>=0;
+            if(BackgroundProof) AudioListener.volume=0f;
             CavernMode=!legacyProof && Array.IndexOf(args,"--legacy-arena")<0;
-            Cursor.visible=ProofActive;
+            if(!BackgroundProof) Cursor.visible=ProofActive;
             World=gameObject.AddComponent<ParticleWorld>();
             ParticleTransitionSettings.Current.ApplyGlobals();
             World.particleTemplate=particles;World.ribbonMaterial=ribbons;
@@ -72,8 +75,9 @@ namespace Liminal
             World.advectedParticles=advectedParticles;World.membrane=membrane;World.particleSimulation=particleSimulation;World.Initialize(CavernMode);
             Music=gameObject.AddComponent<MusicTransport>();Music.soundtrack=soundtrack;Music.LoopSoundtrack=CavernMode;
             Music.EnableStageMusic=CavernMode && enableStageMusic;Music.Initialize(true);
+            if(BackgroundProof) AudioListener.volume=0f;
             var pilot=new GameObject("Traveler rig");pilot.transform.SetParent(transform,false);
-            Flight=pilot.AddComponent<Flight>();Flight.Initialize(World,sceneCamera);
+            Flight=pilot.AddComponent<Flight>();Flight.SuppressCursorChanges=BackgroundProof;Flight.Initialize(World,sceneCamera);
             Combat=gameObject.AddComponent<Encounter>();Combat.ExplorationMode=CavernMode;Combat.Initialize(Music,World,Flight);
             if(CavernMode) {
                 Marine=gameObject.AddComponent<MarineLife>();Marine.Initialize(World,Combat);
@@ -170,7 +174,7 @@ namespace Liminal
                 if(WhaleAwakenedAt<0) WhaleAwakenedAt=Music.Time;
                 if(!whaleCalled && Music.Time-WhaleAwakenedAt>=4) {whaleCalled=true;Music.WhaleCall();}
             }
-            if(ProofActive) {Cursor.lockState=CursorLockMode.None;Cursor.visible=true;}
+            if(ProofActive && !BackgroundProof) {Cursor.lockState=CursorLockMode.None;Cursor.visible=true;}
         }
         public void SetReducedMotion(bool value) { ReducedMotion=value;Flight.ReducedMotion=value; }
         public bool CanTravelBoost(float song) => CavernMode && !Music.Paused && !Combat.Ended &&
@@ -194,7 +198,7 @@ namespace Liminal
                 Tutorial.SetEnabled(!ProofActive && PlayerPrefs.GetInt("particleTutorialCompleted",0)==0);
                 Array.Clear(visitedRooms,0,visitedRooms.Length);RoomsVisited=0;CurrentRoom=0;whaleCalled=false;WhaleAwakenedAt=-1;
             }
-            Cursor.visible=ProofActive;
+            if(!BackgroundProof) Cursor.visible=ProofActive;
             if(Vr && Vr.Enabled) Vr.ResetPose();
         }
         public void Quit() { SaveSettings();Application.Quit(); }
@@ -212,6 +216,6 @@ namespace Liminal
         }
         void OnApplicationQuit() { if(Ready && !ProofActive) SaveSettings(); }
         void OnApplicationFocus(bool focused) { if(Ready&&!ProofActive&&(!Vr||!Vr.Enabled)&&!focused&&!Music.Paused&&!Combat.Ended) TogglePause(); }
-        void OnDestroy() { Cursor.lockState=CursorLockMode.None;Cursor.visible=true;AudioListener.pause=false; }
+        void OnDestroy() { if(!BackgroundProof) {Cursor.lockState=CursorLockMode.None;Cursor.visible=true;} AudioListener.pause=false; }
     }
 }

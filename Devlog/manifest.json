@@ -446,6 +446,31 @@
     "hardware_vr_tested": false,
     "new_video_recorded": false
   },
+  "latest_motion_light": {
+    "date": "2026-10-04",
+    "version": "v0.1.7",
+    "source_commits": ["8032213", "08f8c71"],
+    "report": "Builds/Windows/MotionLightReport.json",
+    "passed": true,
+    "whale_action_seconds": 24,
+    "authored_motion_stretch": 1.2,
+    "music_clock_changed": false,
+    "source_folder": "Verification/MotionLight",
+    "capture_method": "Silent batch-mode offscreen 1600x900 URP with post-processing; no HUD, cursor capture, active XR loader, desktop capture, or new video",
+    "images": [
+      { "path": "Devlog/images/16-whale-followthrough-1.png", "source": "breach-followthrough-1.png", "action_age_seconds": 10.8, "sha256": "db53b0924153a9c9c30d95d9a9c99fbdb65abb007e05a46cb3457d594ec927f3" },
+      { "path": "Devlog/images/16-whale-followthrough-2.png", "source": "breach-followthrough-2.png", "action_age_seconds": 14.4, "sha256": "1baac4f8cbbd868d59a79b1ca913c855b077e1e76604de115f89ce2668d6da62" },
+      { "path": "Devlog/images/16-whale-followthrough-3.png", "source": "breach-followthrough-3.png", "action_age_seconds": 19.2, "sha256": "763b7a36a51fb0363b60bf1ef2218f5f93eeebf14b2bb02c960801a03897a157" },
+      { "path": "Devlog/images/16-atlantis-shimmer-a.png", "source": "atlantis-temple.png", "sha256": "abb6bb42029f1fc3c03ab647dc6b82cb1a72bdc4e1173d351f03f2ab4d5ddc6d" },
+      { "path": "Devlog/images/16-atlantis-shimmer-b.png", "source": "atlantis-shimmer-6s.png", "relative_seconds": 6, "sha256": "0afae1203e9af71b61dc6864f89a185bfac85807e879aa75262c48d820bdcf55" }
+    ],
+    "sampled_city_particles": 6243,
+    "stable_city_particle_ids": true,
+    "city_mean_travel_m": 0.28338364,
+    "city_radius_coefficient_of_variation": 0.35817587,
+    "hardware_vr_tested": false,
+    "new_video_recorded": false
+  },
   "latest_musical_balance": {
     "implementation_commit": "bac3059",
     "report": "Liminal/Verification/MusicalDolphins/report.json",

@@ -25,6 +25,7 @@ namespace Liminal
         public Vector3 Emitter => vrEnabled && View != null ? View.transform.position : Position;
         public Vector2 AimScreenPosition => new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
         public bool IsCursorCaptured => ownsCursorLock;
+        public bool SuppressCursorChanges { get; set; }
         public bool VrEnabled => vrEnabled;
         public float TravelProgress => travelProgress;
         public float TravelSpeedMultiplier => 1f + (TravelMultiplier - 1f) * travelProgress;
@@ -131,8 +132,11 @@ namespace Liminal
                 ignoreLookDelta = true;
                 return;
             }
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
+            if (!SuppressCursorChanges)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
             ownsCursorLock = false;
             ignoreLookDelta = true;
         }
@@ -243,8 +247,11 @@ namespace Liminal
                 vrYawOffset = 0f;
                 velocity = Vector3.zero;
                 cameraVelocity = Vector3.zero;
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
+                if (!SuppressCursorChanges)
+                {
+                    Cursor.lockState = CursorLockMode.None;
+                    Cursor.visible = true;
+                }
                 ownsCursorLock = false;
                 ignoreLookDelta = true;
                 transform.rotation = Quaternion.Euler(0f, yaw, 0f);

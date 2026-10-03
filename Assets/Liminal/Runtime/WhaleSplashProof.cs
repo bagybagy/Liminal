@@ -74,6 +74,13 @@ namespace Liminal
             }
 
             Check(game.CavernMode && game.ProofActive, "Whale splash proof requires cavern proof mode.");
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--background-proof") >= 0)
+            {
+                report.backgroundCapture = game.BackgroundProof && AudioListener.volume == 0 && game.Flight.SuppressCursorChanges;
+                var xr = UnityEngine.XR.Management.XRGeneralSettings.Instance;
+                report.backgroundCapture &= xr == null || xr.Manager == null || xr.Manager.activeLoader == null;
+                Check(report.backgroundCapture, "Passive capture must be batch-mode, silent, and leave cursor ownership untouched.");
+            }
             if (report.errors.Length > 0) { Finish(); yield break; }
 
             game.Restart();
@@ -210,6 +217,18 @@ namespace Liminal
             for (int cycle = 0; cycle < 12; cycle++)
             {
                 float at = first + cycle * WhaleCombatMotion.Interval;
+                float[] knots = (cycle & 1) == 0 ? new[] { 0f, 2.5f, 4.2f, 6.3f, 8.2f, 12.5f, WhaleCombatMotion.Duration } :
+                    new[] { 0f, 3f, 5.1f, 7.1f, 11.5f, WhaleCombatMotion.Duration };
+                const float h = .01f;
+                foreach (float knot in knots)
+                {
+                    float knotAge = knot == WhaleCombatMotion.Duration ? knot : knot * WhaleCombatMotion.MotionStretch;
+                    Vector3 before = WhaleCombatMotion.Evaluate(at + knotAge - h + cruiseOffset, at + knotAge - h, first).Velocity;
+                    Vector3 center = WhaleCombatMotion.Evaluate(at + knotAge + cruiseOffset, at + knotAge, first).Velocity;
+                    Vector3 after = WhaleCombatMotion.Evaluate(at + knotAge + h + cruiseOffset, at + knotAge + h, first).Velocity;
+                    report.maxKnotAccelerationGap = Mathf.Max(report.maxKnotAccelerationGap,
+                        Vector3.Distance((center - before) / h, (after - center) / h));
+                }
                 for (float age = 0; age <= WhaleCombatMotion.Duration; age += .1f)
                 {
                     var pose = WhaleCombatMotion.Evaluate(at + age + cruiseOffset, at + age, first);
@@ -223,6 +242,8 @@ namespace Liminal
             }
             Check(report.allCyclesMaxRoomDistance < .99f,
                 "Both leap types must remain inside the cave across twelve changing cruise approach phases.");
+            Check(report.maxKnotAccelerationGap < 8,
+                "Acceleration must connect across the leap knots and ordinary cruise, not only position and velocity.");
             report.combatActions = new CombatReport[2];
             Vector3 player = game.Flight.Position;
             for (int action = 0; action < 2; action++)
@@ -233,6 +254,8 @@ namespace Liminal
                 bool riseCaptured = false, apexCaptured = false, fallCaptured = false, splashCaptured = false;
                 Quaternion previousRotation = Quaternion.identity;
                 Vector3 previousPosition = Vector3.zero;
+                Vector3 followCameraOrigin = Vector3.zero;
+                int followFrame = 0;
                 for (int step = -30; step <= (WhaleCombatMotion.Duration + .25f) / StepSeconds; step++)
                 {
                     simulationSong = start + step * StepSeconds;
@@ -253,6 +276,13 @@ namespace Liminal
                     {
                         result.maxFrameTravel = Mathf.Max(result.maxFrameTravel, Vector3.Distance(previousPosition, marine.WhalePosition));
                         result.maxFrameRotation = Mathf.Max(result.maxFrameRotation, Quaternion.Angle(previousRotation, marine.WhaleRotation));
+                        if (action == 0 && step * StepSeconds >= 8.2f * WhaleCombatMotion.MotionStretch &&
+                            step * StepSeconds <= 12.5f * WhaleCombatMotion.MotionStretch)
+                        {
+                            Vector3 delta = marine.WhalePosition - previousPosition;
+                            result.recoveryHorizontalTravel += Vector3.ProjectOnPlane(delta, Vector3.up).magnitude;
+                            result.recoveryVerticalTravel += Mathf.Abs(delta.y);
+                        }
                     }
                     previousPosition = marine.WhalePosition; previousRotation = marine.WhaleRotation;
                     foreach (LockTarget target in marine.WhaleResonatorTargets)
@@ -264,8 +294,21 @@ namespace Liminal
                         result.targetError = Mathf.Max(result.targetError,
                             Vector3.Distance(expected, marine.WhaleResonatorTargets[i].position));
                     }
-                    float age = step * StepSeconds;
+                    float age = step * StepSeconds / WhaleCombatMotion.MotionStretch;
                     string prefix = action == 0 ? "breach" : "slam";
+                    if (action == 0 && age >= 8.2f && followCameraOrigin == Vector3.zero)
+                        followCameraOrigin = marine.WhalePosition;
+                    float[] followAges = { 9f, 12f, 16f };
+                    if (action == 0 && followFrame < followAges.Length && age >= followAges[followFrame])
+                    {
+                        Frame(followCameraOrigin + new Vector3(390, 170, 360), followCameraOrigin + Vector3.down * 35);
+                        result.followThrough[followFrame] = Capture("breach-followthrough-" + (followFrame + 1) + ".png");
+                        followFrame++;
+                    }
+                    if (action == 0 && age > 9f)
+                        result.delayedTailTorsion = Mathf.Max(result.delayedTailTorsion,
+                            pose.Gesture.z - Mathf.Abs(Vector3.SignedAngle(Vector3.up,
+                                marine.WhaleRotation * Vector3.up, marine.WhaleRotation * Vector3.forward)) / 112f);
                     if (!riseCaptured && age >= (action == 0 ? 4.7f : 4.3f))
                     {
                         Frame(marine.WhalePosition + new Vector3(330, 100, 310), marine.WhalePosition);
@@ -320,6 +363,10 @@ namespace Liminal
                 Check(result.rise != null && result.apex != null && result.fall != null && result.splash != null &&
                     result.rise.nonBlank && result.fall.nonBlank && result.splash.whiteFraction < .12f,
                     "Combat motion and impact images must be visible without a screen-filling white flash.");
+                if (action == 0)
+                    Check(followFrame == 3 && result.recoveryHorizontalTravel > result.recoveryVerticalTravel * .8f &&
+                        result.delayedTailTorsion > .15f,
+                        "Landing must carry forward along a submerged arc while rear torsion outlasts the body recovery.");
             }
             MethodInfo release = typeof(MarineLife).GetMethod("ReleaseWhale", BindingFlags.Instance | BindingFlags.NonPublic);
             release.Invoke(marine, new object[] { simulationSong });
@@ -339,6 +386,41 @@ namespace Liminal
             report.cityWide = Capture("atlantis-continent.png");
             Frame(city + new Vector3(170, 105, -215), city + new Vector3(0, 70, -20));
             report.cityTemple = Capture("atlantis-temple.png");
+            MatterParticle[] cityBefore = marine.Matter.Readback();
+            for (int step = 0; step < 120; step++)
+            {
+                simulationSong += .05f;
+                marine.Tick(simulationSong, .05f, player);
+                game.Finale.Tick(simulationSong, .05f);
+            }
+            report.cityShimmer = Capture("atlantis-shimmer-6s.png");
+            MatterParticle[] cityAfter = marine.Matter.Readback();
+            float radiusSum = 0, radiusSquareSum = 0;
+            report.stableCityParticleIds = true;
+            for (int id = 0; id < cityBefore.Length; id += 17)
+            {
+                if (marine.SeedAt(id).traits.y < 2.5f || cityBefore[id].identityState.z != 3f) continue;
+                report.sampledCityParticles++;
+                Vector3 beforeColor = cityBefore[id].colorSize, afterColor = cityAfter[id].colorSize;
+                report.cityMeanLightChange += Vector3.Distance(beforeColor, afterColor);
+                float movement = Vector3.Distance(cityBefore[id].positionAge, cityAfter[id].positionAge);
+                report.cityMeanParticleTravel += movement;
+                report.cityMaxParticleTravel = Mathf.Max(report.cityMaxParticleTravel, movement);
+                report.stableCityParticleIds &= cityBefore[id].identityState.x == cityAfter[id].identityState.x;
+                float radius = cityAfter[id].colorSize.w;
+                radiusSum += radius; radiusSquareSum += radius * radius;
+            }
+            int sampleCount = Mathf.Max(1, report.sampledCityParticles);
+            report.cityMeanLightChange /= sampleCount;
+            report.cityMeanParticleTravel /= sampleCount;
+            float meanRadius = radiusSum / sampleCount;
+            report.cityRadiusVariation = Mathf.Sqrt(Mathf.Max(0, radiusSquareSum / sampleCount - meanRadius * meanRadius)) /
+                Mathf.Max(.0001f, meanRadius);
+            report.cityVisibleChange = ImageDifferenceFraction(report.cityTemple, report.cityShimmer);
+            Check(report.sampledCityParticles > 5000 && report.stableCityParticleIds && report.cityMeanParticleTravel > .02f &&
+                report.cityMaxParticleTravel < 1.5f && report.cityMeanLightChange > .04f && report.cityRadiusVariation > .23f &&
+                report.cityVisibleChange > .01f && report.cityShimmer.whiteFraction < .08f,
+                "The city must retain its matter IDs and shape, with perceptible light change, bounded flow and diverse particle radii.");
             Check(game.Finale.Formation > .99f && game.Finale.LayerCount == 4 && report.cityBounds.size.x >= 500 &&
                 report.cityWide.nonBlank && report.cityTemple.nonBlank && report.cityWide.whiteFraction < .08f &&
                 report.cityTemple.whiteFraction < .12f, "The expanded full city must form without a whiteout.");
@@ -547,12 +629,17 @@ namespace Liminal
             public string[] errors = Array.Empty<string>();
             public CombatReport[] combatActions;
             public Bounds cityBounds;
-            public CaptureReport cityWide, cityTemple;
+            public CaptureReport cityWide, cityTemple, cityShimmer;
             public int cityFishCount, desktopCityPoints, vrCityPoints;
+            public int sampledCityParticles;
+            public bool stableCityParticleIds;
+            public float cityMeanLightChange, cityMeanParticleTravel, cityMaxParticleTravel, cityRadiusVariation, cityVisibleChange;
+            public float maxKnotAccelerationGap;
             public float fishMaxTravel, renderAndReadbackMeanMs, renderAndReadbackP95Ms, allCyclesMaxRoomDistance;
             public int renderSamples;
             public string gpu, performanceMethod;
             public bool actualVrMeasured;
+            public bool backgroundCapture;
         }
 
         [Serializable] sealed class CombatReport
@@ -562,8 +649,10 @@ namespace Liminal
             public int impacts;
             public float impactAge, impactUpDot, impactForwardY, maxHeightAboveWater, maxSpeed, maxRoll;
             public float maxFrameTravel, maxFrameRotation, maxRoomDistance, targetError, gpuSurfaceError;
+            public float recoveryHorizontalTravel, recoveryVerticalTravel, delayedTailTorsion;
             public Vector3 impactVelocity;
             public CaptureReport rise, apex, fall, splash;
+            public CaptureReport[] followThrough = new CaptureReport[3];
         }
     }
 }
