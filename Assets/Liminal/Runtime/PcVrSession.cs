@@ -41,6 +41,10 @@ namespace Liminal
         public bool PausePressed { get; private set; }
         public Vector2 MenuAxis { get; private set; }
         public bool MenuConfirmPressed { get; private set; }
+        public static bool ComposePauseInput(bool menu, bool secondary, bool stick)
+        {
+            return menu || secondary || stick;
+        }
 
         public void Initialize(Experience owner)
         {
@@ -107,10 +111,12 @@ namespace Liminal
             bool paused = experience.Music != null && experience.Music.Paused;
             ReadControllerInput(out Vector2 leftAxis, out Vector2 rightAxis,
                 out float leftGrip, out float rightTrigger,
-                out bool leftPrimary, out bool rightPrimary, out bool menuDown);
+                out bool leftPrimary, out bool rightPrimary, out bool menuDown,
+                out bool leftSecondary, out bool leftStickClick);
 
-            PausePressed = menuDown && !pauseWasDown;
-            pauseWasDown = menuDown;
+            bool pauseDown = ComposePauseInput(menuDown, leftSecondary, leftStickClick);
+            PausePressed = pauseDown && !pauseWasDown;
+            pauseWasDown = pauseDown;
 
             bool triggerDown = triggerWasDown ? rightTrigger > 0.42f : rightTrigger >= 0.62f;
             MenuConfirmPressed = paused && triggerDown && !triggerWasDown;
@@ -436,13 +442,14 @@ namespace Liminal
 
         void ReadControllerInput(out Vector2 leftAxis, out Vector2 rightAxis,
             out float leftGrip, out float rightTrigger,
-            out bool leftPrimary, out bool rightPrimary, out bool menuDown)
+            out bool leftPrimary, out bool rightPrimary, out bool menuDown,
+            out bool leftSecondary, out bool leftStickClick)
         {
             leftAxis = Vector2.zero;
             rightAxis = Vector2.zero;
             leftGrip = 0f;
             rightTrigger = 0f;
-            leftPrimary = rightPrimary = menuDown = false;
+            leftPrimary = rightPrimary = menuDown = leftSecondary = leftStickClick = false;
 
             InputDevice left = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
             InputDevice right = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
@@ -451,6 +458,8 @@ namespace Liminal
                 left.TryGetFeatureValue(CommonUsages.primary2DAxis, out leftAxis);
                 left.TryGetFeatureValue(CommonUsages.grip, out leftGrip);
                 left.TryGetFeatureValue(CommonUsages.primaryButton, out leftPrimary);
+                left.TryGetFeatureValue(CommonUsages.secondaryButton, out leftSecondary);
+                left.TryGetFeatureValue(CommonUsages.primary2DAxisClick, out leftStickClick);
                 left.TryGetFeatureValue(CommonUsages.menuButton, out menuDown);
             }
             if (right.isValid)

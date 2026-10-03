@@ -39,6 +39,8 @@ namespace Liminal
         bool active;
         bool wasPaused;
         public bool PauseMenuVisible => active && pauseTitle != null && pauseTitle.gameObject.activeInHierarchy;
+        public string BossStatusText { get; private set; } = string.Empty;
+        public string PauseButtonLabel => "Y / LEFT STICK CLICK / MENU";
         public int VisibleLocks { get; private set; }
         public int VisiblePassageLabels { get; private set; }
         public IReadOnlyList<string> PassageLabelTexts => passageLabelTexts;
@@ -76,7 +78,7 @@ namespace Liminal
             hudRoot = new GameObject("VR body HUD").transform;
             hudRoot.SetParent(experience.Flight.transform, false);
             CreateText("Stage and status", Vector3.zero, 0.034f, out stageText);
-            CreateText("Onboarding", new Vector3(0f, -0.23f, 0f), 0.029f, out onboardingText);
+            CreateText("Onboarding", new Vector3(0f, -0.25f, 0f), 0.029f, out onboardingText);
             CreateText("VR status", new Vector3(0f, -0.53f, 0f), 0.024f, out statusText);
             CreateText("Pause title", new Vector3(0f, 0.21f, 0f), 0.04f, out pauseTitle);
             CreateText("Pause choices", new Vector3(0f, -0.18f, 0f), 0.029f, out pauseItems);
@@ -165,6 +167,8 @@ namespace Liminal
             }
             stageText.gameObject.SetActive(!paused);
             UpdateReadouts(song);
+            if (statusText != null)
+                statusText.gameObject.SetActive(!paused);
             UpdateReticle();
             reticle.enabled = !paused;
             UpdateLockRings(paused);
@@ -181,15 +185,128 @@ namespace Liminal
             if (stageText != null && experience.Combat != null)
             {
                 stageText.text = stage + "\nLIFE " + experience.Combat.Life.ToString("00") +
-                    "   CHARGE " + Mathf.RoundToInt(experience.Combat.Charge * 100f).ToString("00") +
-                    "%   LOCKS " + experience.Combat.Locks.Count + "/8";
+                    "   LOCKS " + experience.Combat.Locks.Count + "/8";
                 FitText(stageText, 1.1f, .12f);
             }
+            BossStatusText = BuildBossStatusText();
             if (statusText != null)
             {
-                statusText.text = session != null ? session.Status : "PCVR";
-                FitText(statusText, 1.5f, .045f);
+                string runtimeStatus = session != null ? session.Status : "PCVR";
+                statusText.text = runtimeStatus + "\n" + BossStatusText;
+                FitText(statusText, 1.5f, .09f);
             }
+        }
+
+        string BuildBossStatusText()
+        {
+            Encounter combat = experience.Combat;
+            if (combat == null)
+                return "";
+
+            string bossStatus = "";
+            if (!experience.CavernMode)
+            {
+                bossStatus = FormatBossStatus("BOSS", combat.BossDamageGoal - combat.BossDamage,
+                    combat.BossDamageGoal, combat.BossDamage / (float)combat.BossDamageGoal);
+            }
+            else
+            {
+                switch (Mathf.Clamp(experience.CurrentRoom, 0, CaveLayout.Rooms.Length - 1))
+                {
+                    case 1:
+                        bossStatus = FormatBossStatus("SERPENT", combat.BossDamageGoal - combat.BossDamage,
+                            combat.BossDamageGoal, combat.BossDamage / (float)combat.BossDamageGoal);
+                        break;
+                    case 2:
+                        MarineLife marine = experience.Marine;
+                        if (marine != null)
+                        {
+                            string whalePhase = marine.WhaleReleased ? "HORIZON RELEASED" :
+                                marine.WhaleRegenerating ? "HORIZON REASSEMBLING" : "HORIZON";
+                            bossStatus = FormatBossStatus(whalePhase,
+                                MarineLife.WhaleDamageGoal - marine.WhaleResonance,
+                                MarineLife.WhaleDamageGoal,
+                                marine.WhaleResonance / (float)MarineLife.WhaleDamageGoal);
+                        }
+                        break;
+                    case 3:
+                        HermitEncounter hermits = experience.Hermits;
+                        if (hermits != null)
+                        {
+                            const int totalProgress = HermitGeometry.MergeSourceCount + HermitEncounter.BossHitGoal;
+                            float progress = hermits.Progress;
+                            int completed = Mathf.RoundToInt(progress * totalProgress);
+                            if (hermits.Complete || hermits.BossHits >= HermitEncounter.BossHitGoal)
+                            {
+                                bossStatus = FormatBossStatus("TIDAL REFUGE", totalProgress - completed,
+                                    totalProgress, progress);
+                            }
+                            else if (hermits.Status.StartsWith("GIANT HERMIT"))
+                            {
+                                bossStatus = FormatBossStatus("GIANT HERMIT",
+                                    HermitEncounter.BossHitGoal - hermits.BossHits,
+                                    HermitEncounter.BossHitGoal, progress);
+                            }
+                            else if (hermits.Merging || hermits.Status.Contains("GATHERING"))
+                            {
+                                bossStatus = FormatBossStatus("HERMIT MERGE", totalProgress - completed,
+                                    totalProgress, progress);
+                            }
+                            else
+                            {
+                                bossStatus = FormatBossStatus("HERMIT SWARM",
+                                    HermitGeometry.MergeSourceCount - hermits.SmallDefeated,
+                                    HermitGeometry.MergeSourceCount, progress);
+                            }
+                        }
+                        break;
+                    case 4:
+                        SubmarineEncounter submarines = experience.Submarines;
+                        if (submarines != null)
+                        {
+                            if (submarines.Complete)
+                            {
+                                bossStatus = FormatBossStatus("SCARLET COMPLETE", 0,
+                                    SubmarineEncounter.TotalGoal, submarines.Progress);
+                            }
+                            else
+                            {
+                                int phaseMaximum = submarines.Phase == 0 ? SubmarineEncounter.SubmarineGoal :
+                                    submarines.Phase == 1 ? SubmarineEncounter.FleetGoal :
+                                    submarines.Phase == 2 ? SubmarineEncounter.PoseidonGoal : 0;
+                                string phase = submarines.Phase == 0 ? "SUBMARINE" :
+                                    submarines.Phase == 1 ? "FLEET" : "POSEIDON";
+                                if (submarines.Transitioning)
+                                    phase = submarines.Phase == 2 ? "ENGINE AWAKENING" : "MATTER FORMING";
+
+                                if (phaseMaximum > 0)
+                                {
+                                    bossStatus = FormatBossStatus(phase,
+                                        phaseMaximum - submarines.PhaseHits, phaseMaximum, submarines.Progress);
+                                }
+                                else
+                                {
+                                    bossStatus = FormatBossStatus("SCARLET ENGINE",
+                                        SubmarineEncounter.TotalGoal - submarines.TotalHits,
+                                        SubmarineEncounter.TotalGoal, submarines.Progress);
+                                }
+                            }
+                        }
+                        break;
+                }
+            }
+
+            string charge = "CHARGE " + Mathf.RoundToInt(combat.Charge * 100f).ToString("00") + "%";
+            return string.IsNullOrEmpty(bossStatus) ? charge : bossStatus + "   " + charge;
+        }
+
+        static string FormatBossStatus(string label, int remaining, int maximum, float progress)
+        {
+            int max = Mathf.Max(1, maximum);
+            int hpRemaining = Mathf.Clamp(remaining, 0, max);
+            int progressPercent = Mathf.RoundToInt(Mathf.Clamp01(progress) * 100f);
+            return label + " " + hpRemaining.ToString("D2") + "/" + max.ToString("D2") +
+                " LEFT " + progressPercent.ToString("D2") + "%";
         }
 
         void UpdateOnboarding(bool paused)
@@ -203,12 +320,10 @@ namespace Liminal
                     onboardingText.text = "PCVR FLIGHT\nLEFT STICK: FORWARD / BACK / STRAFE\n" +
                         "RIGHT STICK: TURN / RISE / DESCEND\n" +
                         "LEFT GRIP: BOOST   RIGHT TRIGGER: HOLD TO LOCK, RELEASE TO FIRE\n" +
-                        "X / A: OVERDRIVE   MENU: PAUSE";
-                    FitText(onboardingText, 1.85f, .28f);
+                        "X / A: OVERDRIVE\nPAUSE: " + PauseButtonLabel;
+                    FitText(onboardingText, 1.85f, .34f);
                 }
             }
-            if (statusText != null)
-                statusText.gameObject.SetActive(show);
         }
 
         void UpdateReticle()
