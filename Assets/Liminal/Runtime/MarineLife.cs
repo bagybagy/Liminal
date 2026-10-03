@@ -915,6 +915,10 @@ namespace Liminal
         }
 
         public static void EvaluateWhalePose(float song, out Vector3 position, out Quaternion rotation)
+            => EvaluateWhalePose(song, out position, out rotation, out _, out _);
+
+        internal static void EvaluateWhalePose(float song, out Vector3 position, out Quaternion rotation,
+            out Vector3 velocity, out Vector3 acceleration)
         {
             float phase = song * 0.045f;
             Vector3 center = CaveLayout.Rooms[2].Center;
@@ -922,6 +926,9 @@ namespace Liminal
                 -35f + 115f * Mathf.Sin(phase * 2f + 0.35f), -400f * Mathf.Cos(phase));
             Vector3 tangent = new(330f * 0.045f * Mathf.Cos(phase),
                 230f * 0.045f * Mathf.Cos(phase * 2f + 0.35f), 400f * 0.045f * Mathf.Sin(phase));
+            velocity = tangent;
+            acceleration = new Vector3(-330f * .045f * .045f * Mathf.Sin(phase),
+                -460f * .045f * .045f * Mathf.Sin(phase * 2f + .35f), 400f * .045f * .045f * Mathf.Cos(phase));
             float bank = Mathf.Sin(phase) * 8f;
             rotation = Quaternion.LookRotation(tangent.normalized, Vector3.up) * Quaternion.Euler(0, 0, bank);
         }
