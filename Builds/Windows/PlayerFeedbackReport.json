@@ -18,10 +18,10 @@
     "desktopTravelSpeed": 78.0,
     "vrTravelSpeed": 60.000003814697269,
     "gridError": 0.0,
-    "playbackPhaseError": 0.021328798185941024,
-    "phaseAtStart": 0.000018140589569726195,
+    "playbackPhaseError": 0.021324263038548176,
+    "phaseAtStart": 0.000018140589568838017,
     "phaseBeforePause": 0.00002267573696129732,
     "phaseAfterPause": 0.00002267573696129732,
-    "phaseAtFinish": 0.00000453514739273686,
+    "phaseAtFinish": 0.000004535147391848682,
     "errors": []
 }

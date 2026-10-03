@@ -414,6 +414,23 @@
     "hardware_vr_tested": false,
     "new_video_recorded": false
   },
+  "latest_final_review": {
+    "date": "2026-10-03",
+    "source_commits": ["e0e1f51", "89d7fae", "91e0aa4", "e1c2874"],
+    "report": "Builds/Windows/FinalReviewReport.json",
+    "pressure_report": "Builds/Windows/PressurePatternReport.json",
+    "player_report": "Builds/Windows/PlayerFeedbackReport.json",
+    "image": "Devlog/images/12-atlantis-near.png",
+    "sound_preview": "Builds/Windows/BossCrystalPreview.wav",
+    "passed": true,
+    "temple_ring_particle_radius_before_m": [4, 5],
+    "temple_ring_particle_radius_after_m": [0.16, 0.20],
+    "temple_near_white_fraction": 0,
+    "radial_projectiles": 36,
+    "projectile_speed_after_one_second_mps": 10,
+    "hardware_vr_tested": false,
+    "new_video_recorded": false
+  },
   "latest_musical_balance": {
     "implementation_commit": "bac3059",
     "report": "Liminal/Verification/MusicalDolphins/report.json",

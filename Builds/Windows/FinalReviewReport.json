@@ -1,0 +1,81 @@
+{
+    "passed": true,
+    "headlessVrHud": true,
+    "ringVisibleAtPointThree": true,
+    "ringRemovedAfterDuration": true,
+    "whaleReleased": true,
+    "pauseTruth": [
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+    ],
+    "pauseButtonLabel": "Y / LEFT STICK CLICK / MENU",
+    "bossStatusTexts": [
+        "SERPENT 80/80 LEFT 00%   CHARGE 00%",
+        "HORIZON 96/96 LEFT 00%   CHARGE 00%",
+        "HERMIT SWARM 08/08 LEFT 00%   CHARGE 00%",
+        "SUBMARINE 48/48 LEFT 00%   CHARGE 00%"
+    ],
+    "errors": [],
+    "ringInitialHp": 1,
+    "ringPendingHp": 1,
+    "ringPendingReserved": 1,
+    "ringHitHp": 0,
+    "ringHitReserved": 0,
+    "ringHitCount": 1,
+    "entranceSteps": 208,
+    "simulationStepsBefore": 5624,
+    "simulationStepsAfter": 6824,
+    "finaleLayers": 4,
+    "releaseRoot": 62,
+    "releaseSampleRate": 44100,
+    "releaseChannels": 2,
+    "releaseFrames": 83790,
+    "elapsedSeconds": 4.578127861022949,
+    "ringDissolveAt": 0.4893333315849304,
+    "ringVisibleAge": 0.3199999928474426,
+    "ringDuration": 2.3000001907348635,
+    "finaleFormation": 1.0,
+    "releaseFrequency": 1174.6590576171875,
+    "releasePeak": 0.44690585136413576,
+    "ringHitDspElapsed": 0.7893333333333334,
+    "cityOrigin": {
+        "x": 90.0,
+        "y": -660.0,
+        "z": 1120.0
+    },
+    "wideCamera": {
+        "x": 406.1965637207031,
+        "y": -535.9007568359375,
+        "z": 793.6035766601563
+    },
+    "wide": {
+        "file": "atlantis-wide.png",
+        "width": 1600,
+        "height": 900,
+        "whitePixels": 0,
+        "nonBlackPixels": 306888,
+        "whiteFraction": 0.0,
+        "nonBlackFraction": 0.21311666071414948,
+        "meanLuminance": 0.025904947891831399,
+        "luminanceRange": 0.942010223865509,
+        "nonBlank": true
+    },
+    "near": {
+        "file": "atlantis-near.png",
+        "width": 1600,
+        "height": 900,
+        "whitePixels": 0,
+        "nonBlackPixels": 675390,
+        "whiteFraction": 0.0,
+        "nonBlackFraction": 0.4690208435058594,
+        "meanLuminance": 0.06598253548145294,
+        "luminanceRange": 0.9291285872459412,
+        "nonBlank": true
+    }
+}

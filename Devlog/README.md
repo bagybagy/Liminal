@@ -6,6 +6,12 @@
 
 ## 投稿案
 
+### 12 | 2026-10-03 | 光の大きさと撃破の余韻
+> LIMINALの神殿の白飛びを修正。粒子が輪郭を保ち、撃破は光が育って渦流にほどける演出へ。ハリセンボンの膨張と36発の減速弾、VRのメニューとボスHPも改善。
+
+画像: `images/12-atlantis-near.png`。Windows実ビルドから取得した神殿の近景。生成コンセプト画像ではありません。
+根拠: `Builds/Windows/FinalReviewReport.json`、`PressurePatternReport.json`、`PlayerFeedbackReport.json`。実HMDの再確認は未実施。撃破音の試聴は `Builds/Windows/BossCrystalPreview.wav`。
+
 ### 01 | 2026-09-26 — 音楽駆動の自由飛行戦
 **投稿文（48字）**
 > LIMINALの音楽戦闘を新規構築。自由飛行で海蛇を追い、譜面に同期する射撃で攻略する3D戦へ。
