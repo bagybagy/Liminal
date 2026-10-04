@@ -16,10 +16,15 @@ namespace Liminal
         enum StudyOption { Visible, RenderMode, Density, Gain, Flow, Back }
 
         const int VisibleMenuItems = 6;
+        const int RingSegments = 40;
+        const float MinimumTargetRadius = 0.13f;
+        const float TargetRadiusRadians = 0.038f;
         const float PassageLabelAngularWidthDegrees = 12f;
         const float PassageLabelAngularHeightDegrees = 3.5f;
         public const float LockRingAngularWidthDegrees = 0.16f;
 
+        readonly LineRenderer[] lockRings = new LineRenderer[8];
+        readonly TextMesh[] lockLabels = new TextMesh[8];
         readonly List<string> passageLabelTexts = new();
         readonly StringBuilder pauseMenuBuilder = new(512);
         Experience experience;
@@ -32,6 +37,7 @@ namespace Liminal
         TextMesh pauseItems;
         TextMesh[] passageLabels;
         Transform passageLabelsRoot;
+        Material lockRingMaterial;
         Material textMaterial;
         Font font;
         float nextMenuMoveAt;
@@ -53,15 +59,140 @@ namespace Liminal
         public bool PauseMenuVisible => active && pauseTitle != null && pauseTitle.gameObject.activeInHierarchy;
         public string BossStatusText { get; private set; } = string.Empty;
         public string PauseButtonLabel => "Y / LEFT STICK CLICK / MENU";
+        public bool VrHudActive => active;
         public int VisibleLocks { get; private set; }
+        public int LockRingCapacity => lockRings.Length;
+        public int ActiveLockRingRendererCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (LineRenderer ring in lockRings)
+                    if (ring != null && ring.enabled) count++;
+                return count;
+            }
+        }
+        public bool LockRingMaterialCreated => lockRingMaterial != null;
         public int VisiblePassageLabels { get; private set; }
         public IReadOnlyList<string> PassageLabelTexts => passageLabelTexts;
         public string PauseMenuText => pauseItems != null ? pauseItems.text : string.Empty;
         public bool GameplayHudHidden => active &&
             (stageText == null || !stageText.gameObject.activeSelf) &&
             (statusText == null || !statusText.gameObject.activeSelf) &&
-            (onboardingText == null || !onboardingText.gameObject.activeSelf) && VisibleLocks == 0;
+            (onboardingText == null || !onboardingText.gameObject.activeSelf);
         public static float LockRingWidth(float distance) => Mathf.Max(.012f, distance * Mathf.Tan(LockRingAngularWidthDegrees * Mathf.Deg2Rad));
+
+        public bool LockRingRendererUsesSharedMaterial(int index)
+        {
+            return index >= 0 && index < lockRings.Length && lockRings[index] != null &&
+                lockRingMaterial != null && lockRings[index].sharedMaterial == lockRingMaterial;
+        }
+
+        public bool LockNumberVisible(int index)
+        {
+            return index >= 0 && index < lockLabels.Length && lockLabels[index] != null &&
+                lockLabels[index].gameObject.activeSelf;
+        }
+
+        public bool TryGetLockRingPosition(int ringIndex, int positionIndex, out Vector3 worldPosition)
+        {
+            worldPosition = Vector3.zero;
+            if (ringIndex < 0 || ringIndex >= lockRings.Length || lockRings[ringIndex] == null ||
+                !lockRings[ringIndex].useWorldSpace || positionIndex < 0 ||
+                positionIndex >= lockRings[ringIndex].positionCount)
+                return false;
+
+            worldPosition = lockRings[ringIndex].GetPosition(positionIndex);
+            return IsFinite(worldPosition);
+        }
+
+        public Vector3 GetLockRingWorldCenter(int index)
+        {
+            if (index < 0 || index >= lockRings.Length || lockRings[index] == null ||
+                lockRings[index].positionCount < RingSegments + 1)
+                return Vector3.zero;
+
+            Vector3 center = Vector3.zero;
+            for (int i = 0; i < RingSegments; i++)
+                center += lockRings[index].GetPosition(i);
+            return center / RingSegments;
+        }
+
+        public bool ValidateLockFeedbackForProof(out string failure)
+        {
+            failure = string.Empty;
+            if (hudRoot == null || experience == null)
+            {
+                failure = "VR HUD is not initialized.";
+                return false;
+            }
+
+            Encounter combat = experience.Combat;
+            if (lockRingMaterial == null)
+            {
+                failure = "VR lock-ring material was not created.";
+                return false;
+            }
+
+            bool hidden = !active || combat == null || experience.Flight == null ||
+                experience.Flight.View == null ||
+                (experience.Music != null && experience.Music.Paused) || combat != null && combat.Lost;
+            int expected = 0;
+            if (!hidden)
+                for (int i = 0; i < Mathf.Min(lockRings.Length, combat.Locks.Count); i++)
+                    if (combat.Locks[i] != null) expected++;
+
+            int enabled = 0;
+            for (int i = 0; i < lockRings.Length; i++)
+            {
+                LineRenderer ring = lockRings[i];
+                bool ringVisible = ring != null && ring.enabled;
+                bool labelVisible = lockLabels[i] != null && lockLabels[i].gameObject.activeSelf;
+                if (ringVisible != labelVisible)
+                {
+                    failure = "Lock ring and number-label visibility differ.";
+                    return false;
+                }
+                if (!ringVisible) continue;
+
+                enabled++;
+                if (ring.sharedMaterial != lockRingMaterial || lockRingMaterial == null)
+                {
+                    failure = "Visible lock ring is missing its owned shared material.";
+                    return false;
+                }
+                if (combat == null || !ring.useWorldSpace || ring.positionCount != RingSegments + 1 ||
+                    i >= combat.Locks.Count || combat.Locks[i] == null)
+                {
+                    failure = "Visible lock ring has invalid world-space geometry.";
+                    return false;
+                }
+
+                for (int point = 0; point < ring.positionCount; point++)
+                    if (!IsFinite(ring.GetPosition(point)))
+                    {
+                        failure = "Visible lock ring contains a non-finite world position.";
+                        return false;
+                    }
+                if ((GetLockRingWorldCenter(i) - combat.Locks[i].position).sqrMagnitude > 0.0001f)
+                {
+                    failure = "Lock ring world position does not match its acquired target.";
+                    return false;
+                }
+            }
+
+            if (enabled != VisibleLocks || enabled != expected)
+            {
+                failure = "Visible-lock diagnostic does not match acquired targets and renderers.";
+                return false;
+            }
+            if (VisibleLocks > 0 && !GameplayHudHidden)
+            {
+                failure = "Lock feedback unexpectedly restored the ordinary gameplay HUD.";
+                return false;
+            }
+            return true;
+        }
 
         public void Initialize(Experience owner, PcVrSession vrSession)
         {
@@ -88,6 +219,8 @@ namespace Liminal
                 textMaterial.mainTexture = font.material.mainTexture;
                 textMaterial.renderQueue = (int)RenderQueue.Transparent;
             }
+            lockRingMaterial = new Material(shader) { name = "LIMINAL PCVR Lock Rings" };
+            lockRingMaterial.renderQueue = (int)RenderQueue.Transparent;
 
             hudRoot = new GameObject("VR body HUD").transform;
             hudRoot.SetParent(experience.Flight.transform, false);
@@ -109,6 +242,16 @@ namespace Liminal
                     out passageLabels[i], passageLabelsRoot);
                 passageLabels[i].color = new Color(0.48f, 1f, 0.86f, 0.98f);
                 passageLabels[i].gameObject.SetActive(false);
+            }
+            for (int i = 0; i < lockRings.Length; i++)
+            {
+                lockRings[i] = CreateLine("Lock ring " + (i + 1), RingSegments + 1, 0.018f);
+                lockRings[i].startColor = lockRings[i].endColor = new Color(0.3f, 1f, 0.88f, 0.92f);
+                lockRings[i].enabled = false;
+                CreateText("Lock number " + (i + 1), Vector3.zero, .04f, out lockLabels[i]);
+                lockLabels[i].text = (i + 1).ToString();
+                lockLabels[i].color = Color.white;
+                lockLabels[i].gameObject.SetActive(false);
             }
             passageLabelsRoot.gameObject.SetActive(false);
             stageText.color = new Color(0.72f, 1f, 0.94f, 1f);
@@ -136,7 +279,7 @@ namespace Liminal
             studySubmenu = false;
             pauseMenuDirty = true;
             passageLabelsDirty = true;
-            VisibleLocks = 0;
+            ClearLockRings();
             stageText.gameObject.SetActive(false);
             statusText.gameObject.SetActive(false);
             onboardingText.gameObject.SetActive(false);
@@ -174,8 +317,87 @@ namespace Liminal
             bool paused = experience.Music != null && experience.Music.Paused;
             UpdateBossStatusDiagnostic();
             bool menuVisible = paused || experience.Combat != null && experience.Combat.Lost;
+            UpdateLockRings(menuVisible);
             UpdatePassageLabels(menuVisible);
             UpdatePauseMenu(paused);
+        }
+
+        void UpdateLockRings(bool hidden)
+        {
+            Encounter combat = experience.Combat;
+            Transform view = experience.Flight.View != null ? experience.Flight.View.transform : null;
+            int count = hidden || combat == null || view == null
+                ? 0
+                : Mathf.Min(lockRings.Length, combat.Locks.Count);
+            int visible = 0;
+
+            for (int i = 0; i < lockRings.Length; i++)
+            {
+                LineRenderer ring = lockRings[i];
+                TextMesh label = lockLabels[i];
+                if (i >= count || combat.Locks[i] == null)
+                {
+                    ring.enabled = false;
+                    label.gameObject.SetActive(false);
+                    continue;
+                }
+
+                LockTarget target = combat.Locks[i];
+                Vector3 offset = target.position - view.position;
+                float distance = Mathf.Max(0.1f, offset.magnitude);
+                float radius = Mathf.Max(MinimumTargetRadius, distance * Mathf.Tan(TargetRadiusRadians));
+                int stacked = 0;
+                for (int previous = 0; previous < i; previous++)
+                    if (combat.Locks[previous] == target) stacked++;
+                radius *= 1f + stacked * 0.1f;
+
+                SetCircle(ring, target.position, view.right, view.up, radius, RingSegments);
+                ring.widthMultiplier = LockRingWidth(distance);
+                Color color = target.kind == TargetKind.Threat || target.kind == TargetKind.Ray
+                    ? new Color(1f, 0.58f, 0.26f, 0.96f)
+                    : new Color(0.3f, 1f, 0.88f, 0.96f);
+                ring.startColor = ring.endColor = color;
+                ring.enabled = true;
+
+                float angle = 0.65f + stacked * 0.65f;
+                label.transform.SetPositionAndRotation(target.position +
+                    (view.right * Mathf.Cos(angle) + view.up * Mathf.Sin(angle)) * radius * 1.3f,
+                    view.rotation);
+                FitText(label, distance * Mathf.Tan(1.1f * Mathf.Deg2Rad),
+                    distance * Mathf.Tan(0.85f * Mathf.Deg2Rad));
+                label.gameObject.SetActive(true);
+                visible++;
+            }
+
+            VisibleLocks = visible;
+        }
+
+        void ClearLockRings()
+        {
+            VisibleLocks = 0;
+            for (int i = 0; i < lockRings.Length; i++)
+            {
+                if (lockRings[i] != null) lockRings[i].enabled = false;
+                if (lockLabels[i] != null) lockLabels[i].gameObject.SetActive(false);
+            }
+        }
+
+        static void SetCircle(LineRenderer line, Vector3 center, Vector3 right,
+            Vector3 up, float radius, int segments)
+        {
+            for (int i = 0; i <= segments; i++)
+            {
+                float angle = i * Mathf.PI * 2f / segments;
+                line.SetPosition(i, center +
+                    (right * Mathf.Cos(angle) + up * Mathf.Sin(angle)) * radius);
+            }
+        }
+
+        static bool IsFinite(Vector3 value)
+        {
+            return !float.IsNaN(value.x) && !float.IsInfinity(value.x) &&
+                !float.IsNaN(value.y) && !float.IsInfinity(value.y) &&
+                !float.IsNaN(value.z) && !float.IsInfinity(value.z);
         }
 
         void UpdateBossStatusDiagnostic()
@@ -788,6 +1010,23 @@ namespace Liminal
             renderer.receiveShadows = false;
         }
 
+        LineRenderer CreateLine(string objectName, int points, float width)
+        {
+            GameObject child = new GameObject(objectName);
+            child.transform.SetParent(hudRoot, false);
+            LineRenderer line = child.AddComponent<LineRenderer>();
+            line.useWorldSpace = true;
+            line.loop = false;
+            line.positionCount = points;
+            line.widthMultiplier = width;
+            line.sharedMaterial = lockRingMaterial;
+            line.shadowCastingMode = ShadowCastingMode.Off;
+            line.receiveShadows = false;
+            line.alignment = LineAlignment.View;
+            line.textureMode = LineTextureMode.Stretch;
+            return line;
+        }
+
         static void FitText(TextMesh text, float width, float height)
         {
             Vector3 size = text.GetComponent<MeshRenderer>().localBounds.size;
@@ -798,11 +1037,17 @@ namespace Liminal
 
         void OnDestroy()
         {
+            ClearLockRings();
             HidePassageLabels();
             if (passageLabelsRoot != null)
                 Destroy(passageLabelsRoot.gameObject);
             if (hudRoot != null)
                 Destroy(hudRoot.gameObject);
+            if (lockRingMaterial != null)
+            {
+                Destroy(lockRingMaterial);
+                lockRingMaterial = null;
+            }
             if (textMaterial != null)
                 Destroy(textMaterial);
         }

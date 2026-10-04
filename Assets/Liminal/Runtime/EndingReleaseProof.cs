@@ -32,6 +32,7 @@ namespace Liminal
             AudioListener.volume = 0;
             try {
                 game.Tutorial.SetEnabled(false);
+                CheckVrLockFeedback();
                 game.Combat.EnterAfterglow();
                 int targetCount = game.Combat.Targets.Count;
                 float song = (float)game.Music.Time;
@@ -112,6 +113,10 @@ namespace Liminal
             yield return null;
             try {
                 Capture("atlantis-full-clear.png");
+                CheckFaunaVisibility(false);
+                CheckFaunaVisibility(true);
+                game.Flight.EnableVr(false);
+                game.Finale.Tick(64f, .1f);
                 Frame(game.Finale.Credits.Position + Vector3.back * 300, game.Finale.Credits.Position);
             }
             catch (Exception exception) { errors.Add(exception.ToString()); Finish(); yield break; }
@@ -133,7 +138,119 @@ namespace Liminal
             if ((type == LogType.Error || type == LogType.Exception || type == LogType.Assert) && errors.Count < 12)
                 errors.Add(message);
         }
+        void CheckFaunaVisibility(bool useVr)
+        {
+            game.Flight.EnableVr(useVr);
+            game.Finale.Tick(64f, .1f);
+            Check(game.Finale.CelebrationFaunaActive && game.Finale.UsesReducedDensity == useVr,
+                "Full-clear fauna must remain active during a VR density switch.");
+            string mode = useVr ? "vr-density" : "desktop";
+            Vector3 crab = AtlantisGeometry.CityOrigin + AtlantisFauna.HermitCenter(0, useVr);
+            Frame(crab + new Vector3(25f, 18f, -32f), crab + Vector3.up * 4f);
+            int crabPixels = VisibleContribution("Atlantis / peaceful seabed hermit crabs", mode + "-hermits.png");
+            Vector3 school = AtlantisGeometry.CityOrigin + AtlantisGeometry.EvaluateSchoolPose(0, 64f).Center;
+            Frame(school + new Vector3(60f, 24f, -80f), school);
+            int fishPixels = VisibleContribution("Atlantis / expanded fish and puffer schools", mode + "-fish.png");
+            Check(crabPixels >= 600 && fishPixels >= 2500,
+                "Fauna must contribute visible rendered pixels, not merely exist in mesh counts: " +
+                mode + " crabs=" + crabPixels + " fish=" + fishPixels);
+            if (useVr) { report.vrHermitVisiblePixels = crabPixels; report.vrFishVisiblePixels = fishPixels; }
+            else { report.desktopHermitVisiblePixels = crabPixels; report.desktopFishVisiblePixels = fishPixels; }
+        }
+        void CheckVrLockFeedback()
+        {
+            VrWorldHud hud = game.GetComponent<VrWorldHud>();
+            Check(hud != null, "VR lock feedback must have a world-space HUD owner.");
+            game.Music.SetPaused(false);
+            game.Flight.EnableVr(true);
+            hud.SetVrActive(true);
+            hud.Tick(0f, .1f);
+            var visual = new GameObject("Bounded VR lock proof target");
+            visual.transform.position = game.Flight.View.transform.position + game.Flight.View.transform.forward * 35f;
+            LockTarget target = game.Combat.RegisterEnvironment(visual, null);
+            target.hp = 8;
+            target.lockCapacity = 8;
+            Texture2D absent = null, present = null;
+            try {
+                absent = ReadFrame();
+                for (int i = 0; i < 8; i++) Check(game.Combat.Acquire(target), "VR must acquire each available lock.");
+                hud.Tick(0f, .1f);
+                VrLockFeedbackProof.Verify(game);
+                Check(hud.VisibleLocks == 8 && hud.GameplayHudHidden,
+                    "All acquired VR locks must be visible without restoring HP or counters.");
+                present = ReadFrame();
+                report.vrLockVisiblePixels = ChangedPixels(absent, present);
+                File.WriteAllBytes(Path.Combine(output, "vr-lock-feedback.png"), present.EncodeToPNG());
+                Check(report.vrLockVisiblePixels >= 400, "VR acquired rings must actually render visible pixels.");
+                game.Music.SetPaused(true);
+                hud.Tick(0f, .1f);
+                VrLockFeedbackProof.Verify(game);
+                Check(hud.VisibleLocks == 0 && hud.PauseMenuVisible, "Pause must hide rings, not its controls.");
+                game.Music.SetPaused(false);
+                hud.Tick(0f, .1f);
+                Check(hud.VisibleLocks == 8, "Resuming must restore any retained acquired-ring feedback.");
+                game.Combat.Release();
+                hud.Tick(0f, .1f);
+                VrLockFeedbackProof.Verify(game);
+                Check(hud.VisibleLocks == 0, "Firing must retire acquired rings.");
+                target.reserved = 0;
+                Check(game.Combat.Acquire(target), "VR exit must also clear a currently drawn acquired ring.");
+                hud.Tick(0f, .1f);
+                hud.SetVrActive(false);
+                VrLockFeedbackProof.Verify(game);
+                Check(hud.VisibleLocks == 0 && hud.ActiveLockRingRendererCount == 0,
+                    "VR exit must not leave ghost ring renderers.");
+                report.vrLockLifecyclePassed = true;
+            }
+            finally {
+                game.Combat.AbandonLocks();
+                game.Combat.Targets.Remove(target);
+                Destroy(visual);
+                game.Music.SetPaused(false);
+                hud.SetVrActive(false);
+                game.Flight.EnableVr(false);
+                if (absent) Destroy(absent);
+                if (present) Destroy(present);
+            }
+        }
+        int VisibleContribution(string objectName, string fileName)
+        {
+            MeshRenderer renderer = null;
+            foreach (MeshRenderer candidate in game.World.GetComponentsInChildren<MeshRenderer>(true))
+                if (candidate.name == objectName) { renderer = candidate; break; }
+            Check(renderer != null && renderer.enabled && renderer.gameObject.activeInHierarchy,
+                "Fauna renderer must be active in the actual scene hierarchy.");
+            Texture2D absent = null, present = null;
+            try {
+                renderer.enabled = false;
+                absent = ReadFrame();
+                renderer.enabled = true;
+                present = ReadFrame();
+                File.WriteAllBytes(Path.Combine(output, fileName), present.EncodeToPNG());
+                return ChangedPixels(absent, present);
+            }
+            finally {
+                renderer.enabled = true;
+                if (absent) Destroy(absent);
+                if (present) Destroy(present);
+            }
+        }
+        static int ChangedPixels(Texture2D absent, Texture2D present)
+        {
+            Color32[] baseline = absent.GetPixels32(), pixels = present.GetPixels32();
+            int visible = 0;
+            for (int i = 0; i < pixels.Length; i++)
+                if (pixels[i].r - baseline[i].r > 14 || pixels[i].g - baseline[i].g > 14 ||
+                    pixels[i].b - baseline[i].b > 14) visible++;
+            return visible;
+        }
         void Capture(string name)
+        {
+            Texture2D image = ReadFrame();
+            File.WriteAllBytes(Path.Combine(output, name), image.EncodeToPNG());
+            Destroy(image);
+        }
+        Texture2D ReadFrame()
         {
             var target = new RenderTexture(1600, 900, 24, RenderTextureFormat.ARGB32);
             target.Create();
@@ -143,11 +260,10 @@ namespace Liminal
             var image = new Texture2D(1600, 900, TextureFormat.RGB24, false);
             image.ReadPixels(new Rect(0, 0, 1600, 900), 0, 0);
             image.Apply();
-            File.WriteAllBytes(Path.Combine(output, name), image.EncodeToPNG());
             RenderTexture.active = previous;
-            Destroy(image);
             target.Release();
             Destroy(target);
+            return image;
         }
         void Finish()
         {
@@ -162,6 +278,9 @@ namespace Liminal
         {
             public bool passed;
             public int maskChecks, desktopExtraPoints, vrExtraPoints, extraFish, totalFish, hermits, pufferfish;
+            public int desktopHermitVisiblePixels, desktopFishVisiblePixels, vrHermitVisiblePixels, vrFishVisiblePixels;
+            public int vrLockVisiblePixels;
+            public bool vrLockLifecyclePassed;
             public int creditLines, contributors, creditParticles, seenLines, completedCycles, visibleRows;
             public float creditSeconds;
             public bool offscreenSilent = true;
