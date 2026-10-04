@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Liminal
 {
-    // This is exported by the audio composer, not inferred from a nominal BPM.
+    // Sample markers come from the composer or offline recording analysis, never a nominal BPM clock.
     public static class AuthoredScore
     {
         [Serializable] public sealed class Harmony { public int sample; public int[] notes; }
@@ -12,6 +12,7 @@ namespace Liminal
         {
             public int sampleRate, sampleCount;
             public int bars, bpm, themeId;
+            public float tempoBpm;
             public string theme;
             public string sourceSha256;
             public int[] beats, eighths, sections;
@@ -21,11 +22,13 @@ namespace Liminal
         {
             public int theme;
             public double start;
+            public double startBeat;
             public Timeline timeline;
         }
 
         static readonly string[] themeNames = {
-            "JellyGrotto", "SerpentSanctum", "HorizonWhale", "TidalShells", "ScarletEngine", "Afterglow"
+            "TidalMemory", "Serpent_VelvetKeys", "TidalMemory", "Hermit_OrchestralCurrent",
+            "Submarine_OrganicCurrent", "Ending_BreathingLine"
         };
         static readonly Timeline[] themeTimelines = new Timeline[6];
         static readonly List<ThemeSpan> themeSpans = new();
@@ -47,25 +50,50 @@ namespace Liminal
             return result;
         }
 
-        public static string ThemeResourcePath(int theme) => "StageAudio/" + themeNames[theme];
-        public static string ThemeTimelineResourcePath(int theme) => ThemeResourcePath(theme) + "Timeline";
+        public static string ThemeResourcePath(int theme) => UsesMainSoundtrack(theme) ? null : "StageAudio/" + themeNames[theme];
+        public static string ThemeTimelineResourcePath(int theme) => UsesMainSoundtrack(theme) ?
+            "TidalMemoryTimeline" : ThemeResourcePath(theme) + "Timeline";
+        public static bool UsesMainSoundtrack(int theme) => theme == 0 || theme == 2;
 
         public static Timeline ThemeData(int theme)
         {
             if (theme < 0 || theme >= themeNames.Length) throw new ArgumentOutOfRangeException(nameof(theme));
+            if (UsesMainSoundtrack(theme)) return Data;
             if (themeTimelines[theme] != null) return themeTimelines[theme];
             var asset = Resources.Load<TextAsset>(ThemeTimelineResourcePath(theme));
             if (!asset) throw new InvalidOperationException("Missing authored stage timeline: " + themeNames[theme]);
             var result = JsonUtility.FromJson<Timeline>(asset.text);
-            int expectedSamples = result == null ? 0 : (int)Math.Round(result.bars * 4 * Score.BeatSeconds * result.sampleRate);
-            if (result == null || result.themeId != theme || result.theme != themeNames[theme] || result.bpm != Score.Bpm ||
-                result.sampleRate != Data.sampleRate || result.sampleCount != expectedSamples || result.bars != 64 ||
+            if (result == null || result.themeId != theme || result.theme != themeNames[theme] || result.bpm <= 0 ||
+                result.sampleRate != Data.sampleRate || result.sampleCount <= 0 || result.bars < 1 ||
                 result.beats == null || result.beats.Length != result.bars * 4 ||
                 result.eighths == null || result.eighths.Length != result.bars * 8 || result.sections == null ||
-                result.harmony == null || result.harmony.Length != result.bars / 4)
+                result.harmony == null || result.harmony.Length == 0)
                 throw new InvalidOperationException("Invalid authored stage timeline: " + themeNames[theme]);
+            ValidateMarks(result.beats, result.sampleCount);
+            ValidateMarks(result.eighths, result.sampleCount);
+            ValidateMarks(result.sections, result.sampleCount);
+            int previousSample = -1;
+            foreach (var chord in result.harmony) {
+                if (chord.sample <= previousSample || chord.sample >= result.sampleCount ||
+                    chord.notes == null || chord.notes.Length < 3)
+                    throw new InvalidOperationException("Invalid analyzed stage harmony: " + themeNames[theme]);
+                previousSample = chord.sample;
+            }
+            if (result.harmony[0].sample != 0)
+                throw new InvalidOperationException("Stage harmony must start at sample zero.");
             themeTimelines[theme] = result;
             return result;
+        }
+
+        static void ValidateMarks(int[] marks, int sampleCount)
+        {
+            if (marks.Length == 0 || marks[0] != 0) throw new InvalidOperationException("Music markers must start at sample zero.");
+            int previous = -1;
+            foreach (int sample in marks) {
+                if (sample <= previous || sample >= sampleCount)
+                    throw new InvalidOperationException("Music markers must be increasing and inside the recording.");
+                previous = sample;
+            }
         }
 
         public static void ResetThemeSchedule(int initialTheme)
@@ -77,6 +105,7 @@ namespace Liminal
         public static void QueueThemeTransition(int theme, double startSongTime)
         {
             var timeline = ThemeData(theme);
+            double startBeat = BeatPosition(startSongTime);
             int keep = 0;
             while (keep < themeSpans.Count && themeSpans[keep].start < startSongTime - 1e-9) keep++;
             if (keep > 0 && themeSpans[keep - 1].theme == theme) {
@@ -84,7 +113,7 @@ namespace Liminal
                 return;
             }
             if (keep < themeSpans.Count) themeSpans.RemoveRange(keep, themeSpans.Count - keep);
-            themeSpans.Add(new ThemeSpan { theme = theme, start = startSongTime, timeline = timeline });
+            themeSpans.Add(new ThemeSpan { theme = theme, start = startSongTime, startBeat = startBeat, timeline = timeline });
         }
 
         public static void CancelThemeTransitionsFrom(double startSongTime)
@@ -128,9 +157,28 @@ namespace Liminal
 
         public static double NextFourBarBoundary(double songTime, double schedulingLead)
         {
-            double bar = Score.BeatSeconds * 16;
             double target = Math.Max(0, songTime + Math.Max(0, schedulingLead));
-            return Math.Round((Math.Floor(target / bar) + 1) * bar * Data.sampleRate) / Data.sampleRate;
+            var span = SpanAt(target);
+            var timeline = span == null ? Data : span.timeline;
+            double start = span == null ? 0 : span.start;
+            double sample = Math.Max(0, target - start) * timeline.sampleRate;
+            long loop = (long)Math.Floor(sample / timeline.sampleCount);
+            double local = sample - loop * timeline.sampleCount;
+            int next = (Previous(timeline.beats, local) / 16 + 1) * 16;
+            int boundary = next < timeline.beats.Length ? timeline.beats[next] : timeline.sampleCount;
+            return start + (loop * timeline.sampleCount + boundary) / (double)timeline.sampleRate;
+        }
+
+        public static double TimeAfterBeats(double song, int count)
+        {
+            var span = SpanAt(song);
+            var timeline = span == null ? Data : span.timeline;
+            double start = span == null ? 0 : span.start;
+            double sample = Math.Max(0, song - start) * timeline.sampleRate;
+            long loop = (long)Math.Floor(sample / timeline.sampleCount);
+            int next = Previous(timeline.beats, LocalSampleAt(song)) + Math.Max(0, count);
+            loop += next / timeline.beats.Length;
+            return start + (loop * timeline.sampleCount + timeline.beats[next % timeline.beats.Length]) / (double)timeline.sampleRate;
         }
 
         public static double Next(double song, double lead, bool quarter)
@@ -181,7 +229,7 @@ namespace Liminal
             double local = LocalSampleAt(song);
             int beat = Previous(timeline.beats, local);
             int end = beat + 1 < timeline.beats.Length ? timeline.beats[beat + 1] : timeline.sampleCount;
-            return start / Score.BeatSeconds + loop * timeline.beats.Length + beat +
+            return (span == null ? 0 : span.startBeat) + loop * timeline.beats.Length + beat +
                 (local - timeline.beats[beat]) / Math.Max(1, end - timeline.beats[beat]);
         }
         public static int Note(int index, double song)

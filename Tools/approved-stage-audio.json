@@ -1,0 +1,33 @@
+{
+  "sample_rate": 44100,
+  "tracks": [
+    {
+      "theme_id": 1,
+      "name": "Serpent_VelvetKeys",
+      "stage": "Sea serpent",
+      "source": "MusicReview/10-HypnoticCrossovers/raw/02_Piano_VelvetKeys/c2d26991-51c7-2cd2-6776-d0dfb7de3f7a.wav",
+      "generation_record": "MusicReview/10-HypnoticCrossovers/02_Piano_VelvetKeys.json"
+    },
+    {
+      "theme_id": 5,
+      "name": "Ending_BreathingLine",
+      "stage": "Atlantis ending",
+      "source": "MusicReview/10-HypnoticCrossovers/raw/07_Vocalise_BreathingLine/6c0a4538-28c2-a63a-09df-e38896cfdf1d.wav",
+      "generation_record": "MusicReview/10-HypnoticCrossovers/07_Vocalise_BreathingLine.json"
+    },
+    {
+      "theme_id": 4,
+      "name": "Submarine_OrganicCurrent",
+      "stage": "Submarine",
+      "source": "MusicReview/09-HypnoticMelody/raw/02_OrganicCurrent_seedB/c37979f0-1392-653a-2fd4-7cd5249083e7.wav",
+      "generation_record": "MusicReview/09-HypnoticMelody/02_OrganicCurrent_seedB.json"
+    },
+    {
+      "theme_id": 3,
+      "name": "Hermit_OrchestralCurrent",
+      "stage": "Hermit crabs",
+      "source": "MusicReview/08-PublicPromptTrials/raw/02_OfficialOrchestra_seedB/9e27d2c9-840d-8b8c-af34-e5c7e5677668.wav",
+      "generation_record": "MusicReview/08-PublicPromptTrials/02_OfficialOrchestra_seedB.json"
+    }
+  ]
+}

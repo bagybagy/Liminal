@@ -11,7 +11,7 @@ namespace Liminal
         public bool EnableStageMusic;
         const float MusicLevel = 0.83f;
         const int VoiceCount = 64;
-        const double CrossfadeBars = 2;
+        const double CrossfadeBars = .5;
         const int ReleaseToneOctavesAboveRoot = 2;
 
         readonly AudioSource[] musicSources = new AudioSource[2];
@@ -36,8 +36,11 @@ namespace Liminal
         public double MaxPlaybackPhaseError { get; private set; }
         public int DroppedNotes { get; private set; }
         public int BossReleaseEvents { get; private set; }
+        public int ScheduledReleaseNotes { get; private set; }
         public double MaxReleaseGridError { get; private set; }
-        public AudioClip ReleaseTonePreview(int midi) => releaseTones.TryGetValue(midi, out var clip) ? clip : null;
+        public int[] LastReleasePitches { get; private set; } = new int[0];
+        public double[] LastReleaseOnsets { get; private set; } = new double[0];
+        public AudioClip ReleaseTonePreview(int midi) => GetReleaseTone(midi);
         public static float ReleaseToneFrequency(int midi) =>
             (float)(440 * Math.Pow(2, (midi + 12 * ReleaseToneOctavesAboveRoot - 69) / 12.0));
         public int ThemeCount => AuthoredScore.ThemeCount;
@@ -83,7 +86,8 @@ namespace Liminal
         {
             try {
                 for (int i = 0; i < themeClips.Length; i++) {
-                    themeClips[i] = Resources.Load<AudioClip>(AuthoredScore.ThemeResourcePath(i));
+                    themeClips[i] = AuthoredScore.UsesMainSoundtrack(i) ? soundtrack :
+                        Resources.Load<AudioClip>(AuthoredScore.ThemeResourcePath(i));
                     if (!themeClips[i]) throw new InvalidOperationException("Missing stage audio: " + AuthoredScore.ThemeNames[i]);
                     var timeline = AuthoredScore.ThemeData(i);
                     if (themeClips[i].frequency != timeline.sampleRate || themeClips[i].samples != timeline.sampleCount)
@@ -104,8 +108,10 @@ namespace Liminal
                 for (int i = 0; i < 8; i++) {
                     int midi = chord.notes[i % chord.notes.Length] + 12 + 12 * (i / chord.notes.Length);
                     if (!notes.ContainsKey(midi)) notes.Add(midi, Synthesize(midi, 1.8f, false));
-                    if (i == 0 && !releaseTones.ContainsKey(midi))
-                        releaseTones.Add(midi, MakeReleaseTone(midi));
+                }
+                for (int i = 0; i < 3; i++) {
+                    int midi = chord.notes[i % chord.notes.Length] + 12 + 12 * (i / chord.notes.Length);
+                    if (!releaseTones.ContainsKey(midi)) releaseTones.Add(midi, MakeReleaseTone(midi));
                 }
             }
         }
@@ -144,7 +150,10 @@ namespace Liminal
             MaxPlaybackPhaseError = 0;
             DroppedNotes = 0;
             BossReleaseEvents = 0;
+            ScheduledReleaseNotes = 0;
             MaxReleaseGridError = 0;
+            LastReleasePitches = new int[0];
+            LastReleaseOnsets = new double[0];
         }
 
         public void RequestTheme(int room, bool ending = false)
@@ -222,7 +231,7 @@ namespace Liminal
                 pendingTheme = -1;
                 scheduledMusicSource = -1;
                 fadeStartSong = ScheduledBoundary;
-                fadeEndSong = fadeStartSong + CrossfadeBars * 4 * Score.BeatSeconds;
+                fadeEndSong = AuthoredScore.TimeAfterBeats(fadeStartSong, (int)(CrossfadeBars * 4));
                 crossfading = true;
                 TransitionCount++;
                 LastTransitionTime = fadeStartSong;
@@ -285,15 +294,77 @@ namespace Liminal
             if (!playbackStarted || Paused) return;
             double boundary = AuthoredScore.Next(Math.Max(song, Time), SchedulingLead(), false);
             int root = AuthoredScore.Note(0, boundary);
-            releaseTones.TryGetValue(root, out AudioClip fallback);
+            AudioClip fallback = GetReleaseTone(root);
             BossAudioSettings settings = BossAudioSettings.Current;
             AudioClip tone = BossAudioSettings.SelectReleaseClip(settings, voice, fallback, out bool configured);
             if (!tone) return;
             float volume = configured ? settings.volume : voice == 3 ? .68f : .76f;
-            if (Play(tone, origin + boundary, 0, volume)) {
-                BossReleaseEvents++;
-                MaxReleaseGridError = Math.Max(MaxReleaseGridError, AuthoredScore.GridError(boundary));
+
+            if (configured) {
+                if (!Play(tone, origin + boundary, 0, volume)) return;
+                LastReleasePitches = new int[0];
+                LastReleaseOnsets = new[] { boundary };
+                ScheduledReleaseNotes++;
             }
+            else {
+                var pitches = new int[3];
+                var onsets = new double[3];
+                var clips = new AudioClip[3];
+                onsets[0] = boundary;
+                for (int i = 0; i < pitches.Length; i++) {
+                    if (i > 0) onsets[i] = NextReleaseOnset(onsets[i - 1]);
+                    pitches[i] = AuthoredScore.Note(i, onsets[i]);
+                    clips[i] = GetReleaseTone(pitches[i]);
+                }
+                if (!PlayReleasePhrase(clips, onsets, volume)) return;
+                LastReleasePitches = pitches;
+                LastReleaseOnsets = onsets;
+                ScheduledReleaseNotes += pitches.Length;
+            }
+
+            BossReleaseEvents++;
+            foreach (double onset in LastReleaseOnsets)
+                MaxReleaseGridError = Math.Max(MaxReleaseGridError, AuthoredScore.GridError(onset));
+        }
+
+        static double NextReleaseOnset(double onset)
+        {
+            double oneSample = 1.0 / AuthoredScore.TimelineAt(onset).sampleRate;
+            return AuthoredScore.Next(onset, oneSample, false);
+        }
+
+        AudioClip GetReleaseTone(int midi)
+        {
+            if (!releaseTones.TryGetValue(midi, out AudioClip clip)) {
+                clip = MakeReleaseTone(midi);
+                releaseTones.Add(midi, clip);
+            }
+            return clip;
+        }
+
+        bool PlayReleasePhrase(AudioClip[] clips, double[] onsets, float volume)
+        {
+            double now = AudioSettings.dspTime;
+            var available = new int[clips.Length];
+            for (int i = 0; i < clips.Length; i++)
+                if (!clips[i] || origin + onsets[i] < now) return false;
+
+            int found = 0;
+            for (int i = 0; i < voiceEnds.Length && found < available.Length; i++)
+                if (voiceEnds[i] <= now) available[found++] = i;
+            if (found != available.Length) return false;
+
+            for (int i = 0; i < clips.Length; i++) {
+                double dspTime = origin + onsets[i];
+                var source = voices[available[i]];
+                source.clip = clips[i];
+                source.pitch = 1f;
+                source.panStereo = 0;
+                source.volume = volume;
+                source.PlayScheduled(dspTime);
+                voiceEnds[available[i]] = dspTime + clips[i].length;
+            }
+            return true;
         }
 
         bool Play(AudioClip clip, double dspTime, float pan, float volume)
@@ -345,19 +416,19 @@ namespace Liminal
         static AudioClip MakeReleaseTone(int midi)
         {
             const int rate = 44100;
-            const float length = 1.9f;
+            const float length = .55f;
             int frames = Mathf.CeilToInt(rate * length);
             var samples = new float[frames * 2];
             double frequency = ReleaseToneFrequency(midi);
             for (int i = 0; i < frames; i++) {
                 double t = i / (double)rate;
-                double attack = Math.Min(t / .005, 1);
-                double release = Math.Min((length - t) / .12, 1);
+                double attack = Math.Min(t / .003, 1);
+                double release = Math.Min((length - t) / .09, 1);
                 double p = 2 * Math.PI * frequency * t;
-                double fundamental = Math.Sin(p) * .30 * Math.Exp(-t * 1.3);
-                double second = .16 * Math.Exp(-t * 2.2);
-                double third = .065 * Math.Exp(-t * 3.4);
-                double glassPartial = .035 * Math.Exp(-t * 5.2);
+                double fundamental = Math.Sin(p) * .30 * Math.Exp(-t * 5.8);
+                double second = .16 * Math.Exp(-t * 9.5);
+                double third = .065 * Math.Exp(-t * 14);
+                double glassPartial = .045 * Math.Exp(-t * 18);
                 double left = fundamental + Math.Sin(p * 2 + .012) * second +
                     Math.Sin(p * 3 - .024) * third + Math.Sin(p * 4.07 + .06) * glassPartial;
                 double right = fundamental + Math.Sin(p * 2 - .012) * second +
