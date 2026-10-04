@@ -6,6 +6,12 @@
 
 ## 投稿案
 
+### 20 | 2026-10-04 | 同じ粒子を並べて比べる、神殿の聖炎
+> LIMINALにSharpQuadと従来Quadの切替・横並び比較を追加。同じ粒子の動きを共有し、ボスや戦闘は増やさない。アトランティスには六つの小聖堂と、音楽の拍で青・紫・金へ輝く粒子の聖炎を。
+
+画像: `images/20-jelly-comparison.png`、`images/20-whale-comparison.png`、`images/20-atlantis.png`、`images/20-holy-flame-gold.png`、`images/20-holy-flame-cyan.png`。1600x900の実ビルドの無音オフスクリーンURP描画です。左右は実体SharpQuadと非戦闘の従来Quadで、合成したコンセプト画像ではありません。
+根拠: `Builds/Windows/QuadAtlantisReport.json`、`QUAD_COMPARISON_ATLANTIS.md`。比較で粒子位置・ID・標的数・GPU初期化回数が不変、実クジラからの遺跡形成、聖炎の時間変化と任意ボスなしの結末を確認。全層の都市は345,402粒、VR用メッシュは205,582粒です。通常PC操作・音声・実HMDには介入していません。VR実機の画質とGPU単独の負荷、動画は今回未検証です。
+
 ### 18 | 2026-10-04 | 点そのものを描く比較実験
 > LIMINALの近景を見直すため、クラゲと海蛇に1粒1頂点のPoint描画を試作。粒子数を3倍にし、表面の流れと独立したきらめきを追加。均等な高輝度はPointでも面になるため、静かな光と少数の強い粒へ調整。
 

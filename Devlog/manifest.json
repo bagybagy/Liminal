@@ -533,6 +533,29 @@
       { "path": "Devlog/images/19-sharp-projectile-return.png", "source": "projectile-dissolve.png" }
     ]
   },
+  "latest_quad_atlantis": {
+    "date": "2026-10-04",
+    "version": "v0.1.11",
+    "report": "Builds/Windows/QuadAtlantisReport.json",
+    "passed": true,
+    "source_folder": "Verification/QuadAtlantis",
+    "capture_method": "Silent batch-mode offscreen 1600x900 URP; shared live simulation buffer with two rendering styles; no desktop capture or active XR loader",
+    "identical_simulation_buffer": true,
+    "unchanged_gameplay_targets": true,
+    "desktop_city_particles": 345402,
+    "vr_city_mesh_particles": 205582,
+    "holy_flame_particles": 9000,
+    "hardware_vr_tested": false,
+    "gpu_frame_time_available": false,
+    "new_video_recorded": false,
+    "images": [
+      { "path": "Devlog/images/20-jelly-comparison.png", "source": "jelly-side-by-side.png" },
+      { "path": "Devlog/images/20-whale-comparison.png", "source": "whale-side-by-side.png" },
+      { "path": "Devlog/images/20-atlantis.png", "source": "atlantis-wide.png" },
+      { "path": "Devlog/images/20-holy-flame-gold.png", "source": "holy-flame-a.png" },
+      { "path": "Devlog/images/20-holy-flame-cyan.png", "source": "holy-flame-b.png" }
+    ]
+  },
   "latest_musical_balance": {
     "implementation_commit": "bac3059",
     "report": "Liminal/Verification/MusicalDolphins/report.json",

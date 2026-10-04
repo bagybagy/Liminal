@@ -1,4 +1,13 @@
-LIMINAL v0.1.10 / Windows x64 / PCVR / Sharp matter
+LIMINAL v0.1.11 / Windows x64 / PCVR / Quad comparison and sacred flame
+
+Escape: PARTICLE LOOKでSHARP QUAD / ORIGINAL QUADを切り替えられます。
+SIDE BY SIDEでクラゲ・海蛇・クジラの描画だけを横並びにします。
+実体はSharpQuad、世界のX軸正方向の比較表示はOriginal Quadです。
+比較表示は非戦闘で、ロックオンやHP・討伐判定は増えません。
+最初のクラゲから28m、海蛇から180m、クジラから280m離れています。
+PCVRメニューでもPARTICLESとSIDE BY SIDEを選べます。通常は比較表示を無効にしています。
+アトランティスは明暗の階層、小建築、拍で色と輝きが変わる粒子の聖炎を追加しました。
+QuadAtlantisReport.jsonは実ビルドの限定検査です。今回のVR実機確認は未実施です。
 
 フォルダ全体を展開して Liminal.exe を起動してください。
 Liminal_Data・DLLなどを移動したり削除しないでください。
