@@ -1,0 +1,37 @@
+{
+  "license": "CC0-1.0",
+  "instruments": {
+    "piano": [
+      { "file": "piano-60.wav", "midi": 60, "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/6dd651d55dde97fd4028699be9d4481f26917891/Keys/Upright%20Nr1/UR1_C4_pp_RR1.wav" },
+      { "file": "piano-72.wav", "midi": 72, "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/6dd651d55dde97fd4028699be9d4481f26917891/Keys/Upright%20Nr1/UR1_C5_pp_RR1.wav" }
+    ],
+    "bell_keys": [
+      { "file": "bell_keys-67.wav", "midi": 67, "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/6dd651d55dde97fd4028699be9d4481f26917891/Percussion/Glock/glock_medium_G4.wav" },
+      { "file": "bell_keys-72.wav", "midi": 72, "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/6dd651d55dde97fd4028699be9d4481f26917891/Percussion/Glock/glock_medium_C5.wav" }
+    ],
+    "marimba": [
+      { "file": "marimba-59.wav", "midi": 59, "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/6dd651d55dde97fd4028699be9d4481f26917891/Percussion/Marimba/Marimba_hit_Outrigger_B2_loud_01.wav" },
+      { "file": "marimba-72.wav", "midi": 72, "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/6dd651d55dde97fd4028699be9d4481f26917891/Percussion/Marimba/Marimba_hit_Outrigger_C4_loud_01.wav" }
+    ],
+    "vibraphone": [
+      { "file": "vibraphone-60.wav", "midi": 60, "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/6dd651d55dde97fd4028699be9d4481f26917891/Percussion/TB_hit_C4_v4_rr1.wav" },
+      { "file": "vibraphone-72.wav", "midi": 72, "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/6dd651d55dde97fd4028699be9d4481f26917891/Percussion/TB_hit_C5_v4_rr1.wav" }
+    ],
+    "harp": [
+      { "file": "harp-59.wav", "midi": 59, "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/6dd651d55dde97fd4028699be9d4481f26917891/Strings/Harp/KSHarp_B3_mf.wav" },
+      { "file": "harp-72.wav", "midi": 72, "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/6dd651d55dde97fd4028699be9d4481f26917891/Strings/Harp/KSHarp_C5_mf.wav" }
+    ],
+    "pizzicato": [
+      { "file": "pizzicato-60.wav", "midi": 60, "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/6dd651d55dde97fd4028699be9d4481f26917891/Strings/Solo%20Violin/Pizz/LLVln_Pizz_C4_p_RR1.wav" },
+      { "file": "pizzicato-72.wav", "midi": 72, "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/6dd651d55dde97fd4028699be9d4481f26917891/Strings/Solo%20Violin/Pizz/LLVln_Pizz_C5_p_RR1.wav" }
+    ]
+  },
+  "names": {
+    "piano": "Upright Piano Nr1",
+    "bell_keys": "Glockenspiel",
+    "marimba": "Marimba",
+    "vibraphone": "Tubular Bells",
+    "harp": "Harp",
+    "pizzicato": "Solo Violin Pizzicato"
+  }
+}

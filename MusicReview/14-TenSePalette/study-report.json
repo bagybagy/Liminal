@@ -1,0 +1,858 @@
+{
+  "candidateIntegratedInGame": false,
+  "sampleRate": 44100,
+  "musicalGridHumanVerified": false,
+  "sourceBgm": "Assets/Liminal/Resources/StageAudio/Serpent_VelvetKeys.wav",
+  "sourceSha256": "78116e5ff5d6e7e81cfd0cd3c26882d45a3c7669168301c7fb2bc6bb1f793e1b",
+  "sourceStartSeconds": 15.354195011337868,
+  "introSeconds": 2.1,
+  "sampleLicense": "CC0-1.0",
+  "noteLevelPolicy": "Per-note energy target .010, peak cap .48; common music .83, SE .62, master .8; no individual mix normalization",
+  "clips": [
+    {
+      "id": "01_Piano",
+      "label": "ピアノ",
+      "recordedInstrument": "Upright Piano Nr1",
+      "seconds": 9.78,
+      "medleyStartSeconds": 0,
+      "peak": 0.48851385712623596,
+      "rms": 0.05994076535624696,
+      "clippedSamples": 0,
+      "notes": [
+        {
+          "sample": 177346,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/piano-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "78e3dd3319c51f1ca46980c0d223e9e921523e09d7639c97874be1d545fb3f39",
+          "energy": 0.01,
+          "peak": 0.41815540181732863
+        },
+        {
+          "sample": 187970,
+          "midi": 69,
+          "file": "Tools/se-audition-samples/piano-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 300,
+          "sha256": "55f8296e4610e1b8808cc1393c1d281414731beda34067a5ab970607ecb68fee",
+          "energy": 0.004587762151518324,
+          "peak": 0.48
+        },
+        {
+          "sample": 198594,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/piano-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "78e3dd3319c51f1ca46980c0d223e9e921523e09d7639c97874be1d545fb3f39",
+          "energy": 0.010000000000000002,
+          "peak": 0.46473258729935246
+        },
+        {
+          "sample": 209090,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/piano-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "78e3dd3319c51f1ca46980c0d223e9e921523e09d7639c97874be1d545fb3f39",
+          "energy": 0.01,
+          "peak": 0.41815540181732863
+        },
+        {
+          "sample": 219586,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/piano-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "78e3dd3319c51f1ca46980c0d223e9e921523e09d7639c97874be1d545fb3f39",
+          "energy": 0.010000000000000002,
+          "peak": 0.46473258729935246
+        },
+        {
+          "sample": 230210,
+          "midi": 69,
+          "file": "Tools/se-audition-samples/piano-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 300,
+          "sha256": "55f8296e4610e1b8808cc1393c1d281414731beda34067a5ab970607ecb68fee",
+          "energy": 0.004587762151518324,
+          "peak": 0.48
+        },
+        {
+          "sample": 240834,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/piano-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "78e3dd3319c51f1ca46980c0d223e9e921523e09d7639c97874be1d545fb3f39",
+          "energy": 0.010000000000000002,
+          "peak": 0.46473258729935246
+        },
+        {
+          "sample": 251330,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/piano-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "78e3dd3319c51f1ca46980c0d223e9e921523e09d7639c97874be1d545fb3f39",
+          "energy": 0.01,
+          "peak": 0.41815540181732863
+        }
+      ]
+    },
+    {
+      "id": "02_Glockenspiel",
+      "label": "グロッケン（鉄琴）",
+      "recordedInstrument": "Glockenspiel",
+      "seconds": 9.78,
+      "medleyStartSeconds": 9.78,
+      "peak": 0.4115552008152008,
+      "rms": 0.0476879901255485,
+      "clippedSamples": 0,
+      "notes": [
+        {
+          "sample": 177346,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/bell_keys-67.wav",
+          "rootMidi": 67,
+          "onsetTrimSamples": 0,
+          "sha256": "98f9d5903a052064d9dc40a48b8624d6994b25e04c879a55a2062098a4befc68",
+          "energy": 0.0033150738335439448,
+          "peak": 0.48
+        },
+        {
+          "sample": 187970,
+          "midi": 69,
+          "file": "Tools/se-audition-samples/bell_keys-67.wav",
+          "rootMidi": 67,
+          "onsetTrimSamples": 0,
+          "sha256": "98f9d5903a052064d9dc40a48b8624d6994b25e04c879a55a2062098a4befc68",
+          "energy": 0.0022424091850243044,
+          "peak": 0.48
+        },
+        {
+          "sample": 198594,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/bell_keys-67.wav",
+          "rootMidi": 67,
+          "onsetTrimSamples": 0,
+          "sha256": "98f9d5903a052064d9dc40a48b8624d6994b25e04c879a55a2062098a4befc68",
+          "energy": 0.0028447433264143954,
+          "peak": 0.48
+        },
+        {
+          "sample": 209090,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/bell_keys-67.wav",
+          "rootMidi": 67,
+          "onsetTrimSamples": 0,
+          "sha256": "98f9d5903a052064d9dc40a48b8624d6994b25e04c879a55a2062098a4befc68",
+          "energy": 0.0033150738335439448,
+          "peak": 0.48
+        },
+        {
+          "sample": 219586,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/bell_keys-67.wav",
+          "rootMidi": 67,
+          "onsetTrimSamples": 0,
+          "sha256": "98f9d5903a052064d9dc40a48b8624d6994b25e04c879a55a2062098a4befc68",
+          "energy": 0.0028447433264143954,
+          "peak": 0.48
+        },
+        {
+          "sample": 230210,
+          "midi": 69,
+          "file": "Tools/se-audition-samples/bell_keys-67.wav",
+          "rootMidi": 67,
+          "onsetTrimSamples": 0,
+          "sha256": "98f9d5903a052064d9dc40a48b8624d6994b25e04c879a55a2062098a4befc68",
+          "energy": 0.0022424091850243044,
+          "peak": 0.48
+        },
+        {
+          "sample": 240834,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/bell_keys-67.wav",
+          "rootMidi": 67,
+          "onsetTrimSamples": 0,
+          "sha256": "98f9d5903a052064d9dc40a48b8624d6994b25e04c879a55a2062098a4befc68",
+          "energy": 0.0028447433264143954,
+          "peak": 0.48
+        },
+        {
+          "sample": 251330,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/bell_keys-67.wav",
+          "rootMidi": 67,
+          "onsetTrimSamples": 0,
+          "sha256": "98f9d5903a052064d9dc40a48b8624d6994b25e04c879a55a2062098a4befc68",
+          "energy": 0.0033150738335439448,
+          "peak": 0.48
+        }
+      ]
+    },
+    {
+      "id": "03_Marimba",
+      "label": "マリンバ",
+      "recordedInstrument": "Marimba",
+      "seconds": 9.78,
+      "medleyStartSeconds": 19.56,
+      "peak": 0.5160985589027405,
+      "rms": 0.05809587399073311,
+      "clippedSamples": 0,
+      "notes": [
+        {
+          "sample": 177346,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/marimba-59.wav",
+          "rootMidi": 59,
+          "onsetTrimSamples": 100,
+          "sha256": "0c1c6b8e8669c53735c979780c58da8484b5c770d2a15e7251d6c1e26fb0eac9",
+          "energy": 0.01,
+          "peak": 0.38963646483899056
+        },
+        {
+          "sample": 187970,
+          "midi": 69,
+          "file": "Tools/se-audition-samples/marimba-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 109,
+          "sha256": "e3893295501d1667849ee04123105118795508a8cb17f0c7b3967d4036aa865e",
+          "energy": 0.0067751196369455185,
+          "peak": 0.48
+        },
+        {
+          "sample": 198594,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/marimba-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 109,
+          "sha256": "e3893295501d1667849ee04123105118795508a8cb17f0c7b3967d4036aa865e",
+          "energy": 0.008004561001431251,
+          "peak": 0.48
+        },
+        {
+          "sample": 209090,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/marimba-59.wav",
+          "rootMidi": 59,
+          "onsetTrimSamples": 100,
+          "sha256": "0c1c6b8e8669c53735c979780c58da8484b5c770d2a15e7251d6c1e26fb0eac9",
+          "energy": 0.01,
+          "peak": 0.38963646483899056
+        },
+        {
+          "sample": 219586,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/marimba-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 109,
+          "sha256": "e3893295501d1667849ee04123105118795508a8cb17f0c7b3967d4036aa865e",
+          "energy": 0.008004561001431251,
+          "peak": 0.48
+        },
+        {
+          "sample": 230210,
+          "midi": 69,
+          "file": "Tools/se-audition-samples/marimba-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 109,
+          "sha256": "e3893295501d1667849ee04123105118795508a8cb17f0c7b3967d4036aa865e",
+          "energy": 0.0067751196369455185,
+          "peak": 0.48
+        },
+        {
+          "sample": 240834,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/marimba-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 109,
+          "sha256": "e3893295501d1667849ee04123105118795508a8cb17f0c7b3967d4036aa865e",
+          "energy": 0.008004561001431251,
+          "peak": 0.48
+        },
+        {
+          "sample": 251330,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/marimba-59.wav",
+          "rootMidi": 59,
+          "onsetTrimSamples": 100,
+          "sha256": "0c1c6b8e8669c53735c979780c58da8484b5c770d2a15e7251d6c1e26fb0eac9",
+          "energy": 0.01,
+          "peak": 0.38963646483899056
+        }
+      ]
+    },
+    {
+      "id": "04_TubularBells",
+      "label": "チューブラーベル（鐘）",
+      "recordedInstrument": "Tubular Bells",
+      "seconds": 9.78,
+      "medleyStartSeconds": 29.34,
+      "peak": 0.4782150387763977,
+      "rms": 0.053769457950794276,
+      "clippedSamples": 0,
+      "notes": [
+        {
+          "sample": 177346,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/vibraphone-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "1bf8ae14284b035a1faa7c88994aeb85594e9dfa6ba36a3decd27f6c41edc370",
+          "energy": 0.0054876651457630085,
+          "peak": 0.48
+        },
+        {
+          "sample": 187970,
+          "midi": 69,
+          "file": "Tools/se-audition-samples/vibraphone-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 0,
+          "sha256": "ada30316f0ec245ed08b843c580689d34b0b7f3babc3159a9cb43382e152ef01",
+          "energy": 0.00802539657105746,
+          "peak": 0.48000000000000004
+        },
+        {
+          "sample": 198594,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/vibraphone-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "1bf8ae14284b035a1faa7c88994aeb85594e9dfa6ba36a3decd27f6c41edc370",
+          "energy": 0.004604977072943038,
+          "peak": 0.48
+        },
+        {
+          "sample": 209090,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/vibraphone-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "1bf8ae14284b035a1faa7c88994aeb85594e9dfa6ba36a3decd27f6c41edc370",
+          "energy": 0.0054876651457630085,
+          "peak": 0.48
+        },
+        {
+          "sample": 219586,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/vibraphone-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "1bf8ae14284b035a1faa7c88994aeb85594e9dfa6ba36a3decd27f6c41edc370",
+          "energy": 0.004604977072943038,
+          "peak": 0.48
+        },
+        {
+          "sample": 230210,
+          "midi": 69,
+          "file": "Tools/se-audition-samples/vibraphone-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 0,
+          "sha256": "ada30316f0ec245ed08b843c580689d34b0b7f3babc3159a9cb43382e152ef01",
+          "energy": 0.00802539657105746,
+          "peak": 0.48000000000000004
+        },
+        {
+          "sample": 240834,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/vibraphone-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "1bf8ae14284b035a1faa7c88994aeb85594e9dfa6ba36a3decd27f6c41edc370",
+          "energy": 0.004604977072943038,
+          "peak": 0.48
+        },
+        {
+          "sample": 251330,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/vibraphone-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "1bf8ae14284b035a1faa7c88994aeb85594e9dfa6ba36a3decd27f6c41edc370",
+          "energy": 0.0054876651457630085,
+          "peak": 0.48
+        }
+      ]
+    },
+    {
+      "id": "05_Harp",
+      "label": "ハープ",
+      "recordedInstrument": "Harp",
+      "seconds": 9.78,
+      "medleyStartSeconds": 39.12,
+      "peak": 0.4723740220069885,
+      "rms": 0.05816961421970843,
+      "clippedSamples": 0,
+      "notes": [
+        {
+          "sample": 177346,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/harp-59.wav",
+          "rootMidi": 59,
+          "onsetTrimSamples": 1344,
+          "sha256": "1c59ee730aa4f0416fe9bb8d75a97e3d52e7ca993679b570961332d7d60b6f3a",
+          "energy": 0.009999999999999998,
+          "peak": 0.40762841058234683
+        },
+        {
+          "sample": 187970,
+          "midi": 69,
+          "file": "Tools/se-audition-samples/harp-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 986,
+          "sha256": "f2c4dd5c0f2549a6561df52b0637fb8a3822e626e998b5c934db3ed1669b3c04",
+          "energy": 0.004355015337588719,
+          "peak": 0.48
+        },
+        {
+          "sample": 198594,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/harp-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 986,
+          "sha256": "f2c4dd5c0f2549a6561df52b0637fb8a3822e626e998b5c934db3ed1669b3c04",
+          "energy": 0.005018742455685302,
+          "peak": 0.4799999999999999
+        },
+        {
+          "sample": 209090,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/harp-59.wav",
+          "rootMidi": 59,
+          "onsetTrimSamples": 1344,
+          "sha256": "1c59ee730aa4f0416fe9bb8d75a97e3d52e7ca993679b570961332d7d60b6f3a",
+          "energy": 0.009999999999999998,
+          "peak": 0.40762841058234683
+        },
+        {
+          "sample": 219586,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/harp-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 986,
+          "sha256": "f2c4dd5c0f2549a6561df52b0637fb8a3822e626e998b5c934db3ed1669b3c04",
+          "energy": 0.005018742455685302,
+          "peak": 0.4799999999999999
+        },
+        {
+          "sample": 230210,
+          "midi": 69,
+          "file": "Tools/se-audition-samples/harp-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 986,
+          "sha256": "f2c4dd5c0f2549a6561df52b0637fb8a3822e626e998b5c934db3ed1669b3c04",
+          "energy": 0.004355015337588719,
+          "peak": 0.48
+        },
+        {
+          "sample": 240834,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/harp-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 986,
+          "sha256": "f2c4dd5c0f2549a6561df52b0637fb8a3822e626e998b5c934db3ed1669b3c04",
+          "energy": 0.005018742455685302,
+          "peak": 0.4799999999999999
+        },
+        {
+          "sample": 251330,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/harp-59.wav",
+          "rootMidi": 59,
+          "onsetTrimSamples": 1344,
+          "sha256": "1c59ee730aa4f0416fe9bb8d75a97e3d52e7ca993679b570961332d7d60b6f3a",
+          "energy": 0.009999999999999998,
+          "peak": 0.40762841058234683
+        }
+      ]
+    },
+    {
+      "id": "06_Pizzicato",
+      "label": "弦のピチカート",
+      "recordedInstrument": "Solo Violin Pizzicato",
+      "seconds": 9.78,
+      "medleyStartSeconds": 48.9,
+      "peak": 0.4427826404571533,
+      "rms": 0.05715818393728176,
+      "clippedSamples": 0,
+      "notes": [
+        {
+          "sample": 177346,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/pizzicato-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "37ba2d8de06892a8ce4ebb991eabd70b11f5a957a6fd574d1e769c96c4826da7",
+          "energy": 0.00992465336492655,
+          "peak": 0.48
+        },
+        {
+          "sample": 187970,
+          "midi": 69,
+          "file": "Tools/se-audition-samples/pizzicato-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 0,
+          "sha256": "edf713d6d627f1e18449adcde41f3d18dd2e886842c00bb2f307e0cd4745be5b",
+          "energy": 0.0017521387805058274,
+          "peak": 0.4799999999999999
+        },
+        {
+          "sample": 198594,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/pizzicato-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "37ba2d8de06892a8ce4ebb991eabd70b11f5a957a6fd574d1e769c96c4826da7",
+          "energy": 0.007871925682106295,
+          "peak": 0.48
+        },
+        {
+          "sample": 209090,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/pizzicato-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "37ba2d8de06892a8ce4ebb991eabd70b11f5a957a6fd574d1e769c96c4826da7",
+          "energy": 0.00992465336492655,
+          "peak": 0.48
+        },
+        {
+          "sample": 219586,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/pizzicato-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "37ba2d8de06892a8ce4ebb991eabd70b11f5a957a6fd574d1e769c96c4826da7",
+          "energy": 0.007871925682106295,
+          "peak": 0.48
+        },
+        {
+          "sample": 230210,
+          "midi": 69,
+          "file": "Tools/se-audition-samples/pizzicato-72.wav",
+          "rootMidi": 72,
+          "onsetTrimSamples": 0,
+          "sha256": "edf713d6d627f1e18449adcde41f3d18dd2e886842c00bb2f307e0cd4745be5b",
+          "energy": 0.0017521387805058274,
+          "peak": 0.4799999999999999
+        },
+        {
+          "sample": 240834,
+          "midi": 66,
+          "file": "Tools/se-audition-samples/pizzicato-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "37ba2d8de06892a8ce4ebb991eabd70b11f5a957a6fd574d1e769c96c4826da7",
+          "energy": 0.007871925682106295,
+          "peak": 0.48
+        },
+        {
+          "sample": 251330,
+          "midi": 62,
+          "file": "Tools/se-audition-samples/pizzicato-60.wav",
+          "rootMidi": 60,
+          "onsetTrimSamples": 0,
+          "sha256": "37ba2d8de06892a8ce4ebb991eabd70b11f5a957a6fd574d1e769c96c4826da7",
+          "energy": 0.00992465336492655,
+          "peak": 0.48
+        }
+      ]
+    },
+    {
+      "id": "07_BreathFlute",
+      "label": "短いフルート",
+      "recordedInstrument": "短いフルート",
+      "seconds": 9.78,
+      "medleyStartSeconds": 58.68,
+      "peak": 0.5021955370903015,
+      "rms": 0.06286179663267723,
+      "clippedSamples": 0,
+      "notes": [
+        {
+          "sample": 177346,
+          "midi": 62,
+          "file": "Tools/music-samples/flute-64.wav",
+          "rootMidi": 64,
+          "onsetTrimSamples": 0,
+          "sha256": "15f9fd87c037acdb3cb7b9466d81f784dd8cd1ee8004a4734b21ac41b0d81ed7",
+          "energy": 0.01,
+          "peak": 0.35425932902124785
+        },
+        {
+          "sample": 187970,
+          "midi": 69,
+          "file": "Tools/music-samples/flute-69.wav",
+          "rootMidi": 69,
+          "onsetTrimSamples": 171,
+          "sha256": "4e370068a342f41c8197b81522f4cb4895d7bfd9a8b4ab16a6ddddc649400cdb",
+          "energy": 0.009999999999999998,
+          "peak": 0.3665519082884285
+        },
+        {
+          "sample": 198594,
+          "midi": 66,
+          "file": "Tools/music-samples/flute-64.wav",
+          "rootMidi": 64,
+          "onsetTrimSamples": 0,
+          "sha256": "15f9fd87c037acdb3cb7b9466d81f784dd8cd1ee8004a4734b21ac41b0d81ed7",
+          "energy": 0.01,
+          "peak": 0.34277609903406414
+        },
+        {
+          "sample": 209090,
+          "midi": 62,
+          "file": "Tools/music-samples/flute-64.wav",
+          "rootMidi": 64,
+          "onsetTrimSamples": 0,
+          "sha256": "15f9fd87c037acdb3cb7b9466d81f784dd8cd1ee8004a4734b21ac41b0d81ed7",
+          "energy": 0.01,
+          "peak": 0.35425932902124785
+        },
+        {
+          "sample": 219586,
+          "midi": 66,
+          "file": "Tools/music-samples/flute-64.wav",
+          "rootMidi": 64,
+          "onsetTrimSamples": 0,
+          "sha256": "15f9fd87c037acdb3cb7b9466d81f784dd8cd1ee8004a4734b21ac41b0d81ed7",
+          "energy": 0.01,
+          "peak": 0.34277609903406414
+        },
+        {
+          "sample": 230210,
+          "midi": 69,
+          "file": "Tools/music-samples/flute-69.wav",
+          "rootMidi": 69,
+          "onsetTrimSamples": 171,
+          "sha256": "4e370068a342f41c8197b81522f4cb4895d7bfd9a8b4ab16a6ddddc649400cdb",
+          "energy": 0.009999999999999998,
+          "peak": 0.3665519082884285
+        },
+        {
+          "sample": 240834,
+          "midi": 66,
+          "file": "Tools/music-samples/flute-64.wav",
+          "rootMidi": 64,
+          "onsetTrimSamples": 0,
+          "sha256": "15f9fd87c037acdb3cb7b9466d81f784dd8cd1ee8004a4734b21ac41b0d81ed7",
+          "energy": 0.01,
+          "peak": 0.34277609903406414
+        },
+        {
+          "sample": 251330,
+          "midi": 62,
+          "file": "Tools/music-samples/flute-64.wav",
+          "rootMidi": 64,
+          "onsetTrimSamples": 0,
+          "sha256": "15f9fd87c037acdb3cb7b9466d81f784dd8cd1ee8004a4734b21ac41b0d81ed7",
+          "energy": 0.01,
+          "peak": 0.35425932902124785
+        }
+      ]
+    },
+    {
+      "id": "08_ElectricKeys",
+      "label": "柔らかな電子鍵盤",
+      "seconds": 9.78,
+      "medleyStartSeconds": 68.46,
+      "peak": 0.5194583535194397,
+      "rms": 0.06178769205839375,
+      "clippedSamples": 0,
+      "notes": [
+        {
+          "sample": 177346,
+          "midi": 62,
+          "generator": "keys",
+          "energy": 0.010000000000000002,
+          "peak": 0.3311237387750396
+        },
+        {
+          "sample": 187970,
+          "midi": 69,
+          "generator": "keys",
+          "energy": 0.01,
+          "peak": 0.33225731677643766
+        },
+        {
+          "sample": 198594,
+          "midi": 66,
+          "generator": "keys",
+          "energy": 0.009999999999999998,
+          "peak": 0.3316623877417977
+        },
+        {
+          "sample": 209090,
+          "midi": 62,
+          "generator": "keys",
+          "energy": 0.010000000000000002,
+          "peak": 0.3311237387750396
+        },
+        {
+          "sample": 219586,
+          "midi": 66,
+          "generator": "keys",
+          "energy": 0.009999999999999998,
+          "peak": 0.3316623877417977
+        },
+        {
+          "sample": 230210,
+          "midi": 69,
+          "generator": "keys",
+          "energy": 0.01,
+          "peak": 0.33225731677643766
+        },
+        {
+          "sample": 240834,
+          "midi": 66,
+          "generator": "keys",
+          "energy": 0.009999999999999998,
+          "peak": 0.3316623877417977
+        },
+        {
+          "sample": 251330,
+          "midi": 62,
+          "generator": "keys",
+          "energy": 0.010000000000000002,
+          "peak": 0.3311237387750396
+        }
+      ]
+    },
+    {
+      "id": "09_DigitalPluck",
+      "label": "短いデジタル・プラック",
+      "seconds": 9.78,
+      "medleyStartSeconds": 78.24,
+      "peak": 0.4320780336856842,
+      "rms": 0.04447348558018578,
+      "clippedSamples": 0,
+      "notes": [
+        {
+          "sample": 177346,
+          "midi": 62,
+          "generator": "pluck",
+          "energy": 0.0017487756364228935,
+          "peak": 0.48000000000000004
+        },
+        {
+          "sample": 187970,
+          "midi": 69,
+          "generator": "pluck",
+          "energy": 0.001586635462397024,
+          "peak": 0.48
+        },
+        {
+          "sample": 198594,
+          "midi": 66,
+          "generator": "pluck",
+          "energy": 0.0016462862844006101,
+          "peak": 0.48
+        },
+        {
+          "sample": 209090,
+          "midi": 62,
+          "generator": "pluck",
+          "energy": 0.0017487756364228935,
+          "peak": 0.48000000000000004
+        },
+        {
+          "sample": 219586,
+          "midi": 66,
+          "generator": "pluck",
+          "energy": 0.0016462862844006101,
+          "peak": 0.48
+        },
+        {
+          "sample": 230210,
+          "midi": 69,
+          "generator": "pluck",
+          "energy": 0.001586635462397024,
+          "peak": 0.48
+        },
+        {
+          "sample": 240834,
+          "midi": 66,
+          "generator": "pluck",
+          "energy": 0.0016462862844006101,
+          "peak": 0.48
+        },
+        {
+          "sample": 251330,
+          "midi": 62,
+          "generator": "pluck",
+          "energy": 0.0017487756364228935,
+          "peak": 0.48000000000000004
+        }
+      ]
+    },
+    {
+      "id": "10_RoundDrop",
+      "label": "丸い水滴風の音",
+      "seconds": 9.78,
+      "medleyStartSeconds": 88.02,
+      "peak": 0.4309724271297455,
+      "rms": 0.049202988438359394,
+      "clippedSamples": 0,
+      "notes": [
+        {
+          "sample": 177346,
+          "midi": 62,
+          "generator": "tom",
+          "energy": 0.0037396694276130562,
+          "peak": 0.48
+        },
+        {
+          "sample": 187970,
+          "midi": 69,
+          "generator": "tom",
+          "energy": 0.003769955869128686,
+          "peak": 0.48000000000000004
+        },
+        {
+          "sample": 198594,
+          "midi": 66,
+          "generator": "tom",
+          "energy": 0.0038677750307621332,
+          "peak": 0.48
+        },
+        {
+          "sample": 209090,
+          "midi": 62,
+          "generator": "tom",
+          "energy": 0.0037396694276130562,
+          "peak": 0.48
+        },
+        {
+          "sample": 219586,
+          "midi": 66,
+          "generator": "tom",
+          "energy": 0.0038677750307621332,
+          "peak": 0.48
+        },
+        {
+          "sample": 230210,
+          "midi": 69,
+          "generator": "tom",
+          "energy": 0.003769955869128686,
+          "peak": 0.48000000000000004
+        },
+        {
+          "sample": 240834,
+          "midi": 66,
+          "generator": "tom",
+          "energy": 0.0038677750307621332,
+          "peak": 0.48
+        },
+        {
+          "sample": 251330,
+          "midi": 62,
+          "generator": "tom",
+          "energy": 0.0037396694276130562,
+          "peak": 0.48
+        }
+      ]
+    }
+  ]
+}
