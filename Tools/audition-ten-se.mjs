@@ -7,6 +7,8 @@ import { Renderer, RATE, BEAT, readWav, writeWav } from './music-review/renderer
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const exportHarp = process.argv.includes('--export-harp-bank');
+const boostHermit = process.argv.includes('--boost-hermit');
+const seLevel = .62 * (boostHermit ? 10 ** (3 / 20) : 1);
 function option(flag, fallback) {
   const index = process.argv.indexOf(flag);
   if (index < 0) return fallback;
@@ -14,7 +16,7 @@ function option(flag, fallback) {
   if (!value || value.startsWith('--')) throw new Error('Missing value for ' + flag);
   return value;
 }
-const stage = option('--stage', null);
+const stage = option('--stage', boostHermit ? 'hermit' : null);
 const stageConfigs = {
   hermit: { folder: '15-HermitSoundStudy', track: 'Hermit_OrchestralCurrent', voices: [
     { id: 'A_Current', label: 'Current game FM', current: true },
@@ -32,11 +34,12 @@ const stageConfigs = {
   ] }
 };
 if (stage && (!stageConfigs[stage] || exportHarp)) throw new Error('Use --stage hermit|submarine separately from --export-harp-bank');
-const startBeat = stage ? Number(option('--start-beat', NaN)) : 32;
+if (boostHermit && stage !== 'hermit') throw new Error('--boost-hermit is only for hermit previews');
+const startBeat = stage ? Number(option('--start-beat', boostHermit ? 176 : NaN)) : 32;
 const beatCount = stage ? Number(option('--beats', 24)) : 16;
 if (stage && (!Number.isInteger(startBeat) || startBeat < 0 || !Number.isInteger(beatCount) || beatCount < 24))
   throw new Error('Stage mode requires integer --start-beat >= 0 and --beats >= 24');
-const folder = path.join(root, 'MusicReview', stage ? stageConfigs[stage].folder : '14-TenSePalette');
+const folder = path.join(root, 'MusicReview', boostHermit ? '17-HermitSeBoost' : stage ? stageConfigs[stage].folder : '14-TenSePalette');
 const sampleFolder = path.join(root, 'Tools/se-audition-samples');
 const asset = 'Assets/Liminal/Resources/StageAudio/' + (stage ? stageConfigs[stage].track : 'Serpent_VelvetKeys');
 const score = JSON.parse(fs.readFileSync(path.join(root, asset + 'Timeline.json'), 'utf8'));
@@ -56,6 +59,8 @@ const voices = [
   { id: '10_RoundDrop', label: '丸い水滴風の音', synth: 'tom' }
 ];
 if (stage) voices.splice(0, voices.length, ...stageConfigs[stage].voices);
+if (boostHermit) voices.splice(0, voices.length,
+  ...voices.filter(voice => ['B_Marimba', 'D_Harp', 'E_RoundDrop'].includes(voice.id)));
 if (stage && startBeat + beatCount >= score.beats.length) throw new Error('Stage beat window exceeds timeline');
 const first = score.beats[startBeat], length = score.beats[startBeat + beatCount] - first;
 const intro = Math.round(RATE * 2.1), total = intro + length;
@@ -369,7 +374,7 @@ function generateStageStudy() {
     const place = (sound, frame, limit = total) => {
       if (!Number.isInteger(frame) || frame < 0 || frame + sound.left.length > limit - edge)
         throw new Error('SE tail would be truncated: ' + voice.id);
-      add(left, right, sound, frame, .62);
+      add(left, right, sound, frame, seLevel);
     };
     const soloMidi = pitch(0, score.beats[startBeat + bursts[0]]), solo = makeTone(soloMidi);
     const soloHash = fingerprint(solo);
@@ -407,6 +412,7 @@ function generateStageStudy() {
   }
   let sharedGain = 1, sharedGainAdjustments = 0, adjustmentReason = null;
   const maxFloatPeak = Math.max(...rendered.map(clip => clip.metrics.peak));
+  if (boostHermit && maxFloatPeak >= 1) throw new Error('SE boost clips; keep BGM unchanged and lower the boost');
   if (maxFloatPeak >= 1) { sharedGain = .95 / maxFloatPeak; sharedGainAdjustments++; adjustmentReason = 'Float mix clipping'; }
   function encodeAll() {
     const medleyL = new Float32Array(total * voices.length), medleyR = new Float32Array(total * voices.length);
@@ -434,11 +440,12 @@ function generateStageStudy() {
       Object.assign(clip.info, save(clip.voice.id, left, right, stage + ' ' + clip.voice.label));
       medleyL.set(left, index * total); medleyR.set(right, index * total);
     }
-    const medley = save('00_AllCandidates', medleyL, medleyR, stage + ' all five candidates');
+    const medley = save('00_AllCandidates', medleyL, medleyR, stage + ' all ' + voices.length + ' candidates');
     return { medley, decodedPeak: Math.max(...outputMetrics.map(metrics => metrics.decodedMp3Peak)) };
   }
   let encoded = encodeAll();
   if (encoded.decodedPeak >= 1) {
+    if (boostHermit) throw new Error('SE boost MP3 clips; keep BGM unchanged and lower the boost');
     if (sharedGainAdjustments) throw new Error('MP3 clips after one shared gain adjustment');
     sharedGain = .95 / encoded.decodedPeak; sharedGainAdjustments++;
     adjustmentReason = 'Decoded MP3 clipping'; encoded = encodeAll();
@@ -465,7 +472,8 @@ function generateStageStudy() {
     sampleLicense: 'CC0-1.0', sourceManifest: { file: 'Tools/se-audition-samples/samples.json',
       sha256: hash(fs.readFileSync(path.join(sampleFolder, 'samples.json'))) },
     sampleDocumentation: 'Tools/se-audition-samples/SOURCES.md',
-    fixedMixLevels: { bgm: .83, se: .62, master: .8, sharedGain, sharedGainAdjustments, adjustmentReason },
+    fixedMixLevels: { bgm: .83, se: seLevel, seBoostDb: boostHermit ? 3 : 0,
+      master: .8, sharedGain, sharedGainAdjustments, adjustmentReason },
     processing: { candidateMixNormalization: false, limiter: false, bgmTempoOrPitchChange: false,
       cropBy: 'AuthoredScore beats in source samples; onset from saved eighths, no hardcoded BPM',
       edgeFadeSeconds: .015, newTones: 'Unmodified shared tone(): energy .010 / peak cap .48; 1.2 seconds' },
@@ -474,18 +482,19 @@ function generateStageStudy() {
       decodedMp3DurationChecked: true, noDoubleSpeed: true, approvedToneSourceHashMatches: true,
       approvedHarpFloatMatches }, medley: encoded.medley, clips: rendered.map(clip => clip.info) };
   fs.writeFileSync(path.join(folder, 'study-report.json'), JSON.stringify(report, null, 2) + '\n');
-  fs.writeFileSync(path.join(folder, 'INDEX.md'), `# ${stage} sound study\n\n[All five candidates](00_AllCandidates.mp3)\n\n`
+  fs.writeFileSync(path.join(folder, 'INDEX.md'), `# ${stage} sound study\n\n[All ${voices.length} candidates](00_AllCandidates.mp3)\n\n`
     + '| Candidate | Instrument | Medley start (seconds) | MP3 | WAV |\n| --- | --- | --- | --- | --- |\n'
     + report.clips.map(clip => `| ${clip.id} | ${clip.recordedInstrument ?? clip.label} | ${clip.medleyStartSeconds.toFixed(3)} | [Listen](${clip.id}.mp3) | [PCM](${clip.id}.wav) |`).join('\n') + '\n');
   fs.writeFileSync(path.join(folder, 'README.md'), `# ${stage} offline SE audition\n\n`
     + 'Pre-adoption comparison only; candidates are not integrated into the game. No playback was performed.\n'
+    + (boostHermit ? 'SE-only revision: +3 dB (1.412538x) for marimba, harp and round drop. BGM, note pitches, onsets and master volume are unchanged from study 15. Submarine retains its current game sound.\n' : '')
     + 'This is a middle high-energy candidate selected by sustained RMS, not a human-confirmed chorus. Beat and harmony estimates have not been verified by human listening.\n\n'
     + `Game-adopted WAV: [${stageConfigs[stage].track}](../../${asset}.wav), ${report.sourceStartSeconds.toFixed(6)}--${report.sourceEndSeconds.toFixed(6)} seconds; zero-based beat ${startBeat} through ${startBeat + beatCount}.\n`
     + `Parent selection: middle third, 16-beat boundaries, 24 beats, 75% window RMS + 25% minimum bar RMS. Intro RMS ${introRms.toFixed(6)}; window RMS ${windowRms.toFixed(6)}. Original raw offset adds ${track.crop_start.toFixed(6)} seconds.\n\n`
     + `Each clip is ${(total / RATE).toFixed(6)} seconds: 2.1 seconds of solo (onset 0.12), then the same ${beatCount}-beat BGM; two eight-shot phrases at beat offsets 4 and 16, using saved eighth marks. SE tails fit completely inside the window.\n`
-    + 'A_Current retains the game FM PCM amplitude, ascending AuthoredScore.Note pitches, pan 0 and strength 1; it is not energy-normalized or boosted in the high register.\n'
+    + (boostHermit ? '' : 'A_Current retains the game FM PCM amplitude, ascending AuthoredScore.Note pitches, pan 0 and strength 1; it is not energy-normalized or boosted in the high register.\n')
     + 'New candidates reuse the unchanged tone() and B folding [0,2,1,0,1,2,1,0], MIDI 60..78. Tubular Bells is the actual recorded instrument behind the legacy sample key vibraphone.\n\n'
-    + `Fixed mix: BGM .83, SE .62, master .8. Shared additional gain ${sharedGain}, adjusted ${sharedGainAdjustments} time(s)${adjustmentReason ? ' (' + adjustmentReason + ')' : ''}. No per-candidate mix normalization or limiter. Common 15 ms outer edge fades; no BGM time stretching.\n`
+    + `Fixed mix: BGM .83, SE ${seLevel}, master .8. Shared additional gain ${sharedGain}, adjusted ${sharedGainAdjustments} time(s)${adjustmentReason ? ' (' + adjustmentReason + ')' : ''}. No per-candidate mix normalization or limiter. Common 15 ms outer edge fades; no BGM time stretching.\n`
     + 'Local stereo PCM16 WAVs are retained; MP3s are 320 kbit/s. Recorded samples use the existing CC0-1.0 manifest and [source documentation](../../Tools/se-audition-samples/SOURCES.md).\n\n'
     + '[Candidate index](INDEX.md) and [report](study-report.json) contain source/generator/output hashes, original times, MIDI/onsets, levels and numeric verification.\n');
   console.log(JSON.stringify({ output: folder, clips: voices.length, secondsEach: total / RATE,

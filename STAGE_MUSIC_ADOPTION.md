@@ -110,6 +110,10 @@ Windows実ビルドの無音検査も合格。全曲区間の864音域チェッ�
 比較ミックスはオフライン生成で実プレイ録音ではありません。選択前なのでゲームへ未採用。
 海蛇の承認済みハープ、TidalMemory、Windowsビルドと公開Releaseは変更しません。
 
+レビューで潜水艦は現行音を維持する方針に決定。ヤドカリはマリンバ・ハープ・水滴を継続比較し、
+SEだけを+3dBした版を `MusicReview/17-HermitSeBoost/` に保存します。
+BGM・音階・拍位置・マスター音量はそのまま。再生成は `node Tools/audition-ten-se.mjs --boost-hermit`。
+
 - `python Tools/adopt-stage-audio.py`: 指定元音源を解析。
 - `python Tools/adopt-stage-audio.py --prepare`: 保存した解析からWAVとタイムラインを作成。
 - `node Tools/audit-stage-music.mjs`: ファイル・ハッシュ・拍・音量・インポート設定を検査。
