@@ -12,8 +12,12 @@
     "harpBankReady": true,
     "foldedHarpPhrase": true,
     "futureThemeHarp": true,
-    "harpRangeChecks": 864,
-    "originalShotThemesVerified": 5,
+    "futureHermitHarp": true,
+    "hermitGainVerified": true,
+    "serpentShotLevel": 0.6200000047683716,
+    "hermitShotLevel": 0.8757733106613159,
+    "harpRangeChecks": 1728,
+    "originalShotThemesVerified": 4,
     "harpShotPitches": [
         67,
         74,
@@ -24,8 +28,18 @@
         66,
         62
     ],
+    "hermitHarpPitches": [
+        62,
+        69,
+        66,
+        62,
+        66,
+        69,
+        66,
+        62
+    ],
     "verifiedCrossfades": 5,
-    "crossfadeInteriorSamples": 1391,
+    "crossfadeInteriorSamples": 1387,
     "maxCrossfadePowerError": 1.8373637544755184e-7,
     "crossfadeDurations": [
         3.8370975056689335,
@@ -51,7 +65,7 @@
         8.217936507936507,
         8.458843537414966
     ],
-    "maxPlaybackPhaseError": 0.02133333333333609,
+    "maxPlaybackPhaseError": 0.021346938775510084,
     "maxReleaseGridError": 0.0,
     "audibleReviewPerformed": false,
     "errors": []
