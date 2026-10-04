@@ -28,9 +28,12 @@ namespace Liminal
 
         static readonly string[] themeNames = {
             "TidalMemory", "Serpent_VelvetKeys", "TidalMemory", "Hermit_OrchestralCurrent",
-            "Submarine_OrganicCurrent", "Ending_BreathingLine"
+            "Submarine_OrganicCurrent", "Ending_StillLight", "Ending_AoNoYohaku",
+            "Ending_HitoikiNoUta", "Ending_MwangaWaBahari"
         };
-        static readonly Timeline[] themeTimelines = new Timeline[6];
+        public const int RoomThemeCount = 5;
+        public const int FirstEndingTheme = RoomThemeCount;
+        static readonly Timeline[] themeTimelines = new Timeline[themeNames.Length];
         static readonly List<ThemeSpan> themeSpans = new();
         static Timeline data;
         public static Timeline Data => data ??= Load();
@@ -54,6 +57,8 @@ namespace Liminal
         public static string ThemeTimelineResourcePath(int theme) => UsesMainSoundtrack(theme) ?
             "TidalMemoryTimeline" : ThemeResourcePath(theme) + "Timeline";
         public static bool UsesMainSoundtrack(int theme) => theme == 0 || theme == 2;
+        public static bool IsEndingTheme(int theme) => theme >= FirstEndingTheme && theme < ThemeCount;
+        public static int EndingThemeFor(BossId mask) => FirstEndingTheme + RunProgress.Count(mask & RunProgress.OptionalBosses);
 
         public static Timeline ThemeData(int theme)
         {
@@ -65,8 +70,10 @@ namespace Liminal
             var result = JsonUtility.FromJson<Timeline>(asset.text);
             if (result == null || result.themeId != theme || result.theme != themeNames[theme] || result.bpm <= 0 ||
                 result.sampleRate != Data.sampleRate || result.sampleCount <= 0 || result.bars < 1 ||
-                result.beats == null || result.beats.Length != result.bars * 4 ||
-                result.eighths == null || result.eighths.Length != result.bars * 8 || result.sections == null ||
+                result.beats == null || result.beats.Length == 0 ||
+                result.eighths == null || result.eighths.Length != result.beats.Length * 2 ||
+                (IsEndingTheme(theme) ? result.bars != (result.beats.Length + 3) / 4 : result.beats.Length != result.bars * 4) ||
+                result.sections == null ||
                 result.harmony == null || result.harmony.Length == 0)
                 throw new InvalidOperationException("Invalid authored stage timeline: " + themeNames[theme]);
             ValidateMarks(result.beats, result.sampleCount);
@@ -146,7 +153,7 @@ namespace Liminal
             double sample = Math.Max(0, songTime - span.start) * span.timeline.sampleRate;
             double nearest = Math.Round(sample);
             if (Math.Abs(sample - nearest) < .00001) sample = nearest;
-            return sample % span.timeline.sampleCount;
+            return IsEndingTheme(span.theme) ? Math.Min(sample, span.timeline.sampleCount) : sample % span.timeline.sampleCount;
         }
 
         public static int ThemeAt(double songTime)
@@ -175,8 +182,10 @@ namespace Liminal
             var timeline = span == null ? Data : span.timeline;
             double start = span == null ? 0 : span.start;
             double sample = Math.Max(0, song - start) * timeline.sampleRate;
-            long loop = (long)Math.Floor(sample / timeline.sampleCount);
+            long loop = span != null && IsEndingTheme(span.theme) ? 0 : (long)Math.Floor(sample / timeline.sampleCount);
             int next = Previous(timeline.beats, LocalSampleAt(song)) + Math.Max(0, count);
+            if (span != null && IsEndingTheme(span.theme) && next >= timeline.beats.Length)
+                return start + timeline.sampleCount / (double)timeline.sampleRate;
             loop += next / timeline.beats.Length;
             return start + (loop * timeline.sampleCount + timeline.beats[next % timeline.beats.Length]) / (double)timeline.sampleRate;
         }
@@ -225,7 +234,7 @@ namespace Liminal
             var timeline = span == null ? Data : span.timeline;
             double start = span == null ? 0 : span.start;
             double sample = Math.Max(0, song - start) * timeline.sampleRate;
-            long loop = (long)Math.Floor(sample / timeline.sampleCount);
+            long loop = span != null && IsEndingTheme(span.theme) ? 0 : (long)Math.Floor(sample / timeline.sampleCount);
             double local = LocalSampleAt(song);
             int beat = Previous(timeline.beats, local);
             int end = beat + 1 < timeline.beats.Length ? timeline.beats[beat + 1] : timeline.sampleCount;

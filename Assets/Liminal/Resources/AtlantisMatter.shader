@@ -163,6 +163,41 @@ Shader "Liminal/Atlantis Matter"
                     anchor = TransformObjectToWorld(movedLocal);
                     world = lerp(gather, anchor, formation);
                 }
+                else if (_LayerKind > 3.5 && _LayerKind < 4.5)
+                {
+                    float crab = floor(input.data.y);
+                    float roleCode = floor(frac(input.data.y) * 16.0 + 0.5);
+                    float crabIndex = max(0.0, crab - 1.0);
+                    float heading = crabIndex * 2.3999632 + sin(crabIndex * 1.71) * 0.45;
+                    float3 headingForward = float3(sin(heading), 0.0, cos(heading));
+                    float3 headingRight = float3(cos(heading), 0.0, -sin(heading));
+                    float phaseOffset = crab * 2.3999632;
+                    float phase = phaseOffset + _Song * 0.12;
+                    float2 walkOffset = float2(
+                        (sin(phase) - sin(phaseOffset)) * 1.45,
+                        (cos(phase * 0.71) - cos(phaseOffset * 0.71)) * 1.1);
+                    float3 limbOffset = 0.0;
+                    if (roleCode > 0.5)
+                    {
+                        float legIndex = floor((roleCode - 1.0) * 0.5);
+                        float isKnee = step(0.5, fmod(roleCode, 2.0));
+                        float isFoot = 1.0 - isKnee;
+                        float legPhase = phase + legIndex * (ATLANTIS_TAU * 0.5);
+                        float stride = sin(legPhase);
+                        limbOffset += headingForward *
+                            (stride * 0.13 * isFoot + sin(legPhase + 0.6) * 0.035 * isKnee);
+                        limbOffset += headingRight * cos(legPhase) * 0.025 * isFoot;
+                        limbOffset.y = max(0.0, stride) * 0.11 * isFoot +
+                            (0.5 + 0.5 * sin(legPhase + 0.4)) * 0.025 * isKnee;
+                    }
+
+                    float originalGround = AtlantisGroundHeight(localAnchor.x, localAnchor.z);
+                    float3 movedLocal = localAnchor + limbOffset;
+                    movedLocal.xz += walkOffset;
+                    movedLocal.y += AtlantisGroundHeight(movedLocal.x, movedLocal.z) - originalGround;
+                    anchor = TransformObjectToWorld(movedLocal);
+                    world = lerp(gather, anchor, formation);
+                }
                 else
                 {
                     world = lerp(gather, anchor, formation);
@@ -177,11 +212,11 @@ Shader "Liminal/Atlantis Matter"
                     }
                 }
 
-                float role = (_LayerKind < 0.5 || _LayerKind > 2.5) ?
+                bool cityLayer = _LayerKind < 0.5 || (_LayerKind > 2.5 && _LayerKind < 3.5);
+                float role = cityLayer ?
                     floor(input.data.y + 0.5) : -1.0;
                 float roleContour = step(0.5, role) * (1.0 - step(1.5, role));
                 float roleGlint = step(1.5, role);
-                bool cityLayer = _LayerKind < 0.5 || _LayerKind > 2.5;
                 AtlantisMatterField cityField;
                 cityField.flow = 0.0;
                 cityField.radiance = 1.0;

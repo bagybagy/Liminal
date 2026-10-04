@@ -20,6 +20,7 @@ namespace Liminal
         MarineLife marineLife;
         Flight flight;
         SacredFlame sacredFlame;
+        AtlantisFauna fauna;
         Transform cityRoot;
         bool initialized, creditsStarted, densityModeInitialized;
         float elapsed;
@@ -39,6 +40,19 @@ namespace Liminal
         public int VrPointCount => WhaleBasePointCount + AtlantisGeometry.ExpectedAuxiliaryPointCount(true);
         public int ExpectedPointCount => UsesReducedDensity ? VrPointCount : DesktopPointCount;
         public int SerpentSchoolCount => AtlantisGeometry.SerpentSchoolCount;
+        public int DesktopFaunaPointCount => fauna != null ? fauna.DesktopPointCount : 0;
+        public int VrFaunaPointCount => fauna != null ? fauna.VrPointCount : 0;
+        public int ActiveFaunaPointCount => CelebrationFaunaActive ? fauna.ActivePointCount : 0;
+        public int CelebrationFishCount => fauna != null ? fauna.FishCount : 0;
+        public int CelebrationPufferfishCount => fauna != null ? fauna.PufferfishCount : 0;
+        public int CelebrationHermitCrabCount => fauna != null ? fauna.HermitCrabCount : 0;
+        public int ActiveFaunaCount => CelebrationFaunaActive ? fauna.ActiveFaunaCount : 0;
+        public int ActiveFaunaFishCount => CelebrationFaunaActive ? fauna.ActiveFishCount : 0;
+        public int FaunaTargetCount => 0;
+        public int DesktopFaunaPointBudget => AtlantisFauna.DesktopPointBudget;
+        public int VrFaunaPointBudget => AtlantisFauna.VrPointBudget;
+        public string FaunaBudgetReport => fauna != null ? fauna.BudgetReport : "not initialized";
+        public bool CelebrationFaunaActive => Active && Mask == RunProgress.OptionalBosses && fauna != null && fauna.Active;
         public int ActiveAuxiliaryPointCount => Active ? ContinentPointCount +
             FlamePointCount +
             (((Mask & BossId.Hermit) != 0) ? PalacePointCount : 0) +
@@ -102,6 +116,9 @@ namespace Liminal
             sacredFlame = flameRoot.AddComponent<SacredFlame>();
             sacredFlame.Initialize(flameShader, false);
 
+            fauna = new AtlantisFauna();
+            fauna.Initialize(cityRoot, cityShader, false);
+
             ValidatePointBudget(false);
             ValidatePointBudget(true);
             RefreshDensityMode();
@@ -127,6 +144,7 @@ namespace Liminal
             Credits.Reset();
             cityRoot.gameObject.SetActive(true);
             SetOptionalLayerVisibility();
+            fauna.Begin(Mask == RunProgress.OptionalBosses);
             SetFormation(0f, song);
         }
 
@@ -158,6 +176,7 @@ namespace Liminal
             elapsed = 0f;
             creditsStarted = false;
             Credits?.Reset();
+            fauna?.Reset();
             if (cityRoot) cityRoot.gameObject.SetActive(false);
             SetFormation(0f, 0f);
         }
@@ -203,6 +222,7 @@ namespace Liminal
             SerpentFishCount = AtlantisGeometry.FishCount(useVr);
             AuxiliaryPointCount = CountAuxiliaryPoints(useVr);
             sacredFlame?.SetDensityMode(useVr);
+            fauna?.SetDensityMode(useVr);
             densityModeInitialized = true;
         }
 
@@ -249,11 +269,14 @@ namespace Liminal
                 material.SetFloat("_Beat", beat);
             }
             sacredFlame?.SetProgress(formation, beat);
+            fauna?.SetProgress(formation, song, beat);
         }
 
         void OnDestroy()
         {
             Credits?.Dispose();
+            fauna?.Dispose();
+            fauna = null;
             sacredFlame?.Dispose();
             sacredFlame = null;
             foreach (Mesh mesh in meshes)

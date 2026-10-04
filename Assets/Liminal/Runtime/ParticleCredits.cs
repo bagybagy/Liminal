@@ -7,76 +7,91 @@ namespace Liminal
 {
     public sealed class ParticleCredits : IDisposable
     {
-        public const float LineInterval = 4f;
-        public const float GatherDuration = 2.2f;
-        public const float ScrollDuration = 18f;
-        public const float ScrollDistance = 108f;
-        const float ScatterDuration = 2f;
-        const float ReturnDuration = 1.8f;
-        const float LineDuration = GatherDuration + ScrollDuration + ScatterDuration + ReturnDuration;
-        const int SlotCount = 6;
+        public const float TargetDuration = 180f;
+        public const float GatherDuration = 0.25f;
+        public const float ScrollDuration = 8f;
+        public const float ScrollDistance = 96f;
+        public const float ScatterDuration = 1.2f;
+        public const float ReturnDuration = 1.8f;
+        public const float LineDuration = GatherDuration + ScrollDuration + ScatterDuration + ReturnDuration;
 
         readonly struct CreditLine
         {
-            public readonly string Text;
+            public readonly string Text, HudText;
             public readonly float Cell, Size, Gain;
             public readonly Color Color;
             public readonly bool Heading;
 
-            public CreditLine(string text, bool heading = false, bool featured = false)
+            public CreditLine(string text, string hudText, float maxCell,
+                bool heading = false, bool featured = false)
             {
                 Text = text;
+                HudText = hudText;
                 Heading = heading;
-                Cell = featured ? 1.7f : heading ? 0.98f : 1.15f;
-                Size = featured ? 0.60f : heading ? 0.35f : 0.41f;
+                Cell = Mathf.Min(0.55f,
+                    Mathf.Min(maxCell, 150f / Mathf.Max(6f, text.Length * 6f)));
+                Size = Cell * (featured ? 0.35f : 0.36f);
                 Gain = featured ? 5.2f : heading ? 3.5f : 4f;
                 Color = featured ? new Color(1f, 0.79f, 0.35f) :
                     heading ? new Color(0.38f, 0.87f, 1f) : new Color(0.82f, 1f, 0.94f);
             }
         }
 
-        static readonly CreditLine[] Lines = {
-            new("LIMINAL", true, true),
-            new("ABYSSAL CHOIR", true),
-            new("CREATED BY", true),
-            new("tete", false, true),
-            new("MUSIC", true),
-            new("TidalMemory"),
-            new("ENGINE / RENDERING", true),
-            new("Unity 6 / URP"),
-            new("Compute shader"),
-            new("Graphics buffer"),
-            new("AUDIO / PCVR", true),
-            new("DSP scheduled audio"),
-            new("OpenXR"),
-            new("PRODUCTION WORKERS", true),
-            new("Peirce / Gauss / Curie"),
-            new("Meitner / Noether / Kuhn"),
-            new("Ohm / Fermat / Halley"),
-            new("Tesla"),
-            new("THANK YOU FOR PLAYING", true)
-        };
+        static readonly StaffCreditRoster Roster;
+        static readonly CreditLine[] Lines;
+        static readonly int PoolSize;
+
+        static ParticleCredits()
+        {
+            Roster = StaffCreditRoster.Load(Resources.Load<TextAsset>("ProductionCredits"));
+            StaffCreditRoster.DisplayLine[] rows = Roster.BuildDisplayLines();
+            if (rows.Length < 2)
+                throw new InvalidOperationException("Production credits need at least two display lines.");
+            Lines = new CreditLine[rows.Length];
+            float maxCell = ScrollDistance * Mathf.Max(0f, LineInterval - GatherDuration) /
+                ScrollDuration * 0.75f / 7f;
+            for (int i = 0; i < rows.Length; i++)
+                Lines[i] = new CreditLine(rows[i].ParticleText, rows[i].Text, maxCell,
+                    rows[i].Heading, rows[i].Featured);
+            PoolSize = Mathf.Max(1, Mathf.CeilToInt(LineDuration / LineInterval));
+        }
 
         readonly List<Mesh> lineMeshes = new();
-        readonly MeshFilter[] meshFilters = new MeshFilter[SlotCount];
-        readonly MeshRenderer[] meshRenderers = new MeshRenderer[SlotCount];
-        readonly MaterialPropertyBlock[] blocks = new MaterialPropertyBlock[SlotCount];
-        readonly int[] slotLines = new int[SlotCount];
+        readonly MeshFilter[] meshFilters;
+        readonly MeshRenderer[] meshRenderers;
+        readonly MaterialPropertyBlock[] blocks;
+        readonly int[] slotLines;
         Material material;
         GameObject root;
         bool[] seen;
         float elapsed;
         bool disposed;
 
+        public ParticleCredits()
+        {
+            meshFilters = new MeshFilter[PoolSize];
+            meshRenderers = new MeshRenderer[PoolSize];
+            blocks = new MaterialPropertyBlock[PoolSize];
+            slotLines = new int[PoolSize];
+        }
+
         public static int LineCount => Lines.Length;
+        public static int ContributorCount => Roster.ContributorCount;
+        public static float LineInterval => (TargetDuration - LineDuration) / (LineCount - 1f);
         public static float Duration => (LineCount - 1) * LineInterval + LineDuration;
-        public static string GetLineText(int index) => Lines[index].Text;
+        public static int PoolSlotCount => PoolSize;
+        public static float PoolCyclePeriod => PoolSize * LineInterval;
+        public static int MaximumVisibleLineCount => Mathf.CeilToInt((GatherDuration + ScrollDuration) / LineInterval);
+        public static string GetLineText(int index) => Lines[index].HudText;
+        public static string GetParticleLineText(int index) => Lines[index].Text;
         public static Color GetLineColor(int index) => Lines[index].Color;
         public static bool IsHeading(int index) => Lines[index].Heading;
         public bool Active { get; private set; }
         public bool Completed { get; private set; }
         public int CycleCount { get; private set; }
         public int StableParticleCount { get; private set; }
+        public int PointCount => StableParticleCount;
+        public int ParticlesPerLine { get; private set; }
         public int SeenLines { get; private set; }
         public float Elapsed => elapsed;
         public Vector3 Position => root ? root.transform.position : Vector3.zero;
@@ -95,7 +110,7 @@ namespace Liminal
             root.transform.localScale = Vector3.one;
             material = new Material(shader) { name = "Atlantis circulating credit matter" };
             BuildLineMeshes();
-            for (int i = 0; i < SlotCount; i++)
+            for (int i = 0; i < PoolSize; i++)
             {
                 var slot = new GameObject("Circulating glyph pool / " + i);
                 slot.transform.SetParent(root.transform, false);
@@ -118,7 +133,7 @@ namespace Liminal
             CycleCount = SeenLines = VisibleLineCount = 0;
             elapsed = 0f;
             Array.Clear(seen, 0, seen.Length);
-            for (int i = 0; i < SlotCount; i++) slotLines[i] = -1;
+            for (int i = 0; i < PoolSize; i++) slotLines[i] = -1;
             root.SetActive(true);
             UpdateSlots();
         }
@@ -127,6 +142,13 @@ namespace Liminal
         {
             if (disposed || !root || (!Active && !Completed)) return;
             elapsed += Mathf.Clamp(dt, 0f, 0.1f);
+            bool completedNow = Active && elapsed >= Duration;
+            if (completedNow)
+            {
+                elapsed = Duration;
+                Active = false;
+                Completed = true;
+            }
             VisibleLineCount = CycleCount = 0;
             for (int i = 0; i < LineCount; i++)
             {
@@ -135,7 +157,7 @@ namespace Liminal
                 if (age >= GatherDuration && age < GatherDuration + ScrollDuration) VisibleLineCount++;
                 if (age >= LineDuration) CycleCount++;
             }
-            if (Active && elapsed >= Duration) { Active = false; Completed = true; }
+            if (completedNow) CycleCount = LineCount;
             UpdateSlots();
         }
 
@@ -162,7 +184,8 @@ namespace Liminal
                 largest = Mathf.Max(largest, clouds[i].Count);
             }
 
-            StableParticleCount = largest * SlotCount;
+            ParticlesPerLine = largest;
+            StableParticleCount = largest * PoolSize;
             seen = new bool[Lines.Length];
             for (int i = 0; i < clouds.Length; i++)
             {
@@ -178,12 +201,12 @@ namespace Liminal
 
         void UpdateSlots()
         {
-            // Each pool returns to the same ambient positions before taking its next row.
-            for (int slot = 0; slot < SlotCount; slot++)
+            int latestStarted = Mathf.FloorToInt(elapsed / LineInterval);
+            for (int slot = 0; slot < PoolSize; slot++)
             {
-                int cycle = Mathf.Clamp(Mathf.FloorToInt((elapsed - slot * LineInterval) / LineDuration),
-                    0, (LineCount - 1 - slot) / SlotCount);
-                int index = slot + cycle * SlotCount;
+                int latestForSlot = latestStarted - PositiveMod(latestStarted - slot, PoolSize);
+                int lastForSlot = LineCount - 1 - PositiveMod(LineCount - 1 - slot, PoolSize);
+                int index = Mathf.Min(Mathf.Max(slot, latestForSlot), lastForSlot);
                 if (slotLines[slot] != index)
                 {
                     slotLines[slot] = index;
@@ -196,8 +219,19 @@ namespace Liminal
                 block.SetFloat("_AmbientOnly", Completed ? 1f : 0f);
                 block.SetFloat("_CreditsCycle", elapsed - index * LineInterval);
                 block.SetFloat("_CreditsElapsed", elapsed);
+                block.SetFloat("_CreditsGatherDuration", GatherDuration);
+                block.SetFloat("_CreditsScrollDuration", ScrollDuration);
+                block.SetFloat("_CreditsScatterDuration", ScatterDuration);
+                block.SetFloat("_CreditsReturnDuration", ReturnDuration);
+                block.SetFloat("_CreditsLineDuration", LineDuration);
+                block.SetFloat("_CreditsScrollDistance", ScrollDistance);
                 meshRenderers[slot].SetPropertyBlock(block);
             }
+        }
+
+        static int PositiveMod(int value, int divisor)
+        {
+            return (value % divisor + divisor) % divisor;
         }
 
         public void Dispose()

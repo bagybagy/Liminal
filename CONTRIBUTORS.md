@@ -1,0 +1,9 @@
+# LIMINAL Contributors
+
+The production roster contains all 75 named descendants with a verified task-assignment event. The earlier 67-person draft omitted eight assignment-backed descendants whose work was stopped or lacked a report; all eight are now included with explicit status. Counts are 69 completed, 2 stopped, and 4 unreported. These statuses describe the worker's report or explicit stop state; `completed` does not claim that work was integrated, shipped, or retained in the release. Unreported and stopped prototypes remain credited as assigned participants.
+
+Roles are concise labels grounded in the task assignment, using a generic project role where the outcome was unreported. Nicknames and model identifiers come from the local thread index; an unavailable model is never inferred. A resumed UUID is counted once. Different UUIDs with the same nickname remain separate entries. The creator credit `tete` is separate from the 75 agent contributors.
+
+`ProductionCredits.json` publishes UUID, nickname, role, model, completion status, and line-scoped evidence references (session basename, event line, and SHA-256). It contains no transcripts, raw prompts, credentials, or local absolute paths. `Tools/extract-liminal-contributors.py` reads only the selected root thread's indexed descendants and opens those sessions read-only for assignment/status evidence hashes.
+
+This is a best-effort recovery from indexed descendants, not a guarantee of complete production history. Older parent-rollout spawn details were compacted; unindexed, pruned, unavailable, or unrelated thread trees may be missing. Technology credits are limited to recorded project use: Unity 6, URP, Compute Shaders, GraphicsBuffer, DSP-scheduled audio, OpenXR, ACE-Step XL-SFT, and Unity Recorder / FFmpeg. No field-recording or harp-sample source is claimed without evidence.

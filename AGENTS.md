@@ -12,11 +12,12 @@ Preserve existing uncommitted user changes. Do not revert them during migration
 or later implementation. Commit completed features with Japanese messages that
 describe the design and technology, and push the completed Windows builds.
 
-# Release Boundary (2026-10-04)
+# Release Boundary (2026-10-05)
 
-Keep the public GitHub Release at v0.1.10 during particle and presentation
-validation. Later development builds may be committed and pushed, but do not
-publish a newer Release or replace v0.1.10 assets without user approval.
+The user authorized a new public release containing the four conditional ending
+songs, approximately three-minute contributor credits, and the full-clear
+Atlantis celebration. Preserve v0.1.10 as a historical release; publish the new
+verified Windows build as a separate release.
 
 # Bounded Work
 

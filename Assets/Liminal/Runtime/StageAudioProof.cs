@@ -37,6 +37,12 @@ namespace Liminal
                 report.firstRoomTidalMemory = true;
                 Check(game.Music.SerpentHarpReady, "The full approved harp note bank must be preloaded.");
                 report.harpBankReady = true;
+                for (int mask = 0; mask < 8; mask++) {
+                    int expected = AuthoredScore.FirstEndingTheme + RunProgress.Count((BossId)mask);
+                    Check(AuthoredScore.EndingThemeFor((BossId)mask | BossId.Whale) == expected,
+                        "Ending selection must count distinct optional bosses, not the whale or room visits.");
+                    report.endingMaskChecks++;
+                }
                 VerifyShotPhrase(AuthoredScore.Next(game.Music.Time, .3, false), false);
                 game.Music.RequestTheme(1);
                 Check(game.Music.PendingTheme == 1, "Serpent theme was not queued.");
@@ -46,11 +52,13 @@ namespace Liminal
             }
             catch (Exception exception) { errors.Add(exception.ToString()); Finish(); yield break; }
 
-            foreach (int theme in new[] { 1, 3, 4, 2, 5 })
+            foreach (int theme in new[] { 1, 3, 4, 2, 5, 6, 7, 8 })
             {
                 try
                 {
-                    game.Music.RequestTheme(theme == 5 ? 2 : theme, theme == 5);
+                    bool ending = AuthoredScore.IsEndingTheme(theme);
+                    int count = ending ? theme - AuthoredScore.FirstEndingTheme : 0;
+                    game.Music.RequestTheme(ending ? 2 : theme, ending, (BossId)((1 << count) - 1));
                     Check(!game.Music.IsCrossfading && game.Music.IncomingFadeGain == 0 &&
                         Mathf.Abs(game.Music.OutgoingFadeGain - 1) < .00001f,
                         "A scheduled crossfade must begin with incoming zero and outgoing full gain.");
@@ -94,7 +102,17 @@ namespace Liminal
                     }
                     report.transitionThemes.Add(theme);
                     if (theme == 2) report.whaleTidalMemory = true;
-                    if (theme == 5) report.endingTheme = true;
+                    if (AuthoredScore.IsEndingTheme(theme)) {
+                        Check(!game.Music.ActiveSoundtrackLoops, "An ending recording must play once without looping.");
+                        Check(clip.length >= 180 && clip.length <= 240, "Approved ending must preserve the complete source recording.");
+                        double end = boundary + timeline.sampleCount / (double)timeline.sampleRate;
+                        Check(AuthoredScore.LocalSampleAt(end + 10) == timeline.sampleCount &&
+                            Math.Abs(AuthoredScore.BeatPosition(end + 10) - AuthoredScore.BeatPosition(end)) < .00001,
+                            "Ending score must not wrap after the original recording finishes.");
+                        report.endingTheme = true;
+                        report.nonLoopingEndings++;
+                        report.endingDurations.Add(clip.length);
+                    }
                     if (theme == 1) VerifyReleasePhrase();
                     else if (theme != 3) VerifyShotPhrase(AuthoredScore.Next(game.Music.Time, .3, false), false);
                 }
@@ -350,7 +368,8 @@ namespace Liminal
             public bool harpBankReady, foldedHarpPhrase, futureThemeHarp;
             public bool futureHermitHarp, hermitGainVerified;
             public float serpentShotLevel, hermitShotLevel;
-            public int harpRangeChecks, originalShotThemesVerified;
+            public int harpRangeChecks, originalShotThemesVerified, endingMaskChecks, nonLoopingEndings;
+            public List<float> endingDurations = new();
             public int[] harpShotPitches;
             public int[] hermitHarpPitches;
             public int verifiedCrossfades, crossfadeInteriorSamples;

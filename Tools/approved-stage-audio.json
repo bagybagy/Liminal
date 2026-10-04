@@ -9,13 +9,6 @@
       "generation_record": "MusicReview/10-HypnoticCrossovers/02_Piano_VelvetKeys.json"
     },
     {
-      "theme_id": 5,
-      "name": "Ending_BreathingLine",
-      "stage": "Atlantis ending",
-      "source": "MusicReview/10-HypnoticCrossovers/raw/07_Vocalise_BreathingLine/6c0a4538-28c2-a63a-09df-e38896cfdf1d.wav",
-      "generation_record": "MusicReview/10-HypnoticCrossovers/07_Vocalise_BreathingLine.json"
-    },
-    {
       "theme_id": 4,
       "name": "Submarine_OrganicCurrent",
       "stage": "Submarine",

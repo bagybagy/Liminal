@@ -70,12 +70,13 @@ namespace Liminal
             bool sharpMatterProof=Array.IndexOf(args,"--verify-sharp-matter")>=0;
             bool comparisonProof=Array.IndexOf(args,"--verify-quad-atlantis")>=0;
             bool stageAudioProof=Array.IndexOf(args,"--verify-stage-audio")>=0;
+            bool endingReleaseProof=Array.IndexOf(args,"--verify-ending-release")>=0;
             bool capturePV=false;
 #if UNITY_EDITOR
             legacyProof|=UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false);
             capturePV=UnityEditor.EditorPrefs.GetBool("Liminal.CavernPV",false);
 #endif
-            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||encounterReview||pressureProof||finalReviewProof||whaleSplashProof||roomRetryProof||pointStudyProof||sharpMatterProof||comparisonProof||stageAudioProof||capturePV;
+            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||encounterReview||pressureProof||finalReviewProof||whaleSplashProof||roomRetryProof||pointStudyProof||sharpMatterProof||comparisonProof||stageAudioProof||endingReleaseProof||capturePV;
             BackgroundProof=ProofActive && Application.isBatchMode && Array.IndexOf(args,"--background-proof")>=0;
             if(BackgroundProof) AudioListener.volume=0f;
             CavernMode=!legacyProof && Array.IndexOf(args,"--legacy-arena")<0;
@@ -121,6 +122,7 @@ namespace Liminal
             if(cavernProof) gameObject.AddComponent<CavernProof>().Initialize(this);
             if(expansionProof) gameObject.AddComponent<ExpansionProof>().Initialize(this);
             if(journeyProof) gameObject.AddComponent<JourneyProof>().Initialize(this);
+            if(endingReleaseProof) gameObject.AddComponent<EndingReleaseProof>().Initialize(this);
             if(feedbackProof) gameObject.AddComponent<PlayerFeedbackProof>().Initialize(this);
             if(encounterReview) gameObject.AddComponent<EncounterReviewProof>().Initialize(this);
             if(pressureProof) gameObject.AddComponent<PressurePatternProof>().Initialize(this);
@@ -183,7 +185,7 @@ namespace Liminal
                 }
                 Finale.Tick(song,dt);
                 if(!ProofActive && (CaveLayout.RoomDistance(CurrentRoom,Flight.Position)<.98f || Progress.EndingStarted))
-                    Music.RequestTheme(CurrentRoom,Progress.EndingStarted);
+                    Music.RequestTheme(CurrentRoom,Progress.EndingStarted,Progress.EndingMask);
                 Horizon.Tick(song,dt,Marine.WhalePosition,Marine.WhaleRotation,Marine.WhaleVelocity,Marine.WhaleReleased);
                 World.Caverns.Tick(song,dt,Flight.Position);
                 Color atmosphere=CaveLayout.Rooms[CurrentRoom].Color*.006f;

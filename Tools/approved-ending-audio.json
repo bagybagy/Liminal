@@ -1,0 +1,46 @@
+{
+  "approved_by": "direct user approval",
+  "approval_date": "2026-10-05",
+  "license_basis": "Original ACE-Step generation; user confirmed adoption is permitted.",
+  "sample_rate": 44100,
+  "target_audio": "Assets/Liminal/Audio/TidalMemory.wav",
+  "true_peak_ceiling_dbtp": -1.5,
+  "tracks": [
+    {
+      "theme_id": 5,
+      "name": "Ending_StillLight",
+      "stage": "Ending 1",
+      "source": "MusicReview/12-VocalReferences/01_StillLight_English_source.wav",
+      "generation_record": "MusicReview/12-VocalReferences/01_StillLight_English.json",
+      "expected_seconds": 220.0,
+      "declared_bpm": 72
+    },
+    {
+      "theme_id": 6,
+      "name": "Ending_AoNoYohaku",
+      "stage": "Ending 2",
+      "source": "MusicReview/12-VocalReferences/02_AoNoYohaku_Japanese_source.wav",
+      "generation_record": "MusicReview/12-VocalReferences/02_AoNoYohaku_Japanese.json",
+      "expected_seconds": 210.0,
+      "declared_bpm": 76
+    },
+    {
+      "theme_id": 7,
+      "name": "Ending_HitoikiNoUta",
+      "stage": "Ending 3",
+      "source": "MusicReview/12-VocalReferences/03_Hitoiki_JapaneseChoir_source.wav",
+      "generation_record": "MusicReview/12-VocalReferences/03_Hitoiki_JapaneseChoir.json",
+      "expected_seconds": 225.0,
+      "declared_bpm": 80
+    },
+    {
+      "theme_id": 8,
+      "name": "Ending_MwangaWaBahari",
+      "stage": "Ending 4",
+      "source": "MusicReview/12-VocalReferences/04_MwangaWaBahari_Swahili_source.wav",
+      "generation_record": "MusicReview/12-VocalReferences/04_MwangaWaBahari_Swahili.json",
+      "expected_seconds": 225.0,
+      "declared_bpm": 108
+    }
+  ]
+}

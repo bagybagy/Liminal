@@ -1,0 +1,1623 @@
+{
+  "schemaVersion": 1,
+  "creator": {
+    "nickname": "tete",
+    "role": "Creator and Producer",
+    "evidence": [
+      {
+        "source": "User-provided creator credit"
+      }
+    ]
+  },
+  "opening": [
+    {
+      "text": "LIMINAL",
+      "heading": true,
+      "featured": true
+    },
+    {
+      "text": "ABYSSAL CHOIR",
+      "heading": true,
+      "featured": false
+    },
+    {
+      "text": "CREATED BY",
+      "heading": true,
+      "featured": false
+    },
+    {
+      "text": "tete",
+      "heading": false,
+      "featured": true
+    }
+  ],
+  "contributorHeading": "PRODUCTION CONTRIBUTORS",
+  "contributors": [
+    {
+      "id": "01a0db86-44e8-7243-a662-5432f68900bd",
+      "nickname": "Gibbs",
+      "role": "Free-Flight Navigation",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-26T11-23-24-01a0db86-44e8-7243-a662-5432f68900bd.jsonl",
+          "line": 7,
+          "sha256": "906d86c6071b92dc3d0bcda77586ede245d005d3a519f8de48d2f0be836b9cf7",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-26T11-23-24-01a0db86-44e8-7243-a662-5432f68900bd.jsonl",
+          "line": 97,
+          "sha256": "3fee19eff0dbc6b3c8df5b381a8a39f9c887fc29bb324dc887f46d158752b3d6",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0e13e-d297-7730-9be5-ea703bccb639",
+      "nickname": "Hilbert",
+      "role": "Process Audio Capture",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-27T14-03-05-01a0e13e-d297-7730-9be5-ea703bccb639.jsonl",
+          "line": 7,
+          "sha256": "59b1c631363552e639b82a1c63208672f097780f2383e7a82e2b2dedd0e13d4e",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-27T14-03-05-01a0e13e-d297-7730-9be5-ea703bccb639.jsonl",
+          "line": 84,
+          "sha256": "ee33db19689866a917b44d698cafee4852f397ee1a8a73e65d8a226e0205eae6",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0e1d2-970e-75b3-abde-3e5097a283ce",
+      "nickname": "Arendt",
+      "role": "Locomotion and Combat",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-27T16-44-30-01a0e1d2-970e-75b3-abde-3e5097a283ce.jsonl",
+          "line": 7,
+          "sha256": "f77575d64b08ce6af8a0f16d5007a5e1e142610458cba49d81d9c31b4c857017",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-27T16-44-30-01a0e1d2-970e-75b3-abde-3e5097a283ce.jsonl",
+          "line": 77,
+          "sha256": "4e4bf87fec89f73df269b3eea0658b596f14f921917d5b1bce19a36f7132dab8",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0e1d3-00d2-7872-9209-7aecd767ab33",
+      "nickname": "Hilbert",
+      "role": "Cavern Environment Art",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-27T16-44-57-01a0e1d3-00d2-7872-9209-7aecd767ab33.jsonl",
+          "line": 7,
+          "sha256": "07914540c032669dc64b812c74b5060e03292a203e6c83c540b4abea3215bd01",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-27T16-44-57-01a0e1d3-00d2-7872-9209-7aecd767ab33.jsonl",
+          "line": 130,
+          "sha256": "dbd8a026f0bd659f5834454004d6c6d035d36fbc4e7c5dd90fa36965caad704e",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0e1d3-703d-7982-b1bf-1609f9e3ccf8",
+      "nickname": "Descartes",
+      "role": "Marine Fauna and Whale",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-27T16-45-25-01a0e1d3-703d-7982-b1bf-1609f9e3ccf8.jsonl",
+          "line": 7,
+          "sha256": "3fa434204e8e72c6917eceb4ad467123c654b3128eb3b5a77849c1a35e66f976",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-27T16-45-25-01a0e1d3-703d-7982-b1bf-1609f9e3ccf8.jsonl",
+          "line": 168,
+          "sha256": "08d94daedd3d861f955afca927467535d5cc11c3a333be5eff9fb43049a991c3",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0e295-0e4d-7dd2-a7d1-05f201f4654a",
+      "nickname": "Boyle",
+      "role": "Persistent GPU Matter",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-27T20-16-54-01a0e295-0e4d-7dd2-a7d1-05f201f4654a.jsonl",
+          "line": 7,
+          "sha256": "437f4f1a326416a8cf296486a5c4c869fde1e7240a6854b1c36b7065a0530046",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-27T20-16-54-01a0e295-0e4d-7dd2-a7d1-05f201f4654a.jsonl",
+          "line": 110,
+          "sha256": "c483ad99fe8a09f3465574602657187a5823857c7bea8b898b300348c3eaf7e8",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0e295-0ff9-7d93-b5f4-4116ef0ca6f2",
+      "nickname": "Feynman",
+      "role": "Serpent Matter Transitions",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-27T20-16-55-01a0e295-0ff9-7d93-b5f4-4116ef0ca6f2.jsonl",
+          "line": 7,
+          "sha256": "bc96fa24822b92f7f8288dafc99303fcfdcc97266e65d85680208a60d7a9c1b3",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-27T20-16-55-01a0e295-0ff9-7d93-b5f4-4116ef0ca6f2.jsonl",
+          "line": 136,
+          "sha256": "21431c888e74b881bdf54d03f5c15bd206fd166fd5a444ef0d34a43bb24c0ca7",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0e398-2134-7141-a606-59c8fd38a8d0",
+      "nickname": "Chandrasekhar",
+      "role": "Serpent Combat Systems",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-28T00-59-53-01a0e398-2134-7141-a606-59c8fd38a8d0.jsonl",
+          "line": 7,
+          "sha256": "08f130bbb6067bf5ad9f90fdd3f3f93b7b581d3724c58ebd0934f31aa4901288",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-28T00-59-53-01a0e398-2134-7141-a606-59c8fd38a8d0.jsonl",
+          "line": 205,
+          "sha256": "ab61aac80a8edff7f8e458bc3127596f9f56c790e5882623dbdf2a6b8942f9a6",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0e399-1d50-7b31-9c49-6464d1f1a6aa",
+      "nickname": "Galileo",
+      "role": "Whale Particle Geometry",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-28T01-00-57-01a0e399-1d50-7b31-9c49-6464d1f1a6aa.jsonl",
+          "line": 7,
+          "sha256": "4b8f714ac3fb926ed003f501573c3634a723365913a0ae55f1aa822eb181aa29",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-28T01-00-57-01a0e399-1d50-7b31-9c49-6464d1f1a6aa.jsonl",
+          "line": 193,
+          "sha256": "933ebc2935e01897cfc9857d56495f74ecd428ff938b9958168eae9df052a6ea",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0e399-1df8-7133-9f2a-2fcd719878ab",
+      "nickname": "Aquinas",
+      "role": "Horizon Water Rendering",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-28T01-00-57-01a0e399-1df8-7133-9f2a-2fcd719878ab.jsonl",
+          "line": 7,
+          "sha256": "219b37a4b1dbb52898ec9d7f22144fb861989b8b45f7d096e934369374adeff8",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-28T01-00-57-01a0e399-1df8-7133-9f2a-2fcd719878ab.jsonl",
+          "line": 141,
+          "sha256": "ab283f583f0a66f51b70ed699b257bf920315abf74451b5adde06619b0971f48",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0e914-99f7-7bc2-89db-bbec2199ffd1",
+      "nickname": "Schrodinger",
+      "role": "Marine Environment Art",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-29T02-33-56-01a0e914-99f7-7bc2-89db-bbec2199ffd1.jsonl",
+          "line": 7,
+          "sha256": "ae0fd48086d489b6afdd68769edebf07d4bb12bbb5aaddb7e5dbc94cf0befb47",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-29T02-33-56-01a0e914-99f7-7bc2-89db-bbec2199ffd1.jsonl",
+          "line": 333,
+          "sha256": "7e1aec49fbcd88e8d71516493b704cb796daa1070b0f998cd6efb18f31e77509",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0e914-9abe-7541-b1c0-53e1284ba503",
+      "nickname": "Ptolemy",
+      "role": "Whale Motion and Marine Life",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-29T02-33-56-01a0e914-9abe-7541-b1c0-53e1284ba503.jsonl",
+          "line": 7,
+          "sha256": "d4d94e8e1df5b6d9e4aa34a64c924fc4fe9a3f09850fd3a3cc4cbf8dcc5a180c",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-29T02-33-56-01a0e914-9abe-7541-b1c0-53e1284ba503.jsonl",
+          "line": 474,
+          "sha256": "702859db64f38ed6a3e93855a1bac97d32073ffa69342c0b5a219b30e0d6a155",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0e914-9b9b-7513-b411-9fd2f87e9154",
+      "nickname": "Locke",
+      "role": "Horizon Water and Spray",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-29T02-33-57-01a0e914-9b9b-7513-b411-9fd2f87e9154.jsonl",
+          "line": 7,
+          "sha256": "f152730281f5785f7b38f1179c0a297d3ac507d9ac955ebf08deecadebc3c250",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-29T02-33-57-01a0e914-9b9b-7513-b411-9fd2f87e9154.jsonl",
+          "line": 286,
+          "sha256": "01a30d1a009cb3fe7b6337df0e3b084b63785e2404a8e507db079c8b08a7aee8",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f2c7-4a59-7d50-9008-c9a4695d0be2",
+      "nickname": "Mill",
+      "role": "Visual Comparison Audit",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-30T23-45-42-01a0f2c7-4a59-7d50-9008-c9a4695d0be2.jsonl",
+          "line": 7,
+          "sha256": "9336848d163e6f6ceee0d56e139fcb44c7c6204e40eb8a46b05c403b91529cd6",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-30T23-45-42-01a0f2c7-4a59-7d50-9008-c9a4695d0be2.jsonl",
+          "line": 354,
+          "sha256": "f4504b731c8db2b536c55faaaef810c335c3e3d1b6776794eb74f533c685dc48",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f2f7-a0a4-7d22-89a5-3a0c7305e8df",
+      "nickname": "Popper",
+      "role": "Cavern Background Art",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T00-38-29-01a0f2f7-a0a4-7d22-89a5-3a0c7305e8df.jsonl",
+          "line": 7,
+          "sha256": "c8ad90cfca4c48aa8067740bf5fb94aee8c73e5f70c3fb8cf9f72b97874e2913",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T00-38-29-01a0f2f7-a0a4-7d22-89a5-3a0c7305e8df.jsonl",
+          "line": 436,
+          "sha256": "ebd7f548bf4fdb0916d7dc3471665549288e70f08997c3c8f187db3275fa1dfe",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f2f7-a153-7651-9203-3dead08c2079",
+      "nickname": "Pascal",
+      "role": "Combat Visual Effects",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T00-38-30-01a0f2f7-a153-7651-9203-3dead08c2079.jsonl",
+          "line": 7,
+          "sha256": "ac10adde2f259c94f249fd89cb8956a0a5be3edf000fc545d11f4291c42f9855",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T00-38-30-01a0f2f7-a153-7651-9203-3dead08c2079.jsonl",
+          "line": 244,
+          "sha256": "0c537ef377544ec50fd557759332ff6ad0ffa32f169b505af58310b282b8598d",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f336-3e4e-7df3-93bc-d7e50dee08a0",
+      "nickname": "Darwin",
+      "role": "Combat and Kinematics",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T01-46-53-01a0f336-3e4e-7df3-93bc-d7e50dee08a0.jsonl",
+          "line": 7,
+          "sha256": "0aca13d5839cbb024bf065aaac425a249d3b598e7024d755925bce9efa5bdc76",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T01-46-53-01a0f336-3e4e-7df3-93bc-d7e50dee08a0.jsonl",
+          "line": 384,
+          "sha256": "fce091f9e473bd2738757cac10af712614088489bf2fb737c925db17418a074f",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f336-3f0e-76e1-a5a7-e5e84f1b2dcb",
+      "nickname": "Dewey",
+      "role": "Hit Feedback Effects",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T01-46-53-01a0f336-3f0e-76e1-a5a7-e5e84f1b2dcb.jsonl",
+          "line": 7,
+          "sha256": "571cac4a8dc61c6e91192bc97054c06e01f6195883010f3d13b25b4931cacbb3",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T01-46-53-01a0f336-3f0e-76e1-a5a7-e5e84f1b2dcb.jsonl",
+          "line": 291,
+          "sha256": "faa3f2dbf1ec4d742ce17c707cff971ba4b8f41ee4ce8ddc0b3f9a6941799f01",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f33d-ab38-76e2-a5ff-4854fb5e1536",
+      "nickname": "Sagan",
+      "role": "Whale Deformation",
+      "model": "gpt-6.1-sol",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T01-55-00-01a0f33d-ab38-76e2-a5ff-4854fb5e1536.jsonl",
+          "line": 7,
+          "sha256": "bd04ddde086c4e693a65b5a1c22947976ba0119e0b33d212572a0b779ab7e81a",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T01-55-00-01a0f33d-ab38-76e2-a5ff-4854fb5e1536.jsonl",
+          "line": 118,
+          "sha256": "dd0af19fb6f4cd0694a6846f87c1a8090541563cb8d1e6fa0b16fee3bd49a314",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f33f-6231-7be2-b13e-ee1fc2223409",
+      "nickname": "Laplace",
+      "role": "Cavern Environment Refinement",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T01-56-52-01a0f33f-6231-7be2-b13e-ee1fc2223409.jsonl",
+          "line": 7,
+          "sha256": "935bcc4c51633aeab3e0bdb03722328da5e4379a677f8a7179097e8447d88eae",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T01-56-52-01a0f33f-6231-7be2-b13e-ee1fc2223409.jsonl",
+          "line": 383,
+          "sha256": "2a1827cf6845614b13ee3a23a1c1c25edcd5494e832b5498be30d380ea852c60",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f33f-62dc-73b0-8b24-dbbf6981cf11",
+      "nickname": "Lagrange",
+      "role": "Water Surface Effects",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T01-56-52-01a0f33f-62dc-73b0-8b24-dbbf6981cf11.jsonl",
+          "line": 7,
+          "sha256": "b936e2243893c69f31e1046e2ac868bfce1775768e0ba9f70f8bf07f24f745b0",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T01-56-52-01a0f33f-62dc-73b0-8b24-dbbf6981cf11.jsonl",
+          "line": 202,
+          "sha256": "f3abf637a2f89f37ebeb1ba743194bc13457353e3ab022a68432fbd8edc7f06d",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f34e-58da-7733-a7f5-646fdbbb263b",
+      "nickname": "Leibniz",
+      "role": "Cavern Verification",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T02-13-13-01a0f34e-58da-7733-a7f5-646fdbbb263b.jsonl",
+          "line": 7,
+          "sha256": "58bd197f00021623c98316934afafe021531c7ad7703b267059228c9cef8f03b",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T02-13-13-01a0f34e-58da-7733-a7f5-646fdbbb263b.jsonl",
+          "line": 324,
+          "sha256": "4ee021f3d731e56ade9b5b2859e5a2f9e497e3fe10c181a3fd19988e0af1e66f",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f396-a4d5-7893-af4a-c31526866f22",
+      "nickname": "Goodall",
+      "role": "Whale and Dolphin Lifecycle",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T03-32-11-01a0f396-a4d5-7893-af4a-c31526866f22.jsonl",
+          "line": 7,
+          "sha256": "a12b88b8bd2d22e1ca0edbb11755c05601c3cc63bd58f761727ab142a55677b7",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T03-32-11-01a0f396-a4d5-7893-af4a-c31526866f22.jsonl",
+          "line": 366,
+          "sha256": "a7d0850383dff4fc88da3ea1db0307b176cace8481a4da2d4241287b56901a13",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f396-a583-7f30-84fe-1ec3b6b8f730",
+      "nickname": "Singer",
+      "role": "Dolphin Locomotion",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T03-32-11-01a0f396-a583-7f30-84fe-1ec3b6b8f730.jsonl",
+          "line": 7,
+          "sha256": "93c0fd8cc124a508da87e168967e5f51486ac6bd9d4ecebbed1ba1e7cb33fc5f",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T03-32-11-01a0f396-a583-7f30-84fe-1ec3b6b8f730.jsonl",
+          "line": 95,
+          "sha256": "e369ba4b7c5522e15fdccb30bf0cfea7b1a891242bfff8da5322a2d611947239",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f48e-4524-7851-9190-6bef0f14b061",
+      "nickname": "Wegener",
+      "role": "Dolphin Combat and Music",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T08-02-39-01a0f48e-4524-7851-9190-6bef0f14b061.jsonl",
+          "line": 7,
+          "sha256": "b581ef5610bdbd41c6da4e485061b390a6662a2fe99e3812b98aacef48139f1b",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T08-02-39-01a0f48e-4524-7851-9190-6bef0f14b061.jsonl",
+          "line": 171,
+          "sha256": "5ad1f2ac5bf0b4f52ef8e3f4ec682aac8036d0e08ecf25f79fdc6f47077fb2bc",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f492-dd76-7aa1-94dc-ec68f47a5a91",
+      "nickname": "Jason",
+      "role": "Gameplay Capture Tooling",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T08-07-40-01a0f492-dd76-7aa1-94dc-ec68f47a5a91.jsonl",
+          "line": 7,
+          "sha256": "d9f5728fd2c8d2f8597800c93e4f042befea65cca07a36c47616c00ac88965e3",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T08-07-40-01a0f492-dd76-7aa1-94dc-ec68f47a5a91.jsonl",
+          "line": 388,
+          "sha256": "195ded9c06f821d3ed80a674bc3e6025da0e5aeac833cae9c38682996216ac59",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f64d-da38-78a2-a209-19615f2cfe5a",
+      "nickname": "Euclid",
+      "role": "Hermit Crab Encounter",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T16-11-32-01a0f64d-da38-78a2-a209-19615f2cfe5a.jsonl",
+          "line": 7,
+          "sha256": "aaaeea66049f2fdf7b6ca36de162dd639510b2fec8ec2b5d18933a9fdd435520",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T16-11-32-01a0f64d-da38-78a2-a209-19615f2cfe5a.jsonl",
+          "line": 542,
+          "sha256": "0b4cea0f5a727913545592cc48a36a86075baca36e22293e0fd6c5d69315b93a",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f64d-dae8-76c2-b54f-ea2209e2a14f",
+      "nickname": "Epicurus",
+      "role": "Submarine Encounter",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T16-11-32-01a0f64d-dae8-76c2-b54f-ea2209e2a14f.jsonl",
+          "line": 7,
+          "sha256": "da4805b6f5ca85548d8100829247d12dfb1963080a772a17d5b5d7e239cb3a47",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T16-11-32-01a0f64d-dae8-76c2-b54f-ea2209e2a14f.jsonl",
+          "line": 461,
+          "sha256": "db45de97dcd40097b9442dfcd5d1e158c0e83f4bd10d8ca3bc3814e6a31f9df1",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f64d-dbe7-72d2-b29f-120a6e5b7f70",
+      "nickname": "McClintock",
+      "role": "Interactive Tutorial",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T16-11-32-01a0f64d-dbe7-72d2-b29f-120a6e5b7f70.jsonl",
+          "line": 7,
+          "sha256": "49f6d50202855ecbdbff00031fc9ce3f6b04bea53f6a02bc66cf7aeb4feed3b6",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T16-11-32-01a0f64d-dbe7-72d2-b29f-120a6e5b7f70.jsonl",
+          "line": 503,
+          "sha256": "a3a43a0b43131506086484436415dc0d20930df7ddcfe7e68c36614f4888f36d",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f698-d9fc-7362-bf49-511439a08fd4",
+      "nickname": "Kant",
+      "role": "Portal Effects",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T17-33-27-01a0f698-d9fc-7362-bf49-511439a08fd4.jsonl",
+          "line": 7,
+          "sha256": "8fc57e994928a079f5fba237b10d6b35d31270fe3e124996caed7c63f2912af2",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T17-33-27-01a0f698-d9fc-7362-bf49-511439a08fd4.jsonl",
+          "line": 171,
+          "sha256": "a4ef90ef8e18a401ce1b84ceef25c2527b53bef99e3b102a1d75e315278e5e8a",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f6aa-4d98-7901-844e-edbbc085f1bc",
+      "nickname": "Hooke",
+      "role": "Display Brightness Controls",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T17-52-31-01a0f6aa-4d98-7901-844e-edbbc085f1bc.jsonl",
+          "line": 7,
+          "sha256": "3a15d65bb0febd648b6959087b3475738b770320cd808ad770701399786d617f",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T17-52-31-01a0f6aa-4d98-7901-844e-edbbc085f1bc.jsonl",
+          "line": 162,
+          "sha256": "e3df8144cf3d992a3491f9dc5175236ddd718b518a0eda61eab5c14df90243ba",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f75c-15c9-7730-9b8d-716c08b3d96c",
+      "nickname": "Peirce",
+      "role": "Hermit Character Redesign",
+      "model": "gpt-6.1-sol",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T21-06-42-01a0f75c-15c9-7730-9b8d-716c08b3d96c.jsonl",
+          "line": 7,
+          "sha256": "0d0c2129e45fcdb53eecae1c8f42d6caed995576dbb91f030bfb56ebd3b2af63",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T21-06-42-01a0f75c-15c9-7730-9b8d-716c08b3d96c.jsonl",
+          "line": 191,
+          "sha256": "e3f5cfa42ce15ae9b0447eb98c06855d2de7db64f05393f4c54cdc91e5c52717",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f75c-1684-75a0-849b-1e5e440c6713",
+      "nickname": "Gauss",
+      "role": "Submarine Character Redesign",
+      "model": "gpt-6.1-sol",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T21-06-42-01a0f75c-1684-75a0-849b-1e5e440c6713.jsonl",
+          "line": 7,
+          "sha256": "e0974faf0631db156d3d1a1d63e3b871733f8222e8fe44ad098cb72dfb3012c9",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T21-06-42-01a0f75c-1684-75a0-849b-1e5e440c6713.jsonl",
+          "line": 106,
+          "sha256": "a31274133ab8f5446339b38fd6e0bf557107a34a0781c8e1247a1f2689aba776",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f75c-178c-7760-b16a-c4f8c577c0d6",
+      "nickname": "Curie",
+      "role": "Cave Passage Visuals",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T21-06-42-01a0f75c-178c-7760-b16a-c4f8c577c0d6.jsonl",
+          "line": 7,
+          "sha256": "41ce1ab9243f29f83b7b58b47fb0d10e2187dd330ffd35a9ed1927395835e3e3",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T21-06-42-01a0f75c-178c-7760-b16a-c4f8c577c0d6.jsonl",
+          "line": 350,
+          "sha256": "2b1100abf5897ed7f45af6e4667f83c8b736f6473df6d70beb47f750737a065e",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f784-f474-7881-bd7b-4d3c5fedb7e0",
+      "nickname": "Meitner",
+      "role": "Visual Architecture Review",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T21-51-20-01a0f784-f474-7881-bd7b-4d3c5fedb7e0.jsonl",
+          "line": 7,
+          "sha256": "235980c5d3d85635571b305edcd9d260686e180a671f6580dc67d4e83e9b64c6",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T21-51-20-01a0f784-f474-7881-bd7b-4d3c5fedb7e0.jsonl",
+          "line": 108,
+          "sha256": "018cba51ece181d002cb21859aabe95d710b13db0750d9695672e8911d877b6d",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f7c9-3546-7960-8b73-647a5cfc3cad",
+      "nickname": "Noether",
+      "role": "Hermit Boss Encounter",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T23-05-53-01a0f7c9-3546-7960-8b73-647a5cfc3cad.jsonl",
+          "line": 7,
+          "sha256": "a30fcbc1d2d6a9405d567458bd024cf24b53812befb61e1faf051ae3afe80b58",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T23-05-53-01a0f7c9-3546-7960-8b73-647a5cfc3cad.jsonl",
+          "line": 594,
+          "sha256": "aa024e7b701c43511d7260dd093e12bf242ebc0e86cd86292c718fb7c0d4cb47",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f7c9-3602-7131-9638-4a82a571908e",
+      "nickname": "Kuhn",
+      "role": "Cave Layout and Shoals",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T23-05-55-01a0f7c9-3602-7131-9638-4a82a571908e.jsonl",
+          "line": 7,
+          "sha256": "12d6430ed521db00def0a41957bd041ae576e6dd02ed9e5dff40ac2a32e31616",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T23-05-55-01a0f7c9-3602-7131-9638-4a82a571908e.jsonl",
+          "line": 381,
+          "sha256": "7d5ea3f254f43c4f73f94b73def560295968fbef2d5f4022b9dd7506cbdd0fb1",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f7c9-3a97-7e03-968c-db7f88ac99af",
+      "nickname": "Ohm",
+      "role": "Stage Music Transport",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T23-05-55-01a0f7c9-3a97-7e03-968c-db7f88ac99af.jsonl",
+          "line": 7,
+          "sha256": "916e77fc83bccdaffee6d8682214ed2c2c945d5b19cb1b19ba649f6b25a80c7a",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T23-05-55-01a0f7c9-3a97-7e03-968c-db7f88ac99af.jsonl",
+          "line": 705,
+          "sha256": "d97794bef8c60b5da838a5e56a8ea22ed3da4df8e5e4a11a9b1841908055890e",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f7cb-2a71-7fd2-a2ef-4e25ffc9c52f",
+      "nickname": "Fermat",
+      "role": "Stage Inheritance",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T23-08-02-01a0f7cb-2a71-7fd2-a2ef-4e25ffc9c52f.jsonl",
+          "line": 7,
+          "sha256": "19bd3cfa9e132901bf448c37244066b25b76c868ec31fdbf4e3d4426679e61e8",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T23-08-02-01a0f7cb-2a71-7fd2-a2ef-4e25ffc9c52f.jsonl",
+          "line": 1022,
+          "sha256": "dd510fe2d65b786e1ce2806995c8b2a9a726ee1b655557e3929fbb6414e5f72c",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f7cb-2b28-7a73-a6fd-5f97c062f6c0",
+      "nickname": "Halley",
+      "role": "Atlantis Finale",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T23-08-02-01a0f7cb-2b28-7a73-a6fd-5f97c062f6c0.jsonl",
+          "line": 7,
+          "sha256": "64dfd00a4b6a9fbdef5c170f4cf3d0a7d44696259385ef9009bbee7ec524a43e",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T23-08-02-01a0f7cb-2b28-7a73-a6fd-5f97c062f6c0.jsonl",
+          "line": 446,
+          "sha256": "a98366e105b2e29c0e7157b1b7022a0e9a712c653a3022da758806844451cfb7",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f7cc-5ba8-7fc0-b776-9f869f3980d8",
+      "nickname": "Tesla",
+      "role": "PCVR OpenXR Integration",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T23-09-20-01a0f7cc-5ba8-7fc0-b776-9f869f3980d8.jsonl",
+          "line": 7,
+          "sha256": "77ef99e9935aa89790423094e09ed19a31194ce19a8fcc9ca88a9a534ab0af7b",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T23-09-20-01a0f7cc-5ba8-7fc0-b776-9f869f3980d8.jsonl",
+          "line": 1014,
+          "sha256": "5ff2775ae0fcccbfd514bb134b7cdbea8e155278f690e18d01e2736895baac55",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f805-436a-7b91-81d6-4ca74ad28fd7",
+      "nickname": "Arendt",
+      "role": "Gameplay Systems Review",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-02T00-11-29-01a0f805-436a-7b91-81d6-4ca74ad28fd7.jsonl",
+          "line": 7,
+          "sha256": "6fddf8edcd8dc759917c097b4e9b97cf406e5f0a4ba194df4de7ac48690773c3",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-02T00-11-29-01a0f805-436a-7b91-81d6-4ca74ad28fd7.jsonl",
+          "line": 121,
+          "sha256": "45ce180f1f43570308c241c95ef8c4c4bbd0587b416baa8deca480375149d4af",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f88b-947c-79c3-8ff4-140762d17ff0",
+      "nickname": "Hubble",
+      "role": "Audio Sample Research",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-02T02-38-12-01a0f88b-947c-79c3-8ff4-140762d17ff0.jsonl",
+          "line": 7,
+          "sha256": "5fe09b6eaf09648b616f6ca2ee98e79d1b4987ff55e0db67753841118fe64d19",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-02T02-38-12-01a0f88b-947c-79c3-8ff4-140762d17ff0.jsonl",
+          "line": 201,
+          "sha256": "d8aeabfe4299b22056c78619a0994e7b932f245374436b3d0345044830062a09",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f8a5-592b-7f90-ad4d-7796235f7ecf",
+      "nickname": "Boole",
+      "role": "PCVR Flight and Menus",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-02T03-06-21-01a0f8a5-592b-7f90-ad4d-7796235f7ecf.jsonl",
+          "line": 7,
+          "sha256": "d1046a92c75fa4c4c003645f01f10cb20d35f3b114269f96677fda1c2e78515b",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-02T03-06-21-01a0f8a5-592b-7f90-ad4d-7796235f7ecf.jsonl",
+          "line": 146,
+          "sha256": "88532e06ada803f7c03bc16486cb84907a5ef43f6ae00f00b00f211c4161b651",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f8a5-59dd-7293-8476-f8ab3dcb4a3d",
+      "nickname": "Harvey",
+      "role": "VR Targeting Policy",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-02T03-06-21-01a0f8a5-59dd-7293-8476-f8ab3dcb4a3d.jsonl",
+          "line": 7,
+          "sha256": "3235678a183a88648e2d9e94c68112e4aae9855b1d95036e63511d747a5219e2",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-02T03-06-21-01a0f8a5-59dd-7293-8476-f8ab3dcb4a3d.jsonl",
+          "line": 140,
+          "sha256": "496dead5ab480045f20c167aa4aeef84e2857165b023fb3f5d6d82df3c3e54ab",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0fadc-60e3-7bd0-8a33-fda9672eb129",
+      "nickname": "Euler",
+      "role": "Capture Footage Review",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-02T13-25-41-01a0fadc-60e3-7bd0-8a33-fda9672eb129.jsonl",
+          "line": 7,
+          "sha256": "ccfc194abf412116d815d508c3c193bc9310e25dab2b34023e789cf0efa78277",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-02T13-25-41-01a0fadc-60e3-7bd0-8a33-fda9672eb129.jsonl",
+          "line": 232,
+          "sha256": "4d3b0da01df6f219c45de8c9c657a66109448406c21d7bb289bf62924f9cfead",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0fb1a-5073-7531-9a93-e7b691a3aa7a",
+      "nickname": "Parfit",
+      "role": "Desktop Credits HUD",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-02T14-33-20-01a0fb1a-5073-7531-9a93-e7b691a3aa7a.jsonl",
+          "line": 7,
+          "sha256": "5ac4c1cef63f30f29e4ad79be4f70a304d8ded0aabf770828f1048dc4c72d035",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-02T14-33-20-01a0fb1a-5073-7531-9a93-e7b691a3aa7a.jsonl",
+          "line": 120,
+          "sha256": "7bfac26bb8e27a60332a10d81ff070c307667c03c8dc3b28ab79464cba69d8ff",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0fdbf-47dc-7421-a395-00f25a98aa87",
+      "nickname": "Aquinas",
+      "role": "Submarine Encounter",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-03T02-52-46-01a0fdbf-47dc-7421-a395-00f25a98aa87.jsonl",
+          "line": 7,
+          "sha256": "ac70b4a2f8aa5ca3983951f2d7b6aa2a13490e1b2aef65b0947631a03bfab7d4",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-03T02-52-46-01a0fdbf-47dc-7421-a395-00f25a98aa87.jsonl",
+          "line": 297,
+          "sha256": "9d37fac86fcaf368ac54f37698082d8e962219a400210b846c1b64fa243eb012",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0fdbf-4895-7490-8e70-3700c20265a3",
+      "nickname": "Galileo",
+      "role": "VR HUD and Feedback",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-03T02-52-46-01a0fdbf-4895-7490-8e70-3700c20265a3.jsonl",
+          "line": 7,
+          "sha256": "50e1a3142f9f822070aea932e6a485d2b5252c2cc276e36f9616caee88c9366d",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-03T02-52-46-01a0fdbf-4895-7490-8e70-3700c20265a3.jsonl",
+          "line": 343,
+          "sha256": "e895e716cbc7828bd55e2560173ab40d8ebb32d6680b31a8e780448c3b9a0bc6",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0fdbf-49a5-7e80-8b66-734b9256a07a",
+      "nickname": "Kepler",
+      "role": "Whale Arrival Lighting",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-03T02-52-47-01a0fdbf-49a5-7e80-8b66-734b9256a07a.jsonl",
+          "line": 7,
+          "sha256": "5b9cf23fe32bd46c718ab1d1aa39021d26d1c55dc6742b098ed0677726fa9d71",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-03T02-52-47-01a0fdbf-49a5-7e80-8b66-734b9256a07a.jsonl",
+          "line": 406,
+          "sha256": "8b3c21cc2aa53069d49ad6ad67770fbc2a9587abb58af3653bc635dc87fc15c3",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0fe00-7eb1-7530-a90b-03d0956820cd",
+      "nickname": "Maxwell",
+      "role": "Dolphin Encounter",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-03T04-04-00-01a0fe00-7eb1-7530-a90b-03d0956820cd.jsonl",
+          "line": 7,
+          "sha256": "c5e47a291f82ab303ae4663ee2bdb52aff7ac74334b3d62287452506d6d50523",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-03T04-04-00-01a0fe00-7eb1-7530-a90b-03d0956820cd.jsonl",
+          "line": 126,
+          "sha256": "868641ec7907b52b3612f55837d5a1bbd78c5cf94594df0d10980eed037f855b",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a10152-1f0f-75b1-842a-25004b538a8e",
+      "nickname": "Pauli",
+      "role": "Final Review Proof",
+      "model": "gpt-6.1-sol",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-03T19-32-01-01a10152-1f0f-75b1-842a-25004b538a8e.jsonl",
+          "line": 7,
+          "sha256": "e9ac6f98f38cb19c13f98795adab88151891ed3c0f932e31b019a77647b49717",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-03T19-32-01-01a10152-1f0f-75b1-842a-25004b538a8e.jsonl",
+          "line": 204,
+          "sha256": "7d17527c03fde183c888cf4ff2f5be8af9933e5949b1f5feb6d18a85986300ea",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a10152-1fda-78b0-9dfd-405c956a2611",
+      "nickname": "Boole",
+      "role": "Boss Release Music",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-03T19-32-01-01a10152-1fda-78b0-9dfd-405c956a2611.jsonl",
+          "line": 7,
+          "sha256": "9954b8c93bcef36701e789245a4d8ef15a5f685d18920a75a20cecbe952632a8",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-03T19-32-01-01a10152-1fda-78b0-9dfd-405c956a2611.jsonl",
+          "line": 156,
+          "sha256": "3081867e9a57ed7a4641ac7877c16be79379cab3a01115083d7b0498d4b8416f",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a1018b-8d4e-7e13-b3ba-083f2ee8f0a4",
+      "nickname": "Socrates",
+      "role": "Whale Splash Proof",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-03T20-34-45-01a1018b-8d4e-7e13-b3ba-083f2ee8f0a4.jsonl",
+          "line": 7,
+          "sha256": "7f825dbcaa158f9ddd38b206e1e557459846540cf017f545e132bc1e87de4ae0",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-03T20-34-45-01a1018b-8d4e-7e13-b3ba-083f2ee8f0a4.jsonl",
+          "line": 67,
+          "sha256": "7b25895fa3a649dff5ac00ead67a12fa2458a836b3f0919ebb116fcc922917f4",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a101c4-4ea3-7491-a26a-e3af0c2df24d",
+      "nickname": "Gibbs",
+      "role": "Combat Flow and Feedback",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-03T21-36-44-01a101c4-4ea3-7491-a26a-e3af0c2df24d.jsonl",
+          "line": 7,
+          "sha256": "93040dccfc531e89a6bcdb44dacc139985c660ea47b93cc10f4698df7b67b212",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-03T21-36-44-01a101c4-4ea3-7491-a26a-e3af0c2df24d.jsonl",
+          "line": 253,
+          "sha256": "24edb3deaf083b1050f8feb47096d4b223fbb44333aa85fa3eb235658af53297",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a1026c-9209-7880-b21e-70c9e2606074",
+      "nickname": "Epicurus",
+      "role": "Atlantis Particle Life",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-04T00-40-32-01a1026c-9209-7880-b21e-70c9e2606074.jsonl",
+          "line": 7,
+          "sha256": "a64b67b982b303e9acabaab135cf72ff1b924fa7b752c8a4e7a4af148dc8153d",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-04T00-40-32-01a1026c-9209-7880-b21e-70c9e2606074.jsonl",
+          "line": 105,
+          "sha256": "3013610b3aa24e2798206999dc32522fa6785048cf865c90d1aed85d20e6d89b",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a102bc-9514-74a0-9b78-206a2a20ecf1",
+      "nickname": "Confucius",
+      "role": "Room Retry Checkpoints",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-04T02-07-55-01a102bc-9514-74a0-9b78-206a2a20ecf1.jsonl",
+          "line": 7,
+          "sha256": "e9d6e045010434dab9863546765ae3fd4e617154a64fbe726fa847042d0a7e4e",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-04T02-07-55-01a102bc-9514-74a0-9b78-206a2a20ecf1.jsonl",
+          "line": 222,
+          "sha256": "6052c8a89cd52c797871c3525230f390b68af9515a220c46f8eeac9fc36ae978",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a102fb-1759-7c30-8db1-f7f1ac2267e0",
+      "nickname": "Locke",
+      "role": "Particle Sharpness Proof",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-04T03-16-12-01a102fb-1759-7c30-8db1-f7f1ac2267e0.jsonl",
+          "line": 7,
+          "sha256": "616b99a8fb14edd1213974e7549de61bcd9868c6220487e4d7d7dd9465c8870d",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-04T03-16-12-01a102fb-1759-7c30-8db1-f7f1ac2267e0.jsonl",
+          "line": 145,
+          "sha256": "12c4f7d69a9381f7153738e06e17641e6894045a0174469f57b106524dc8cb4e",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a1050c-046f-7ef1-8a37-816de929f713",
+      "nickname": "Carson",
+      "role": "Sharp Particle Shaders",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-04T12-53-56-01a1050c-046f-7ef1-8a37-816de929f713.jsonl",
+          "line": 7,
+          "sha256": "777b574d632d370fef70e8e7b722119a2c6994775fde21a713dc04ff5b770cdc",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-04T12-53-56-01a1050c-046f-7ef1-8a37-816de929f713.jsonl",
+          "line": 185,
+          "sha256": "2c403d529056b7c07c65d098e1f5bca9f7759f15abd6aafd3c2ef8f9b43d93fe",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a1050c-0529-7753-a4da-c631c68d2d32",
+      "nickname": "Russell",
+      "role": "Sharp Grain Rendering",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-04T12-53-57-01a1050c-0529-7753-a4da-c631c68d2d32.jsonl",
+          "line": 7,
+          "sha256": "73be84a3df6f6873855b81df4c40c7fc124e58e2467b0dff80c9bbb77be15f15",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-04T12-53-57-01a1050c-0529-7753-a4da-c631c68d2d32.jsonl",
+          "line": 304,
+          "sha256": "d66803b739ace8527c183fd5ac354ec7e412fb282435fc48978ceee28a6c438c",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a10579-86ca-7d23-8dd2-377296defc8e",
+      "nickname": "Franklin",
+      "role": "Particle Rendering Controls",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-04T14-53-32-01a10579-86ca-7d23-8dd2-377296defc8e.jsonl",
+          "line": 7,
+          "sha256": "bafe37533eab9854da8023996e4ecddec03f4506adfd00513766679e5ba23cc1",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-04T14-53-32-01a10579-86ca-7d23-8dd2-377296defc8e.jsonl",
+          "line": 437,
+          "sha256": "d157a7de5fe559a5ae0fc9b4c5013de9ea8083ee2291665045aff35412ece2ba",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a10579-8790-7c13-b393-3133d99677b2",
+      "nickname": "Avicenna",
+      "role": "Atlantis Architecture",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-04T14-53-33-01a10579-8790-7c13-b393-3133d99677b2.jsonl",
+          "line": 7,
+          "sha256": "9d95c7891adca5a0a9ad88b9a517c55e68e9ff3fbd3ff26f41c7f70f63f06572",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-04T14-53-33-01a10579-8790-7c13-b393-3133d99677b2.jsonl",
+          "line": 376,
+          "sha256": "e10ab532656da2006650e55a6cdd404a96caee7d1901421a92d3e562c9f16957",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a105c6-5350-7333-884c-a2575790f38a",
+      "nickname": "Linnaeus",
+      "role": "VR Pause and Tutorial",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-04T16-17-26-01a105c6-5350-7333-884c-a2575790f38a.jsonl",
+          "line": 7,
+          "sha256": "5dfe01077e4480c8c76a23cb6fb284b032a0b7b58aec0a05f439d6aa3252a966",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-04T16-17-26-01a105c6-5350-7333-884c-a2575790f38a.jsonl",
+          "line": 603,
+          "sha256": "e992995b97e99d11c47641554843935526cc069fd75e20122468e05d7212dc89",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a106bd-7006-7ac0-add7-e5dbb09feb94",
+      "nickname": "Peirce",
+      "role": "Ending Audio Preparation",
+      "model": "gpt-6.1-sol",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-04T20-47-20-01a106bd-7006-7ac0-add7-e5dbb09feb94.jsonl",
+          "line": 7,
+          "sha256": "68ed75337201ee3c293248f7187a3a7f1a38aa1aeaf32453b468df2de47828a5",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-04T20-47-20-01a106bd-7006-7ac0-add7-e5dbb09feb94.jsonl",
+          "line": 110,
+          "sha256": "d511501e461e50644dc43e9ad5704c1c8630e2858ed84e2f8fdecbcd895b3c93",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a10799-7ccb-7832-8d03-4fa2d2369133",
+      "nickname": "Wegener",
+      "role": "Ending Audio Assets",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-05T00-47-41-01a10799-7ccb-7832-8d03-4fa2d2369133.jsonl",
+          "line": 7,
+          "sha256": "4d526bee4372bda172559ce7b6a02f4feec2774143947ca01f7b69e7087d1d0c",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-05T00-47-41-01a10799-7ccb-7832-8d03-4fa2d2369133.jsonl",
+          "line": 331,
+          "sha256": "a61b6e8d54580f8ece13c6abf384a5fb475afd07d7a9b83e87a8ea97a437096b",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a10799-7d8c-7e82-a0f2-52a693dbae98",
+      "nickname": "Popper",
+      "role": "Staff Credits and Provenance",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-05T00-47-42-01a10799-7d8c-7e82-a0f2-52a693dbae98.jsonl",
+          "line": 7,
+          "sha256": "fb653247b203c5f261fe078ea77b0137e7c18470b07db07801ba5d2f7e5aa08d",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-05T00-47-42-01a10799-7d8c-7e82-a0f2-52a693dbae98.jsonl",
+          "line": 765,
+          "sha256": "dd4982df491ad4d5ae89f833fc4e4fcefca4057c10551275380a2bc32d7e453e",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a10799-7e6d-77b3-8a52-3430cfbe8746",
+      "nickname": "Ptolemy",
+      "role": "Finale Celebration Fauna",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-05T00-47-42-01a10799-7e6d-77b3-8a52-3430cfbe8746.jsonl",
+          "line": 7,
+          "sha256": "23f56983afd258d4643393c6d1d16d757bd5946bb922ea1bde48cccf2dedccc5",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-05T00-47-42-01a10799-7e6d-77b3-8a52-3430cfbe8746.jsonl",
+          "line": 248,
+          "sha256": "7c5ac27b31b6dac506d8d6a299b0f6b3261d8df709f17f086bb150ddb649e21d",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0db86-45a3-7ea3-beec-64e97e51f1fd",
+      "nickname": "Averroes",
+      "role": "Targeting and Spatial HUD",
+      "model": "gpt-6-luna",
+      "completionStatus": "unreported",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-26T11-23-25-01a0db86-45a3-7ea3-beec-64e97e51f1fd.jsonl",
+          "line": 7,
+          "sha256": "9d75f0a0dfd27a53cb8fad22d68132b72214f9ea238cfdd94f96b1b5eadf68d8",
+          "eventName": "task assignment"
+        }
+      ]
+    },
+    {
+      "id": "01a0e194-4733-7210-b4d6-74c082580235",
+      "nickname": "Singer",
+      "role": "PV Research and Recording",
+      "model": "gpt-6-luna",
+      "completionStatus": "stopped",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-27T15-36-26-01a0e194-4733-7210-b4d6-74c082580235.jsonl",
+          "line": 7,
+          "sha256": "e6e6134cb0c88035cdfe65a3fc0524947f34fb289eba894f93012a37d3f6802b",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-27T15-36-26-01a0e194-4733-7210-b4d6-74c082580235.jsonl",
+          "line": 91,
+          "sha256": "11d39145d8e13dc13af83bd1fcc25aac4cdfe8e90a62b5d1342fd8c1da6bfc05",
+          "eventName": "stop request"
+        },
+        {
+          "file": "rollout-2026-09-27T15-36-26-01a0e194-4733-7210-b4d6-74c082580235.jsonl",
+          "line": 94,
+          "sha256": "d323f54b738a70cce1e49a9a6ed1f2ffbf9d5b7cc8d0e7391173cd379e87f01d",
+          "eventName": "stopped acknowledgment"
+        }
+      ]
+    },
+    {
+      "id": "01a0e295-0f12-75f3-ba19-973a69b23988",
+      "nickname": "Nash",
+      "role": "Marine Interactions and Persistent Forms",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-27T20-16-54-01a0e295-0f12-75f3-ba19-973a69b23988.jsonl",
+          "line": 7,
+          "sha256": "6d87e4f37ded0d7e8189a349411d58a7f632ec76038e8f9c0e4f82b352d5102b",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-09-27T20-16-54-01a0e295-0f12-75f3-ba19-973a69b23988.jsonl",
+          "line": 342,
+          "sha256": "85233a4c555b9e7732dd4fa1de23d6903ebd91dceb34e962385654cc50d13544",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0f2a3-b6f4-7f70-953c-16427e6c5c11",
+      "nickname": "Dirac",
+      "role": "Visual Architecture Audit",
+      "model": "gpt-6-luna",
+      "completionStatus": "unreported",
+      "evidence": [
+        {
+          "file": "rollout-2026-09-30T23-06-50-01a0f2a3-b6f4-7f70-953c-16427e6c5c11.jsonl",
+          "line": 7,
+          "sha256": "772c1a3847e532faa6ce581a035240d09ffeeb0c6887a8ec753f4fb35c5b3fad",
+          "eventName": "task assignment"
+        }
+      ]
+    },
+    {
+      "id": "01a0f37c-f494-7fc0-8c97-a446e29e6aeb",
+      "nickname": "Erdos",
+      "role": "PV Finishing Script",
+      "model": "gpt-6-luna",
+      "completionStatus": "stopped",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T03-04-07-01a0f37c-f494-7fc0-8c97-a446e29e6aeb.jsonl",
+          "line": 7,
+          "sha256": "41fd6d1030e1f1267b144b6706b6559d15fae2e7bb3ebe5e9d9f8d35643f1d56",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T03-04-07-01a0f37c-f494-7fc0-8c97-a446e29e6aeb.jsonl",
+          "line": 43,
+          "sha256": "5b76a857d3c415798d71344a51215b7d18fc3899687c149a38cbe716b1d42865",
+          "eventName": "stop request"
+        },
+        {
+          "file": "rollout-2026-10-01T03-04-07-01a0f37c-f494-7fc0-8c97-a446e29e6aeb.jsonl",
+          "line": 48,
+          "sha256": "8736dfcc0252cc8d3593efb95d62e5d7d8ec67dd15f69a556216f908d7de2173",
+          "eventName": "stopped acknowledgment"
+        }
+      ]
+    },
+    {
+      "id": "01a0f48f-0ce2-7292-873e-be04de944fdf",
+      "nickname": "Bacon",
+      "role": "Development Log and Media",
+      "model": "gpt-6-luna",
+      "completionStatus": "completed",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-01T08-03-30-01a0f48f-0ce2-7292-873e-be04de944fdf.jsonl",
+          "line": 7,
+          "sha256": "4164d0299f3a71d5dd64eaf1b949ff102f4b9c087892aee02ced3038647b23da",
+          "eventName": "task assignment"
+        },
+        {
+          "file": "rollout-2026-10-01T08-03-30-01a0f48f-0ce2-7292-873e-be04de944fdf.jsonl",
+          "line": 441,
+          "sha256": "6ccb98fd0507457ac8129630d922212716791ab9c5074ffe5fa2dbdde27fc699",
+          "eventName": "final response"
+        }
+      ]
+    },
+    {
+      "id": "01a0fe00-7dfd-7710-b934-d5ce108afd83",
+      "nickname": "Russell",
+      "role": "Pufferfish Encounter",
+      "model": "gpt-6-luna",
+      "completionStatus": "unreported",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-03T04-04-00-01a0fe00-7dfd-7710-b934-d5ce108afd83.jsonl",
+          "line": 7,
+          "sha256": "fc5e1ee4b269a07e48a8a8a0ae273a858226fe2431cb0babb8bc520c0530dd89",
+          "eventName": "task assignment"
+        }
+      ]
+    },
+    {
+      "id": "01a101e8-38ad-7bd2-8846-118dca8177f2",
+      "nickname": "Euclid",
+      "role": "Atlantis Visual Overhaul",
+      "model": "gpt-6-luna",
+      "completionStatus": "unreported",
+      "evidence": [
+        {
+          "file": "rollout-2026-10-03T22-15-58-01a101e8-38ad-7bd2-8846-118dca8177f2.jsonl",
+          "line": 7,
+          "sha256": "16d702d50608b5b77343edcdc8dbc8717b039980522f7bbabbbb5be31df7e259",
+          "eventName": "task assignment"
+        }
+      ]
+    }
+  ],
+  "technologyHeading": "TOOLS AND TECHNOLOGY",
+  "technologies": [
+    "Unity 6",
+    "Universal Render Pipeline",
+    "Compute Shaders",
+    "GraphicsBuffer",
+    "DSP Scheduled Audio",
+    "OpenXR",
+    "ACE-Step XL-SFT",
+    "Unity Recorder / FFmpeg"
+  ],
+  "closing": "THANK YOU FOR PLAYING",
+  "coverage": {
+    "descendantThreadCount": 75,
+    "verifiedAgentContributorCount": 75,
+    "excludedDescendantCount": 0,
+    "completionStatusCounts": {
+      "completed": 69,
+      "stopped": 2,
+      "unreported": 4
+    },
+    "note": "Every listed identity has an assignment event in the indexed descendant tree. Completion status describes reported task state, not integration or shipment. Same UUIDs resumed once; different UUIDs with matching nicknames remain separate. Compacted, unindexed, or pruned history may be missing."
+  }
+}

@@ -8,6 +8,7 @@ namespace Liminal
         public int VisibleCreditRows { get; private set; }
         bool pointStudyControlsExpanded;
         GUIStyle small, regular, title, number, button, creditBody, creditHeading, comparisonStatus;
+        GUIContent[] creditContents;
         Texture2D pixel;
         static readonly Color White=new(0.89f,0.96f,0.96f), Muted=new(0.43f,0.60f,0.65f), Cyan=new(0.4f,1,0.87f), Gold=new(1,0.7f,0.32f);
         void Setup()
@@ -26,6 +27,9 @@ namespace Liminal
                 padding=new RectOffset(2,2,2,2)
             };
             creditHeading=new GUIStyle(creditBody) {fontSize=20,fontStyle=FontStyle.Bold};
+            creditContents=new GUIContent[ParticleCredits.LineCount];
+            for(int i=0;i<creditContents.Length;i++)
+                creditContents[i]=new GUIContent(ParticleCredits.GetLineText(i));
         }
         public static Rect CreditsViewport(float width,float height)
         {
@@ -123,9 +127,8 @@ namespace Liminal
             for(int i=0;i<ParticleCredits.LineCount;i++) {
                 float age=credits.Elapsed-i*ParticleCredits.LineInterval;
                 if(age<0||age>=lifetime) continue;
-                string value=ParticleCredits.GetLineText(i);
                 GUIStyle style=ParticleCredits.IsHeading(i)?creditHeading:creditBody;
-                GUIContent content=new(value);
+                GUIContent content=creditContents[i];
                 float rowHeight=Mathf.Max(style.fontSize+6,style.CalcHeight(content,viewport.width)+2);
                 float scroll=Mathf.Clamp01((age-ParticleCredits.GatherDuration)/ParticleCredits.ScrollDuration);
                 float rowY=viewport.height-rowHeight-scroll*(viewport.height+rowHeight);

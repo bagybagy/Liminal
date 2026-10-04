@@ -16,7 +16,7 @@ namespace Liminal
         static readonly float HermitShotBoost = (float)Math.Pow(10, 3 / 20.0);
 
         readonly AudioSource[] musicSources = new AudioSource[2];
-        readonly AudioClip[] themeClips = new AudioClip[6];
+        readonly AudioClip[] themeClips = new AudioClip[AuthoredScore.ThemeCount];
         readonly AudioSource[] voices = new AudioSource[VoiceCount];
         readonly double[] voiceEnds = new double[VoiceCount];
         readonly Dictionary<int, AudioClip> notes = new();
@@ -54,6 +54,7 @@ namespace Liminal
         public int ThemeCount => AuthoredScore.ThemeCount;
         public bool StageMusicEnabled => stageMusicAvailable;
         public AudioClip ActiveSoundtrack => musicSources[activeMusicSource] ? musicSources[activeMusicSource].clip : null;
+        public bool ActiveSoundtrackLoops => musicSources[activeMusicSource] && musicSources[activeMusicSource].loop;
         public int CurrentTheme { get; private set; } = -1;
         public int PendingTheme => pendingTheme;
         public int TransitionCount { get; private set; }
@@ -197,14 +198,14 @@ namespace Liminal
             LastReleaseOnsets = new double[0];
         }
 
-        public void RequestTheme(int room, bool ending = false)
+        public void RequestTheme(int room, bool ending = false, BossId endingMask = BossId.None)
         {
             if (!initialized || !playbackStarted || !stageMusicAvailable || !LoopSoundtrack) return;
             AdvanceThemeState();
             int target;
-            if (ending) target = AuthoredScore.ThemeCount - 1;
+            if (ending) target = AuthoredScore.EndingThemeFor(endingMask);
             else {
-                if (room < 0 || room >= AuthoredScore.ThemeCount - 1) return;
+                if (room < 0 || room >= AuthoredScore.RoomThemeCount) return;
                 target = room;
             }
 
@@ -249,7 +250,7 @@ namespace Liminal
             var incoming = musicSources[scheduledMusicSource];
             incoming.Stop();
             incoming.clip = themeClips[pendingTheme];
-            incoming.loop = true;
+            incoming.loop = !AuthoredScore.IsEndingTheme(pendingTheme);
             incoming.volume = 0;
             CrossfadeProgress = 0;
             incoming.PlayScheduled(origin + ScheduledBoundary);

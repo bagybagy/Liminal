@@ -81,7 +81,7 @@ namespace Liminal
             Check(report.corridorFish==7*3*7,"Every route must retain three schools of seven fish");
             game.Restart();game.Tutorial.SetEnabled(false);
             yield return new WaitForSecondsRealtime(.4f);
-            Check(game.Music.ThemeCount==6 && (game.Music.StageMusicEnabled ? game.Music.CurrentTheme==0 :
+            Check(game.Music.ThemeCount==9 && (game.Music.StageMusicEnabled ? game.Music.CurrentTheme==0 :
                 game.Music.CurrentTheme==-1 && game.Music.ActiveSoundtrack==game.soundtrack),
                 "Music must respect the opt-in stage-theme policy");
             game.Music.RequestTheme(1);
@@ -153,7 +153,7 @@ namespace Liminal
             yield return InspectInheritance();
             yield return BeatBoss(game.Marine.WhaleResonatorTargets,()=>game.Marine.WhaleReleased,null,60);
             yield return null;
-            game.Music.RequestTheme(2,true);
+            game.Music.RequestTheme(2,true,game.Progress.EndingMask);
             Check(game.Progress.EndingStarted&&game.Progress.EndingMask==RunProgress.OptionalBosses,
                 "Whale defeat must freeze the selected Atlantis layers");
             Check(game.Combat.Peaceful&&!game.Combat.Ended,"Ending must permit free flight without hostile fire");
@@ -164,9 +164,10 @@ namespace Liminal
             report.musicTransitions=game.Music.TransitionCount;
             report.playbackPhaseError=game.Music.MaxPlaybackPhaseError;
             if(game.Music.StageMusicEnabled) {
-                Check(game.Music.CurrentTheme==5&&report.musicTransitions>=5,"Each room and ending must switch themes on the shared clock");
-                Check(Math.Abs(game.Music.LastTransitionTime/(16*Score.BeatSeconds)-Math.Round(game.Music.LastTransitionTime/(16*Score.BeatSeconds)))<.00001,
-                    "Theme changes must start on a four-bar boundary");
+                Check(game.Music.CurrentTheme==AuthoredScore.EndingThemeFor(game.Progress.EndingMask)&&report.musicTransitions>=5,
+                    "Each room and the selected ending must switch themes on the shared clock");
+                Check(AuthoredScore.GridError(game.Music.LastTransitionTime)<.00003,
+                    "Theme changes must preserve the measured sample grid");
             } else Check(game.Music.CurrentTheme==-1&&report.musicTransitions==0&&game.Music.ActiveSoundtrack==game.soundtrack,
                 "Every room and the ending must keep the original soundtrack playing");
             double frozen=game.Music.Time;game.Music.SetPaused(true);
@@ -275,8 +276,8 @@ namespace Liminal
             for(int step=0;step<184;step++) credits.Tick(song,.1f);
             report.simultaneousCredits=credits.VisibleLineCount;
             Check(report.simultaneousCredits>=4,"Staff roll must form at least four rows simultaneously");
-            Check(ParticleCredits.LineCount==19&&Mathf.Abs(ParticleCredits.Duration-96)<.01f,
-                "The shared ninety-six-second roll must include title, creator, music, technology, and workers");
+            Check(ParticleCredits.LineCount>19&&Mathf.Abs(ParticleCredits.Duration-180)<.01f,
+                "The three-minute roll must include title, creator, music, technology, and verified workers");
             Frame(credits.Position+Vector3.back*300,credits.Position);
             yield return null;Capture("credits-world.png");
             var hud=game.GetComponent<Hud>();
@@ -302,7 +303,7 @@ namespace Liminal
             report.vrCreditsExcluded=hud.VisibleCreditRows==0&&credits.Active;
             Check(report.vrCreditsExcluded,"VR must keep world glyphs but exclude the desktop overlay");
             game.Flight.EnableVr(false);
-            for(int step=0;step<1000&&!credits.Completed;step++) credits.Tick(song,.1f);
+            for(int step=0;step<1900&&!credits.Completed;step++) credits.Tick(song,.1f);
             report.creditCycles=credits.CycleCount;
             Check(credits.Completed&&report.creditCycles==ParticleCredits.LineCount&&credits.SeenLines==ParticleCredits.LineCount,
                 "Every staff-roll row must circulate and finish once");
