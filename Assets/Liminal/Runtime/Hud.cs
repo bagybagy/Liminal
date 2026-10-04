@@ -7,7 +7,7 @@ namespace Liminal
         public Experience Experience;
         public int VisibleCreditRows { get; private set; }
         bool pointStudyControlsExpanded;
-        GUIStyle small, regular, title, number, button, creditBody, creditHeading;
+        GUIStyle small, regular, title, number, button, creditBody, creditHeading, comparisonStatus;
         Texture2D pixel;
         static readonly Color White=new(0.89f,0.96f,0.96f), Muted=new(0.43f,0.60f,0.65f), Cyan=new(0.4f,1,0.87f), Gold=new(1,0.7f,0.32f);
         void Setup()
@@ -16,6 +16,7 @@ namespace Liminal
             pixel=Texture2D.whiteTexture;
             var font=Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             small=new GUIStyle {font=font,fontSize=12,normal={textColor=Muted}};
+            comparisonStatus=new GUIStyle(small) {fontSize=10};
             regular=new GUIStyle(small) {fontSize=16,normal={textColor=White}};
             title=new GUIStyle(regular) {fontSize=34};
             number=new GUIStyle(regular) {fontSize=23};
@@ -274,8 +275,8 @@ namespace Liminal
             var study=Experience.PointStudy;
             bool studyControls=Experience.CavernMode && study;
             bool expanded=studyControls && pointStudyControlsExpanded;
-            float contentHeight=expanded?638:494;
-            float scale=Mathf.Min(1,w/360,(h-24)/(expanded?662:518));
+            float contentHeight=studyControls?(expanded?694:574):(Experience.CavernMode?550:494);
+            float scale=Mathf.Min(1,w/360,(h-24)/(contentHeight+24));
             GUI.matrix=previous*Matrix4x4.Scale(new Vector3(scale,scale,1));
             w/=scale;h/=scale;
             float x=w*0.5f-150,y=(h-contentHeight)*.5f;
@@ -296,40 +297,50 @@ namespace Liminal
             GUI.enabled=enabled;
             bool motion=GUI.Toggle(new Rect(x,y+230,300,26),Experience.ReducedMotion,"  REDUCED MOTION");
             Experience.SetReducedMotion(motion);
+            var particleLook=Experience.ParticleLook;
+            bool sharp=GUI.Toggle(new Rect(x,y+263,146,25),!particleLook.IsLegacy,"SHARP QUAD",GUI.skin.button);
+            bool legacy=GUI.Toggle(new Rect(x+150,y+263,150,25),particleLook.IsLegacy,"ORIGINAL QUAD",GUI.skin.button);
+            if(sharp&&particleLook.IsLegacy) particleLook.SetStyle(false);
+            else if(legacy&&!particleLook.IsLegacy) particleLook.SetStyle(true);
+            bool sideBySide=GUI.Toggle(new Rect(x,y+290,125,25),ParticleLook.SideBySide,"  SIDE BY SIDE");
+            if(sideBySide!=ParticleLook.SideBySide) particleLook.SetSideBySide(sideBySide);
+            if(sideBySide)
+                Text(new Rect(x+128,y+290,172,25),"SHARP MAIN / ORIGINAL GHOST",comparisonStatus,Cyan,TextAnchor.MiddleCenter);
+            float actionShift=Experience.CavernMode?56:0;
             if(Experience.CavernMode) {
-                if(GUI.Button(new Rect(x,y+274,194,36),"PARTICLE TUTORIAL",button)) Experience.ReplayTutorial();
-                if(GUI.Button(new Rect(x+202,y+274,98,36),"SKIP",button)) Experience.SkipTutorial();
+                if(GUI.Button(new Rect(x,y+330,194,36),"PARTICLE TUTORIAL",button)) Experience.ReplayTutorial();
+                if(GUI.Button(new Rect(x+202,y+330,98,36),"SKIP",button)) Experience.SkipTutorial();
             }
-            if(GUI.Button(new Rect(x,y+330,300,36),"RESTART",button)) Experience.Restart();
+            if(GUI.Button(new Rect(x,y+330+actionShift,300,36),"RESTART",button)) Experience.Restart();
             if(Experience.Vr) {
                 bool enabledBefore=GUI.enabled;
                 GUI.enabled=enabledBefore&&!Experience.Vr.Starting;
-                if(GUI.Button(new Rect(x,y+382,300,36),"PC VR",button)) Experience.Vr.RequestEnable();
+                if(GUI.Button(new Rect(x,y+382+actionShift,300,36),"PC VR",button)) Experience.Vr.RequestEnable();
                 GUI.enabled=enabledBefore;
-                Text(new Rect(x,y+422,300,20),Experience.Vr.Status,small,Muted,TextAnchor.MiddleCenter);
+                Text(new Rect(x,y+422+actionShift,300,20),Experience.Vr.Status,small,Muted,TextAnchor.MiddleCenter);
             }
-            if(GUI.Button(new Rect(x,y+450,300,36),"EXIT",button)) Experience.Quit();
+            if(GUI.Button(new Rect(x,y+450+actionShift,300,36),"EXIT",button)) Experience.Quit();
             if(studyControls) {
-                expanded=GUI.Toggle(new Rect(x,y+494,300,24),pointStudyControlsExpanded,pointStudyControlsExpanded?"  POINT STUDY  -":"  POINT STUDY  +");
+                expanded=GUI.Toggle(new Rect(x,y+494+actionShift,300,24),pointStudyControlsExpanded,pointStudyControlsExpanded?"  POINT STUDY  -":"  POINT STUDY  +");
                 pointStudyControlsExpanded=expanded;
                 if(expanded) {
-                    bool visible=GUI.Toggle(new Rect(x,y+520,300,22),study.Visible,"  VISIBLE");
+                    bool visible=GUI.Toggle(new Rect(x,y+520+actionShift,300,22),study.Visible,"  VISIBLE");
                     if(visible!=study.Visible) study.SetVisible(visible);
                     bool native=study.Mode==PointStudy.RenderMode.NativePoint;
-                    bool chooseNative=GUI.Toggle(new Rect(x,y+544,144,24),native,"NATIVE POINT");
-                    bool chooseQuad=GUI.Toggle(new Rect(x+150,y+544,150,24),!native,"SHARP QUAD");
+                    bool chooseNative=GUI.Toggle(new Rect(x,y+544+actionShift,144,24),native,"NATIVE POINT");
+                    bool chooseQuad=GUI.Toggle(new Rect(x+150,y+544+actionShift,150,24),!native,"SHARP QUAD");
                     if(chooseNative&&!native) study.SetMode(PointStudy.RenderMode.NativePoint);
                     else if(chooseQuad&&native) study.SetMode(PointStudy.RenderMode.SharpQuad);
                     bool density3=study.DensityMultiplier==3;
-                    bool choose3=GUI.Toggle(new Rect(x+150,y+570,150,22),density3,"3X DENSITY");
-                    bool choose1=GUI.Toggle(new Rect(x,y+570,144,22),!density3,"1X DENSITY");
+                    bool choose3=GUI.Toggle(new Rect(x+150,y+570+actionShift,150,22),density3,"3X DENSITY");
+                    bool choose1=GUI.Toggle(new Rect(x,y+570+actionShift,144,22),!density3,"1X DENSITY");
                     if(choose3&&!density3) study.SetDensity(3);
                     else if(choose1&&density3) study.SetDensity(1);
-                    Text(new Rect(x,y+594,44,20),"GAIN",small,Muted);
-                    float gain=GUI.HorizontalSlider(new Rect(x+48,y+596,252,18),study.Gain,.25f,12f);
+                    Text(new Rect(x,y+594+actionShift,44,20),"GAIN",small,Muted);
+                    float gain=GUI.HorizontalSlider(new Rect(x+48,y+596+actionShift,252,18),study.Gain,.25f,12f);
                     if(!Mathf.Approximately(gain,study.Gain)) study.SetGain(gain);
-                    Text(new Rect(x,y+614,44,20),"FLOW",small,Muted);
-                    float flow=GUI.HorizontalSlider(new Rect(x+48,y+616,252,18),study.Flow,0f,2f);
+                    Text(new Rect(x,y+614+actionShift,44,20),"FLOW",small,Muted);
+                    float flow=GUI.HorizontalSlider(new Rect(x+48,y+616+actionShift,252,18),study.Flow,0f,2f);
                     if(!Mathf.Approximately(flow,study.Flow)) study.SetFlow(flow);
                 }
             }

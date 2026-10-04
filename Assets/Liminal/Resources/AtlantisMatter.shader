@@ -196,13 +196,25 @@ Shader "Liminal/Atlantis Matter"
                 float2 quad = input.uv.xy;
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;
                 float3 cameraUp = UNITY_MATRIX_V[1].xyz;
-                float pixelWorld = MatterPixelWorld(world);
+                float depth = max(0.01, -TransformWorldToView(world).z);
+                float legacyPixelWorld = 2.0 * depth /
+                    (max(abs(UNITY_MATRIX_P[1][1]), 0.01) * max(_ScreenParams.y, 1.0));
                 float variation = frac(seed * 73.197 + input.uv.z * 29.31);
                 float sizeTier = lerp(0.78, 1.22, variation) + roleContour * 0.07 + roleGlint * 0.12;
                 float nominalSize = input.uv.z * sizeTier * cityField.size;
-                float physicalSize = min(max(nominalSize,
-                    pixelWorld * _PixelFloor * cityField.size), 0.42);
-                float size = MatterGrainRadius(physicalSize, pixelWorld, seed, 1.3);
+                float size;
+                if (MatterIsLegacy())
+                {
+                    size = max(nominalSize,
+                        min(legacyPixelWorld * _PixelFloor * cityField.size, 0.42));
+                }
+                else
+                {
+                    float pixelWorld = MatterPixelWorld(world);
+                    float physicalSize = min(max(nominalSize,
+                        pixelWorld * _PixelFloor * cityField.size), 0.42);
+                    size = MatterGrainRadius(physicalSize, pixelWorld, seed, 1.3);
+                }
                 float3 positionWS = world +
                     (cameraRight * quad.x + cameraUp * quad.y) * size;
                 output.positionCS = TransformWorldToHClip(positionWS);
@@ -236,7 +248,10 @@ Shader "Liminal/Atlantis Matter"
                 clip(input.alpha - 0.015);
                 float radius = dot(input.uv, input.uv);
                 clip(1.0 - radius);
-                return half4(input.color * MatterSharpCore(input.uv) * 0.5, 1.0);
+                float core = MatterIsLegacy() ?
+                    exp(-radius * 6.4) * 0.88 + exp(-radius * 2.6) * 0.08 :
+                    MatterSharpCore(input.uv) * 0.5;
+                return half4(input.color * core, 1.0);
             }
             ENDHLSL
         }

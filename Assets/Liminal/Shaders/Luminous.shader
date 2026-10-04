@@ -55,10 +55,12 @@ Shader "Liminal/Luminous"
             {
                 Vary o;
                 UNITY_SETUP_INSTANCE_ID(input);
+                bool legacy = MatterIsLegacy();
                 float3 p = input.positionOS.xyz;
                 float size = input.uv.z;
                 float grainAccent = saturate(input.color.a);
-                float twinkle = MatterGrainLight(input.data.x,_Song,grainAccent);
+                float twinkle = legacy ? .85 + .15 * sin(_Song * 1.1 + input.data.x * 31) :
+                    MatterGrainLight(input.data.x,_Song,grainAccent);
                 float resonance = 0;
                 float impactCore = 0;
                 if (_Mode > 0.5 && _Mode < 1.5)
@@ -108,8 +110,9 @@ Shader "Liminal/Luminous"
                     }
                     float grainFade = death.w*(.7+death.z*_MatterDeathStyle.y);
                     float coreFade = 0.16 * exp(-age * 1.25) + 0.88 * exp(-age * 12.0);
-                    twinkle = lerp(grainFade, coreFade, impactCore) *
-                        MatterGrainLight(input.data.x,_Song,max(grainAccent,saturate(death.z)));
+                    twinkle = lerp(grainFade, coreFade, impactCore);
+                    if (!legacy)
+                        twinkle *= MatterGrainLight(input.data.x,_Song,max(grainAccent,saturate(death.z)));
                     size *= 1.0 + min(age * 0.16, 0.24);
                 }
                 else
@@ -133,10 +136,14 @@ Shader "Liminal/Luminous"
                 float3 right = UNITY_MATRIX_V[0].xyz;
                 float3 upCam = UNITY_MATRIX_V[1].xyz;
                 size *= max(1, distance * 0.006);
-                if (_Mode > 1.5 && impactCore > 0.5)
-                    size = max(size, distance * 2.5 / (max(_ScaledScreenParams.y, 1.0) * max(abs(UNITY_MATRIX_P[1][1]), 0.01)));
-                float maxGrainPixels = _Mode > 1.5 ? 1.8 : 2.2;
-                size = MatterGrainRadius(size,MatterPixelWorld(p),input.data.x,maxGrainPixels);
+                if (_Mode > 1.5 && impactCore > 0.5) {
+                    float screenHeight = legacy ? _ScreenParams.y : _ScaledScreenParams.y;
+                    size = max(size, distance * 2.5 / (max(screenHeight, 1.0) * max(abs(UNITY_MATRIX_P[1][1]), 0.01)));
+                }
+                if (!legacy) {
+                    float maxGrainPixels = _Mode > 1.5 ? 1.8 : 2.2;
+                    size = MatterGrainRadius(size,MatterPixelWorld(p),input.data.x,maxGrainPixels);
+                }
                 p += (right*input.uv.x + upCam*input.uv.y)*size;
                 o.positionCS = TransformWorldToHClip(p);
                 o.uv = input.uv.xy;
@@ -166,6 +173,18 @@ Shader "Liminal/Luminous"
             half4 Frag(Vary i) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+                float r = dot(i.uv,i.uv);
+                bool legacy = MatterIsLegacy();
+                if (legacy) {
+                    clip(1-r);
+                    if (_Mode > 1.5) {
+                        float grainGlow = exp(-r * 4.2) * 0.58 + exp(-r * 22.0) * 0.8;
+                        float coreGlow = exp(-r * 3.6) * 0.78 + exp(-r * 20.0) * 1.32;
+                        return half4(i.color.rgb * lerp(grainGlow, coreGlow, i.core), 1);
+                    }
+                    float legacyGlow = exp(-r * 5) * 0.35 + exp(-r * 24) * 1.65;
+                    return half4(i.color.rgb * legacyGlow,1);
+                }
                 float sharpCore = MatterSharpCore(i.uv);
                 if (_Mode > 1.5) {
                     float grainGlow = sharpCore * 0.72;

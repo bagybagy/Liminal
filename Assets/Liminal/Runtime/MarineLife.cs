@@ -182,6 +182,7 @@ namespace Liminal
             matter = new PersistentMatter();
             matter.Initialize(world.matterSimulation, world.matterLight, seeds, initialMatrices.Count, alternateForms);
             matter.SetWhaleGroup(whaleGroup);
+            matter.SetComparisonJellyGroup(FirstJellyGroup);
             whaleRoot = new GameObject("THE HORIZON WHALE / transform");
             whaleRoot.transform.SetParent(transform, false);
             BuildWhaleTargets();

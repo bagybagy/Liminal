@@ -20,6 +20,7 @@ Shader "Liminal/Bioluminescent Membrane"
             float _Gain;
             CBUFFER_END
             float _Song,_Evolution,_Dissolve,_Pulse,_Reduced,_Released,_ReleaseBlend;
+            float4 _LiminalComparisonOffset;
             struct Input {float4 positionOS:POSITION;float2 uv:TEXCOORD0;float2 data:TEXCOORD1;};
             struct Vary {float4 positionCS:SV_POSITION;float3 positionWS:TEXCOORD0;float3 normalWS:TEXCOORD1;float4 param:TEXCOORD2;};
             Vary Vert(Input i)
@@ -34,7 +35,7 @@ Shader "Liminal/Bioluminescent Membrane"
                 }
                 float3 normal=side*cos(a)+up*sin(a);
                 float breath=1+.022*sin(u*35-_Song*2);
-                float3 p=c+normal*width*radial*breath;
+                float3 p=c+normal*width*radial*breath+_LiminalComparisonOffset.xyz;
                 Vary o;o.positionCS=TransformWorldToHClip(p);o.positionWS=p;o.normalWS=normal;
                 o.param=float4(u,a,i.data.x,i.data.y);return o;
             }

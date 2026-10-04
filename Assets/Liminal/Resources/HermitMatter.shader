@@ -413,7 +413,12 @@ Shader "Liminal/Hermit Matter"
                 size = lerp(size, min(size, .32 + glintMask * .08), giantWeight);
                 float pixelWorld = MatterPixelWorld(world);
                 float minimumPixels = lerp(lerp(1.15, 1.9, glintMask), lerp(.72, 1.15, glintMask), giantWeight);
-                size = MatterGrainRadius(max(size, pixelWorld * minimumPixels), pixelWorld, id, 1.3);
+                if (MatterIsLegacy()) {
+                    float4 centerClip = TransformWorldToHClip(world);
+                    float pixelsPerWorldUnit = abs(UNITY_MATRIX_P._m11) * _ScreenParams.y * 0.5 /
+                        max(abs(centerClip.w), 0.001);
+                    size = max(size, minimumPixels / max(pixelsPerWorldUnit, 0.001));
+                } else size = MatterGrainRadius(max(size, pixelWorld * minimumPixels), pixelWorld, id, 1.3);
                 world += (UNITY_MATRIX_V[0].xyz * input.uv.x + UNITY_MATRIX_V[1].xyz * input.uv.y) * size;
                 float pulse = 0.96 + 0.04 * sin(_Beat * TAU + input.data.z * TAU);
                 float distanceFade = exp(-distanceToCamera * 0.0014);
@@ -425,7 +430,8 @@ Shader "Liminal/Hermit Matter"
                     _State<3.5 && _State>2.5?MatterDeathEnvelope(_RefugeProgress*7.0,true).z:0;
                 color *= 1.0+transitionLight*_MatterDeathStyle.y;
                 color *= 1.0 + glintMask * max(0.0, sin(_Song * 3.6 + input.data.z * 29.0)) * 0.5;
-                color *= 1.0 + (MatterGrainLight(id, _Song, grainAccent) - 1.0) * 0.14;
+                if (!MatterIsLegacy())
+                    color *= 1.0 + (MatterGrainLight(id, _Song, grainAccent) - 1.0) * 0.14;
 
                 output.positionCS = TransformWorldToHClip(world);
                 output.uv = input.uv.xy;
@@ -438,6 +444,11 @@ Shader "Liminal/Hermit Matter"
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 float radius = dot(input.uv, input.uv);
                 clip(1.0 - radius);
+                if (MatterIsLegacy()) {
+                    float core = exp(-radius * 15.0) * 1.35;
+                    float halo = exp(-radius * 5.5) * 0.22;
+                    return half4(input.color.rgb * (core + halo), 1.0);
+                }
                 return half4(input.color.rgb * MatterSharpCore(input.uv) * 0.725, 1.0);
             }
             ENDHLSL

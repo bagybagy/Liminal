@@ -89,6 +89,8 @@ Shader "Liminal/Persistent Matter"
                 MatterParticle particle = _Particles[particleIndex];
                 MatterSeed seed = _Seeds[particleIndex];
                 float3 position = particle.positionAge.xyz;
+                if (_LiminalComparisonPass > 0.5)
+                    position += _LiminalComparisonOffset.xyz;
                 float3 velocity = particle.velocityEnergy.xyz;
                 float speed = length(velocity);
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;
@@ -99,25 +101,32 @@ Shader "Liminal/Persistent Matter"
                 float3 along = cameraRight * motion.x + cameraUp * motion.y;
                 float3 across = cameraRight * -motion.y + cameraUp * motion.x;
                 float distanceToCamera = length(_WorldSpaceCameraPos - position);
-                float pixelWorld = MatterPixelWorld(position);
+                bool legacy = MatterIsLegacy();
+                float pixelWorld = legacy ? max(0.0001, abs(TransformWorldToHClip(position).w) * 2.0 /
+                    (abs(UNITY_MATRIX_P._m11) * _ScreenParams.y)) : MatterPixelWorld(position);
                 float grainSeed = particleIndex * .01373 + seed.traits.z;
-                float size = MatterGrainRadius(particle.colorSize.w, pixelWorld, grainSeed, 1.25);
-                float stretch = 1.0 + saturate(speed / 32.0) * 1.4;
+                float size = legacy ? max(particle.colorSize.w, pixelWorld * 1.3) :
+                    MatterGrainRadius(particle.colorSize.w, pixelWorld, grainSeed, 1.25);
+                float stretch = legacy ? 1.8 + saturate(speed / 18.0) * 5.0 : 1.0 + saturate(speed / 32.0) * 1.4;
                 bool isDolphin = seed.traits.y > 3.5 && _GroupVelocities[(uint)particle.identityState.y].w > 0.5;
                 bool isWhale = seed.traits.y > 2.5 && !isDolphin;
                 bool isAmbient = seed.traits.y < 0.5;
                 if (isAmbient) {
-                    size = MatterGrainRadius(particle.colorSize.w, pixelWorld, grainSeed, 1.35);
+                    size = legacy ? max(particle.colorSize.w, pixelWorld * (2.0 + Hash01(particleIndex + 313u) * 1.8)) :
+                        MatterGrainRadius(particle.colorSize.w, pixelWorld, grainSeed, 1.35);
                     stretch = 1.0;
                 }
                 float glintHash = Hash01((uint)particle.identityState.x + 17u);
                 float contour = isWhale ? step(1.5, seed.traits.w) : 0.0;
-                float sparkle = isWhale ? smoothstep(0.94, 1.0, glintHash) *
-                    pow(0.5 + 0.5 * sin(particle.positionAge.w * (6 + glintHash * 7) + seed.form.z * .16 + seed.traits.z * 13), 18) : 0;
+                float sparkle = isWhale ? (legacy ? smoothstep(0.92, 1.0, glintHash) *
+                    pow(0.5 + 0.5 * sin(particle.positionAge.w * 2.4 + seed.form.z * .16 + seed.traits.z * 13.0), 12.0) :
+                    smoothstep(0.94, 1.0, glintHash) *
+                    pow(0.5 + 0.5 * sin(particle.positionAge.w * (6 + glintHash * 7) + seed.form.z * .16 + seed.traits.z * 13), 18)) : 0;
                 float silhouette = 1.0;
                 if (isWhale) {
                     stretch = 1.0;
-                    size = MatterGrainRadius(particle.colorSize.w, pixelWorld, grainSeed, 1.30);
+                    size = legacy ? max(particle.colorSize.w, pixelWorld * (1.8 + sparkle * 2.6)) :
+                        MatterGrainRadius(particle.colorSize.w, pixelWorld, grainSeed, 1.30);
                     MatterGroup group = _Groups[(uint)particle.identityState.y];
                     if (particle.identityState.z < 2.5) {
                         float3 normalOS = _SurfaceFrames[particleIndex * 2].xyz;
@@ -131,23 +140,27 @@ Shader "Liminal/Persistent Matter"
                             screenTangent = normalize(screenTangent + float2(0.0001,0));
                             along = cameraRight * screenTangent.x + cameraUp * screenTangent.y;
                             across = cameraRight * -screenTangent.y + cameraUp * screenTangent.x;
-                            size = MatterGrainRadius(particle.colorSize.w, pixelWorld, grainSeed, 1.05);
+                            size = legacy ? max(particle.colorSize.w, pixelWorld * 1.35) :
+                                MatterGrainRadius(particle.colorSize.w, pixelWorld, grainSeed, 1.05);
                             stretch = 2.1;
                         }
                     }
                     if (particle.identityState.z > 1.5 && particle.identityState.z < 2.5) {
-                        size = MatterGrainRadius(particle.colorSize.w, pixelWorld, grainSeed, 1.4);
+                        size = legacy ? max(particle.colorSize.w, pixelWorld * (1.15 + sparkle * 1.4)) :
+                            MatterGrainRadius(particle.colorSize.w, pixelWorld, grainSeed, 1.4);
                         silhouette = lerp(silhouette, 0.85, smoothstep(0.4, 1.4, group.state.y));
                         silhouette *= lerp(0.24, 0.55, smoothstep(1.6, 4.0, group.state.y));
                     }
                     if (particle.identityState.z > 4.5) {
-                        stretch = 1.0 + saturate(speed / 60.0) * 2.0;
-                        size = MatterGrainRadius(particle.colorSize.w, pixelWorld, grainSeed, 1.25);
+                        stretch = legacy ? 1.5 + saturate(speed / 60.0) * 5.0 : 1.0 + saturate(speed / 60.0) * 2.0;
+                        size = legacy ? max(particle.colorSize.w, pixelWorld * 1.15) :
+                            MatterGrainRadius(particle.colorSize.w, pixelWorld, grainSeed, 1.25);
                         silhouette = 1.0;
                     }
                 }
                 if (isDolphin) {
-                    size = MatterGrainRadius(particle.colorSize.w, pixelWorld, grainSeed, 1.35);
+                    size = legacy ? max(particle.colorSize.w, pixelWorld * 1.35) :
+                        MatterGrainRadius(particle.colorSize.w, pixelWorld, grainSeed, 1.35);
                     stretch = 1.0;
                     silhouette = 1.0;
                 }
@@ -155,7 +168,8 @@ Shader "Liminal/Persistent Matter"
                 if (city) {
                     float physicalRadius=particle.colorSize.w;
                     float radiusTier = clamp(physicalRadius / .19, .45, 1.8);
-                    size = MatterGrainRadius(physicalRadius, pixelWorld, grainSeed, .9 * radiusTier);
+                    size = legacy ? max(physicalRadius, pixelWorld * .58 * radiusTier) :
+                        MatterGrainRadius(physicalRadius, pixelWorld, grainSeed, .9 * radiusTier);
                     stretch = 1.0;
                     // Preserve particle energy when the minimum screen footprint exceeds its physical size.
                     silhouette = .19*lerp(min(1.0,physicalRadius*physicalRadius/max(size*size,.00001)),1,.18);
@@ -194,14 +208,25 @@ Shader "Liminal/Persistent Matter"
                 output.positionCS = TransformWorldToHClip(world);
                 output.uv = uv;
                 float grainLight = MatterGrainLight(grainSeed, particle.positionAge.w, contour);
+                if (legacy) grainLight = 1.0;
+                float comparisonVisibility = 1.0;
+                if (_LiminalComparisonPass > 1.5) {
+                    if (_LiminalComparisonGroup < -1.5)
+                        comparisonVisibility = step(2.5001, seed.traits.y);
+                    else if (_LiminalComparisonGroup < -0.5)
+                        comparisonVisibility = 1.0;
+                    else if (_LiminalComparisonGroup >= 0.0)
+                        comparisonVisibility = 1.0 - step(.5, abs(particle.identityState.y - _LiminalComparisonGroup));
+                    else comparisonVisibility = 0.0;
+                }
                 // Jelly density rises, not its total light budget. A few peaks carry the sparkle.
-                float hierarchy = isWhale ? 1.15 : seed.traits.y > .5 && seed.traits.y < 1.5 ? 1.4 : 1;
+                float hierarchy = legacy ? 1.0 : isWhale ? 1.15 : seed.traits.y > .5 && seed.traits.y < 1.5 ? 1.4 : 1;
                 output.color = pearl * energy * _Gain * silhouette * grainLight * hierarchy * exp(-distanceToCamera * .00065);
                 output.sparkle = sparkle;
                 output.isWhale = isWhale || isDolphin ? 1.0 : 0.0;
                 output.contour = contour;
                 output.isAmbient = isAmbient ? 1.0 : 0.0;
-                output.visibility = isWhale ? _WhaleVisibility : 1.0;
+                output.visibility = (isWhale ? _WhaleVisibility : 1.0) * comparisonVisibility;
                 return output;
             }
 
@@ -209,17 +234,36 @@ Shader "Liminal/Persistent Matter"
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 float radius = dot(input.uv, input.uv);
+                bool legacy = MatterIsLegacy();
                 clip(input.visibility - 0.0001);
                 clip(1.0 - radius);
                 if (input.isAmbient > 0.5) {
+                    if (legacy) {
+                        float ring = exp(-pow(sqrt(radius) - 0.5, 2.0) * 36.0) * 0.24;
+                        float mist = exp(-radius * 2.0) * 0.22;
+                        return half4(input.color * (ring + mist), 1);
+                    }
                     return half4(input.color * MatterSharpCore(input.uv) * .35, 1);
                 }
                 if (input.isWhale > 0.5)
                 {
+                    if (legacy) {
+                        float core = exp(-radius * 6.0) * 1.25;
+                        float halo = exp(-radius * 2.4) * 0.08;
+                        float glintCore = exp(-radius * 9.0) * input.sparkle * 5.0;
+                        float glintHalo = exp(-radius * 2.0) * input.sparkle * 0.20;
+                        float3 glintColor = lerp(input.color, float3(0.78, 0.96, 1.2), 0.68);
+                        return half4((input.color * (core + halo) + glintColor * (glintCore + glintHalo)) * input.visibility, 1);
+                    }
                     float core = MatterSharpCore(input.uv);
                     float glintCore = exp(-radius * 12.0) * input.sparkle * MatterLook().y;
                     float3 glintColor = lerp(input.color, float3(0.78, 0.96, 1.2), 0.68);
                     return half4((input.color * core + glintColor * glintCore) * input.visibility, 1);
+                }
+                if (legacy) {
+                    float core = exp(-radius * 9.0) * 1.55;
+                    float halo = exp(-radius * 3.5) * 0.25;
+                    return half4(input.color * (core + halo), 1);
                 }
                 return half4(input.color * MatterSharpCore(input.uv), 1);
             }

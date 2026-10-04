@@ -181,7 +181,8 @@ Shader "Liminal/Defeated Marine Forms"
                 float distanceToCamera = length(_WorldSpaceCameraPos - world);
                 float fieldWeight = smoothstep(0.52, 1.17, elapsed) * (1.0 - settle);
                 float size = input.uv.z * max(1.0, distanceToCamera * 0.006) * (1.0 + settle) * (1.0 + fieldWeight * 3.0);
-                size = MatterGrainRadius(size,MatterPixelWorld(world),input.data.x,2.2);
+                bool legacy=MatterIsLegacy();
+                if(!legacy) size = MatterGrainRadius(size,MatterPixelWorld(world),input.data.x,2.2);
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;
                 float3 cameraUp = UNITY_MATRIX_V[1].xyz;
                 world += (cameraRight * input.uv.x + cameraUp * input.uv.y) * size;
@@ -199,7 +200,7 @@ Shader "Liminal/Defeated Marine Forms"
                 formColor *= 1.0+.24*exp(-pow((settle-.88)*8.0,2.0));
                 float pulse = lerp(0.92 + 0.08 * _Pulse * (1.0 - _Reduced), 1.0 + _Pulse * 0.055 * (1.0 - _Reduced), settle);
                 float distanceFade = exp(-distanceToCamera * 0.0018);
-                float grainLight = MatterGrainLight(input.data.x,_Song,accent);
+                float grainLight = legacy ? 1.0 : MatterGrainLight(input.data.x,_Song,accent);
 
                 output.positionCS = TransformWorldToHClip(world);
                 output.uv = input.uv.xy;
@@ -214,9 +215,13 @@ Shader "Liminal/Defeated Marine Forms"
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 clip(input.visible - 0.5);
-                float glow = MatterSharpCore(input.uv);
                 float radius = dot(input.uv, input.uv);
                 float fieldGlow = exp(-radius * 3.6) * 0.42 + exp(-radius * 10.0) * 0.3;
+                if(MatterIsLegacy()) {
+                    float glow=exp(-radius*5.0)*0.35+exp(-radius*24.0)*1.65;
+                    return half4(input.color.rgb*glow+input.field.rgb*input.field.a*fieldGlow,1);
+                }
+                float glow = MatterSharpCore(input.uv);
                 return half4(input.color.rgb * glow + input.field.rgb * input.field.a * fieldGlow, 1);
             }
             ENDHLSL

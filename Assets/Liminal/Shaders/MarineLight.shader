@@ -49,6 +49,7 @@ Shader "Liminal/Marine Light"
                 UNITY_SETUP_INSTANCE_ID(v);
                 Vary o;
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                bool legacy = MatterIsLegacy();
                 float3 p=v.positionOS;
                 float t=_MarineSong;
                 float pulse=0.82+0.18*sin(t*1.35+v.data.x*17);
@@ -83,8 +84,8 @@ Shader "Liminal/Marine Light"
                 float3 world=TransformObjectToWorld(p);
                 float distance=length(_WorldSpaceCameraPos-world);
                 float size=v.uv.z*max(1.0,distance*0.0038);
-                size=MatterGrainRadius(size,MatterPixelWorld(world),v.data.x,1.3);
-                float grainGain=1.0+(MatterGrainLight(v.data.x,t,saturate(v.data.y))-1.0)*0.14;
+                if(!legacy) size=MatterGrainRadius(size,MatterPixelWorld(world),v.data.x,1.3);
+                float grainGain=legacy?1.0:1.0+(MatterGrainLight(v.data.x,t,saturate(v.data.y))-1.0)*0.14;
                 float3 right=UNITY_MATRIX_V[0].xyz, up=UNITY_MATRIX_V[1].xyz;
                 world+=(right*v.uv.x+up*v.uv.y)*size;
                 o.positionCS=TransformWorldToHClip(world);
@@ -98,6 +99,10 @@ Shader "Liminal/Marine Light"
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float r=dot(i.uv,i.uv);
                 clip(1-r);
+                if(MatterIsLegacy()) {
+                    float glow=exp(-r*5.5)*0.34+exp(-r*25.0)*1.55;
+                    return half4(i.color.rgb*glow,1);
+                }
                 return half4(i.color.rgb*MatterSharpCore(i.uv)*0.884,1);
             }
             ENDHLSL

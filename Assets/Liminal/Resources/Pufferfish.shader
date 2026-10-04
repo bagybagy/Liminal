@@ -79,11 +79,13 @@ Shader "Liminal/Pufferfish Particles"
                 float3 cameraPosition = _WorldSpaceCameraPos;
                 float distanceToCamera = length(cameraPosition - worldPosition);
                 size *= max(1.0, distanceToCamera * 0.006);
-                size = MatterGrainRadius(size,MatterPixelWorld(worldPosition),seed,2.2);
+                bool legacy=MatterIsLegacy();
+                if(!legacy) size = MatterGrainRadius(size,MatterPixelWorld(worldPosition),seed,2.2);
                 worldPosition += (cameraRight * input.uv.x + cameraUp * input.uv.y) * size;
 
                 float deathFade = transition.w;
-                float grainLight = MatterGrainLight(seed,_Song,saturate(input.color.a));
+                float grainLight = legacy ? 0.9 + 0.1 * sin(_Song * 1.7 + input.data.x * 31.0) :
+                    MatterGrainLight(seed,_Song,saturate(input.color.a));
                 float pulse = 1.0 + _Pulse * 0.18 * (1.0 - _Reduced);
                 float3 color = input.color.rgb * _Tint.rgb * _Gain * grainLight * pulse * deathFade;
                 float flash=exp(-_HitAge*6);
@@ -100,6 +102,11 @@ Shader "Liminal/Pufferfish Particles"
             half4 Frag(Vary input) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+                if(MatterIsLegacy()) {
+                    float radius=dot(input.uv,input.uv);clip(1.0-radius);
+                    float glow=exp(-radius*5.0)*0.38+exp(-radius*24.0)*1.55;
+                    return half4(input.color.rgb*glow,1.0);
+                }
                 return half4(input.color.rgb * MatterSharpCore(input.uv), 1.0);
             }
             ENDHLSL

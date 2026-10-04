@@ -248,10 +248,22 @@ Shader "Liminal/Submarine Matter"
 
                 float distanceToCamera = length(_WorldSpaceCameraPos - world);
                 float glint = smoothstep(0.90, 0.99, input.data.w);
-                float pixelWorld = MatterPixelWorld(world);
-                float minimumRadius = pixelWorld * lerp(0.98, 1.18, glint);
-                float size = MatterGrainRadius(max(input.uv.z, minimumRadius), pixelWorld,
-                    input.data.x, 1.3);
+                bool legacy=MatterIsLegacy();
+                float pixelWorld;
+                float size;
+                if (legacy) {
+                    float viewDepth = abs(mul(UNITY_MATRIX_V, float4(world, 1.0)).z);
+                    float projectionScale = max(0.001, abs(UNITY_MATRIX_P._m11));
+                    float worldPerPixel = 2.0 * max(0.01, viewDepth) /
+                        (max(1.0, _ScreenParams.y) * projectionScale);
+                    float minimumRadius = lerp(1.4, 2.3, glint) * worldPerPixel;
+                    size = max(input.uv.z, minimumRadius);
+                } else {
+                    pixelWorld = MatterPixelWorld(world);
+                    float minimumRadius = pixelWorld * lerp(0.98, 1.18, glint);
+                    size = MatterGrainRadius(max(input.uv.z, minimumRadius), pixelWorld,
+                        input.data.x, 1.3);
+                }
                 float pulse = 0.92 + 0.08 * (1.0 - _Reduced) * (0.5 + 0.5 * sin(_BeatPosition * 6.2831853));
                 float fromAccent = FormAccent(_FormFrom, input);
                 float toAccent = FormAccent(_FormTo, input);
@@ -274,7 +286,7 @@ Shader "Liminal/Submarine Matter"
                 flare *= 1.0+cloudLight*cloud*_MatterDeathStyle.y;
                 float fade = exp(-distanceToCamera * 0.00165);
                 float grainAccent = saturate(lerp(fromAccent, toAccent, morph));
-                float grainGain = 1.0 +
+                float grainGain = legacy ? 1.0 : 1.0 +
                     (MatterGrainLight(input.data.x, _Song, grainAccent) - 1.0) * 0.14;
 
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;
@@ -291,6 +303,10 @@ Shader "Liminal/Submarine Matter"
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 float radius = dot(input.uv, input.uv);
                 clip(1.0 - radius);
+                if (MatterIsLegacy()) {
+                    float glow = exp(-radius * 5.0) * 0.32 + exp(-radius * 24.0) * 1.58;
+                    return half4(input.color.rgb * glow, 1.0);
+                }
                 return half4(input.color.rgb * MatterSharpCore(input.uv) * 0.884, 1.0);
             }
             ENDHLSL

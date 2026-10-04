@@ -88,14 +88,24 @@ Shader "Liminal/Passage Beacon"
                 }
                 else world = TransformObjectToWorld(input.positionOS);
 
-                float pixelWorld = MatterPixelWorld(world);
-                float physicalRadius = input.uv.z * (1.0 + 0.18 * saturate(input.data.y));
-                float radius = MatterGrainRadius(physicalRadius, pixelWorld, input.data.x, 1.3);
+                bool legacy=MatterIsLegacy();
+                float radius;
+                if (legacy) {
+                    float viewDepth = abs(mul(UNITY_MATRIX_V,float4(world,1.0)).z);
+                    float projectionScale = max(0.001,abs(UNITY_MATRIX_P._m11));
+                    float worldPerPixel = 2.0 * max(0.01,viewDepth) /
+                        (max(1.0,_ScreenParams.y) * projectionScale);
+                    radius = max(input.uv.z,1.3 * worldPerPixel) * (1.0 + 0.18 * saturate(input.data.y));
+                } else {
+                    float pixelWorld = MatterPixelWorld(world);
+                    float physicalRadius = input.uv.z * (1.0 + 0.18 * saturate(input.data.y));
+                    radius = MatterGrainRadius(physicalRadius, pixelWorld, input.data.x, 1.3);
+                }
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;
                 float3 cameraUp = UNITY_MATRIX_V[1].xyz;
                 world += (cameraRight * input.uv.x + cameraUp * input.uv.y) * radius;
                 float pulse = 0.94 + 0.06 * (0.5 + 0.5 * sin(_BeatPosition * 6.2831853));
-                float grainGain = 1.0 +
+                float grainGain = legacy ? 1.0 : 1.0 +
                     (MatterGrainLight(input.data.x, _BeatPosition, saturate(input.data.y)) - 1.0) * 0.14;
                 output.positionCS = TransformWorldToHClip(world);
                 output.uv = input.uv.xy;
@@ -108,6 +118,10 @@ Shader "Liminal/Passage Beacon"
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 float r = dot(input.uv,input.uv);
                 clip(1.0-r);
+                if (MatterIsLegacy()) {
+                    float glow = exp(-r*5.0)*0.34 + exp(-r*22.0)*1.18;
+                    return half4(input.radiance * glow,1.0);
+                }
                 return half4(input.radiance * MatterSharpCore(input.uv) * 0.707, 1.0);
             }
             ENDHLSL

@@ -29,6 +29,10 @@ namespace Liminal
         bool released;
         bool releasePosePending;
         bool simulationResetPending = true;
+        readonly MaterialPropertyBlock primaryLook = new();
+        readonly MaterialPropertyBlock companionLook = new();
+        GameObject comparisonMembrane;
+        public static Vector3 ComparisonOffset => Vector3.right * 180f;
         public int SimulationSteps { get; private set; }
         public int InitializationCount { get; private set; }
         public bool Ready => particles != null;
@@ -72,6 +76,11 @@ namespace Liminal
             simulation.SetVector("_SanctumRadius", new Vector3(roomRadius.x * 0.62f, roomRadius.y, roomRadius.z * 0.60f));
             skinMesh = CreateMembrane();
             PointCloud.Place("Leviathan / translucent living membrane", skinMesh, skinMaterial, transform);
+            comparisonMembrane = PointCloud.Place("Leviathan / visual-only Quad comparison", skinMesh, skinMaterial, transform);
+            companionLook.SetVector("_LiminalComparisonOffset", ComparisonOffset);
+            companionLook.SetFloat("_LiminalComparisonPass", 2f);
+            comparisonMembrane.GetComponent<MeshRenderer>().SetPropertyBlock(companionLook);
+            comparisonMembrane.SetActive(false);
             Tick(0, 0, 0);
             RenderPipelineManager.beginCameraRendering += Render;
         }
@@ -167,12 +176,23 @@ namespace Liminal
         void Render(ScriptableRenderContext context, Camera camera)
         {
             if (!Ready || camera.cameraType != CameraType.Game && camera.cameraType != CameraType.SceneView) return;
+            bool compare = ParticleLook.SideBySide && CaveLayout.NearestRoom(camera.transform.position) == 1;
+            comparisonMembrane.SetActive(compare);
             var settings = new RenderParams(lightMaterial) {
                 camera = camera,
                 worldBounds = new Bounds(new Vector3(0, 10, 35), Vector3.one * 700),
                 shadowCastingMode = ShadowCastingMode.Off,
                 receiveShadows = false
             };
+            primaryLook.SetFloat("_LiminalComparisonPass", ParticleLook.SideBySide ? 1f : 0f);
+            primaryLook.SetVector("_LiminalComparisonOffset", Vector4.zero);
+            settings.matProps = primaryLook;
+            Graphics.RenderPrimitives(settings, MeshTopology.Triangles, SimulatedParticles * 6);
+            if (!compare) return;
+            settings.matProps = companionLook;
+            Bounds bounds = settings.worldBounds;
+            bounds.Encapsulate(bounds.max + ComparisonOffset);
+            settings.worldBounds = bounds;
             Graphics.RenderPrimitives(settings, MeshTopology.Triangles, SimulatedParticles * 6);
         }
 
@@ -222,6 +242,7 @@ namespace Liminal
             if (lightMaterial) Destroy(lightMaterial);
             if (skinMaterial) Destroy(skinMaterial);
             if (skinMesh) Destroy(skinMesh);
+            if (comparisonMembrane) Destroy(comparisonMembrane);
         }
     }
 }

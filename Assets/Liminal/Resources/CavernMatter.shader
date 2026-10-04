@@ -127,15 +127,26 @@ Shader "Liminal/Cavern Matter"
                     color += float3(0.32, 0.72, 0.94) * (ring * _CaveWaveEnergy * 0.12);
                 }
 
-                color *= lerp(1.0,
-                    MatterGrainLight(seed, _CaveSong, saturate(max(sparkle, edgeSweep))), 0.5);
-
-                float pixelWorld = MatterPixelWorld(p);
-                float maxRadiusPixels = lerp(1.0, 1.25, max(sparkle, edgeSweep));
-                maxRadiusPixels = lerp(maxRadiusPixels, 1.34, marineLayer * playerProximity);
-                float minRadiusPixels = volumeLayer > 0.5 ? 1.10 : 0.95;
-                float worldRadius = MatterGrainRadius(max(input.uv.z, pixelWorld * minRadiusPixels),
-                    pixelWorld, seed, maxRadiusPixels);
+                bool legacy=MatterIsLegacy();
+                float worldRadius;
+                if (legacy) {
+                    float projectionScale = max(1.0, abs(UNITY_MATRIX_P[1][1]) * _ScreenParams.y * 0.5);
+                    float nativeRadiusPixels = input.uv.z * projectionScale / max(1.0, distanceToCamera);
+                    float maxRadiusPixels = lerp(1.12, 1.65, max(sparkle, edgeSweep));
+                    maxRadiusPixels = lerp(maxRadiusPixels, 1.95, marineLayer * playerProximity);
+                    float minRadiusPixels = volumeLayer > 0.5 ? 1.10 : 0.95;
+                    float radiusPixels = clamp(nativeRadiusPixels, minRadiusPixels, maxRadiusPixels);
+                    worldRadius = radiusPixels * distanceToCamera / projectionScale;
+                } else {
+                    color *= lerp(1.0,
+                        MatterGrainLight(seed, _CaveSong, saturate(max(sparkle, edgeSweep))), 0.5);
+                    float pixelWorld = MatterPixelWorld(p);
+                    float maxRadiusPixels = lerp(1.0, 1.25, max(sparkle, edgeSweep));
+                    maxRadiusPixels = lerp(maxRadiusPixels, 1.34, marineLayer * playerProximity);
+                    float minRadiusPixels = volumeLayer > 0.5 ? 1.10 : 0.95;
+                    worldRadius = MatterGrainRadius(max(input.uv.z, pixelWorld * minRadiusPixels),
+                        pixelWorld, seed, maxRadiusPixels);
+                }
                 float3 right = UNITY_MATRIX_V[0].xyz;
                 float3 up = UNITY_MATRIX_V[1].xyz;
                 p += (right * input.uv.x + up * input.uv.y) * worldRadius;
@@ -155,6 +166,7 @@ Shader "Liminal/Cavern Matter"
                 float crisp = exp(-r * 4.0) * 0.14 + exp(-r * 8.0) * 0.82;
                 float crispness = saturate(_CaveBind * 0.7 + _CaveReveal * 0.32);
                 float authoredGlow = lerp(soft, crisp, crispness);
+                if (MatterIsLegacy()) return half4(input.color.rgb * authoredGlow, 1.0);
                 float sharpness = 0.72 + crispness * 0.28;
                 float sharpCore = MatterSharpCore(input.uv) * 0.5;
                 return half4(input.color.rgb * lerp(authoredGlow, sharpCore, sharpness), 1.0);

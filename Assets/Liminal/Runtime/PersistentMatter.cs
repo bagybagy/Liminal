@@ -33,6 +33,11 @@ namespace Liminal
         bool whaleArriving;
         Vector3 arrivalOrigin;
         float whaleFormation;
+        int comparisonJellyGroup = -1;
+        readonly MaterialPropertyBlock primaryLook = new();
+        readonly MaterialPropertyBlock companionLook = new();
+        public static Vector3 JellyComparisonOffset => Vector3.right * 28f;
+        public static Vector3 WhaleComparisonOffset => Vector3.right * 280f;
 
         public int ParticleCount { get; private set; }
         public int InitializationCount { get; private set; }
@@ -40,6 +45,8 @@ namespace Liminal
         public bool Ready => !disposed && particles != null && seeds != null && groups != null && whalePatchBuffer != null;
 
         public PersistentMatter() { }
+
+        public void SetComparisonJellyGroup(int group) => comparisonJellyGroup = group;
 
         public void Initialize(ComputeShader compute, Material material, IReadOnlyList<MatterSeed> matterSeeds, int groupCount,
             IReadOnlyList<Vector4> dolphinForms = null)
@@ -288,6 +295,22 @@ namespace Liminal
                 shadowCastingMode = ShadowCastingMode.Off,
                 receiveShadows = false
             };
+            primaryLook.SetFloat("_LiminalComparisonPass", ParticleLook.SideBySide ? 1f : 0f);
+            primaryLook.SetVector("_LiminalComparisonOffset", Vector4.zero);
+            settings.matProps = primaryLook;
+            Graphics.RenderPrimitives(settings, MeshTopology.Triangles, ParticleCount * 6);
+            if (!ParticleLook.SideBySide) return;
+            int room = CaveLayout.NearestRoom(camera.transform.position);
+            if (room != 0 && room != 2) return;
+            if (room == 0 && comparisonJellyGroup < 0) return;
+            Vector3 offset = room == 0 ? JellyComparisonOffset : WhaleComparisonOffset;
+            companionLook.SetFloat("_LiminalComparisonPass", 2f);
+            companionLook.SetVector("_LiminalComparisonOffset", offset);
+            companionLook.SetFloat("_LiminalComparisonGroup", room == 0 ? comparisonJellyGroup : -2f);
+            settings.matProps = companionLook;
+            Bounds bounds = CaveLayout.WorldBounds;
+            bounds.Encapsulate(bounds.max + offset);
+            settings.worldBounds = bounds;
             Graphics.RenderPrimitives(settings, MeshTopology.Triangles, ParticleCount * 6);
         }
 

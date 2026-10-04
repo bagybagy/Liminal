@@ -7,7 +7,7 @@ namespace Liminal
     public sealed class VrWorldHud : MonoBehaviour
     {
         const int RingSegments = 40;
-        const int MenuItemCount = 5;
+        const int MenuItemCount = 7;
         const float OnboardingSeconds = 24f;
         const float MinimumTargetRadius = 0.13f;
         const float TargetRadiusRadians = 0.038f;
@@ -493,13 +493,15 @@ namespace Liminal
                 : "UNAVAILABLE";
             string[] labels=gameOver
                 ? retryAvailable ? new[] {"RETRY CURRENT ROOM", "RESTART RUN", "EXIT PCVR"} : new[] {"RESTART RUN", "EXIT PCVR"}
-                : new[] {"RESUME", "RESTART RUN", "RECENTER VIEW", "EXIT PCVR", "BRIGHTNESS  " + brightness + "  LEFT/RIGHT ADJUST"};
+                : new[] {"RESUME", "RESTART RUN", "RECENTER VIEW", "EXIT PCVR", "BRIGHTNESS  " + brightness + "  LEFT/RIGHT ADJUST",
+                    "PARTICLES  " + (experience.ParticleLook.IsLegacy ? "ORIGINAL QUAD" : "SHARP QUAD"),
+                    "SIDE BY SIDE  " + (ParticleLook.SideBySide ? "ON" : "OFF")};
             if(selectedMenuItem>=itemCount) selectedMenuItem=0;
             string menu = "RIGHT STICK: SELECT   RIGHT TRIGGER: CONFIRM\n";
             for (int i = 0; i < labels.Length; i++)
                 menu += (i == selectedMenuItem ? "> " : "  ") + labels[i] + (i + 1 < labels.Length ? "\n" : "");
             pauseItems.text = menu;
-            FitText(pauseItems, 1.8f, .38f);
+            FitText(pauseItems, 1.8f, gameOver ? .38f : .54f);
             pauseTitle.text = gameOver ? "SIGNAL LOST" : "PAUSED";
             FitText(pauseTitle, 1.2f, .09f);
 
@@ -534,6 +536,12 @@ namespace Liminal
                     break;
                 case 3:
                     session.RequestDisable();
+                    break;
+                case 5:
+                    experience.ParticleLook.SetStyle(!experience.ParticleLook.IsLegacy);
+                    break;
+                case 6:
+                    experience.ParticleLook.SetSideBySide(!ParticleLook.SideBySide);
                     break;
             }
         }

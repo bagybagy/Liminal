@@ -3,6 +3,17 @@
 
 // Body energy, rare peak energy, surface current, maximum grain footprint.
 float4 _LiminalGrainLook;
+float _LiminalQuadStyle;
+float _LiminalComparisonPass;
+float4 _LiminalComparisonOffset;
+float _LiminalComparisonGroup;
+
+bool MatterIsLegacy()
+{
+    if (_LiminalComparisonPass > 1.5) return true;
+    if (_LiminalComparisonPass > 0.5) return false;
+    return _LiminalQuadStyle > 0.5;
+}
 
 float4 MatterLook()
 {

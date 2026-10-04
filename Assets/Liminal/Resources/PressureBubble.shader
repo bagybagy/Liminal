@@ -41,11 +41,12 @@ Shader "Liminal/Pressure Bubble"
                 float3 center=TransformObjectToWorld(local)+_FlowVelocity.xyz*(1-exp(-age*2.5))*.4;
                 float scale=length(GetObjectToWorldMatrix()[0].xyz);
                 float size=max(v.uv.z*scale,.065);
-                size=MatterGrainRadius(size,MatterPixelWorld(center),v.data.x,2.1);
+                bool legacy=MatterIsLegacy();
+                if(!legacy) size=MatterGrainRadius(size,MatterPixelWorld(center),v.data.x,2.1);
                 float3 pos=center+(UNITY_MATRIX_V[0].xyz*v.uv.x+UNITY_MATRIX_V[1].xyz*v.uv.y)*size;
                 o.positionCS=TransformWorldToHClip(pos);o.uv=v.uv.xy;
-                o.glow=MatterGrainLight(v.data.x,_Song,0.0)*transition.w*
-                    (1+_MatterDeathStyle.y*transition.z);
+                float light=legacy?.7+.5*pow(saturate(sin(phase+_Song*3)),6):MatterGrainLight(v.data.x,_Song,0.0);
+                o.glow=light*transition.w*(1+_MatterDeathStyle.y*transition.z);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 return o;
             }
@@ -53,6 +54,10 @@ Shader "Liminal/Pressure Bubble"
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float3 color=lerp(_Tint.rgb,_Tint.rgb*.8+float3(.03,.14,.35),_Dissolve*.4);
+                if(MatterIsLegacy()) {
+                    float r2=dot(i.uv,i.uv);clip(1-r2);
+                    return half4(color*exp(-r2*5)*i.glow*2.4,1);
+                }
                 return half4(color*MatterSharpCore(i.uv)*.52*i.glow*2.4,1);
             }
             ENDHLSL
