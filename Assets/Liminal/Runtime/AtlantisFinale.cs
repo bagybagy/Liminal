@@ -14,8 +14,8 @@ namespace Liminal
         readonly Mesh[] desktopMeshes = new Mesh[AuxiliaryLayerCount];
         readonly Mesh[] vrMeshes = new Mesh[AuxiliaryLayerCount];
         readonly MeshFilter[] layerFilters = new MeshFilter[AuxiliaryLayerCount];
-        static readonly float[] DesktopPixelFloors = { .56f, .56f, .50f, .54f };
-        static readonly float[] VrPixelFloors = { .42f, .44f, .38f, .42f };
+        static readonly float[] DesktopPixelFloors = { .56f, .56f, .75f, .54f };
+        static readonly float[] VrPixelFloors = { .42f, .44f, .66f, .42f };
         ParticleWorld world;
         MarineLife marineLife;
         Flight flight;
@@ -106,7 +106,7 @@ namespace Liminal
                 cityShader, 0f, 1.85f, true);
             BuildLayer("Atlantis / traveling serpent schools", 2,
                 AtlantisGeometry.BuildSerpentSchools(false), AtlantisGeometry.BuildSerpentSchools(true),
-                cityShader, 1f, 1.0f, true);
+                cityShader, 1f, 1.7f, true);
             BuildLayer("Atlantis / retro stage and observation craft", 3,
                 AtlantisGeometry.BuildSubmarines(false), AtlantisGeometry.BuildSubmarines(true),
                 cityShader, 2f, 1.05f, true);

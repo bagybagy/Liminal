@@ -182,13 +182,13 @@ Shader "Liminal/Atlantis Matter"
                         float legIndex = floor((roleCode - 1.0) * 0.5);
                         float isKnee = step(0.5, fmod(roleCode, 2.0));
                         float isFoot = 1.0 - isKnee;
-                        float legPhase = phase + legIndex * (ATLANTIS_TAU * 0.5);
+                        float legPhase = phaseOffset + _Song * 1.2 + legIndex * (ATLANTIS_TAU * 0.5);
                         float stride = sin(legPhase);
                         limbOffset += headingForward *
-                            (stride * 0.13 * isFoot + sin(legPhase + 0.6) * 0.035 * isKnee);
+                            (stride * 0.35 * isFoot + sin(legPhase + 0.6) * 0.12 * isKnee);
                         limbOffset += headingRight * cos(legPhase) * 0.025 * isFoot;
-                        limbOffset.y = max(0.0, stride) * 0.11 * isFoot +
-                            (0.5 + 0.5 * sin(legPhase + 0.4)) * 0.025 * isKnee;
+                        limbOffset.y = max(0.0, stride) * 0.28 * isFoot +
+                            (0.5 + 0.5 * sin(legPhase + 0.4)) * 0.08 * isKnee;
                     }
 
                     float originalGround = AtlantisGroundHeight(localAnchor.x, localAnchor.z);

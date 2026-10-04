@@ -21,11 +21,11 @@ namespace Liminal
         static readonly int BeatId = Shader.PropertyToID("_Beat");
         static readonly int PixelFloorId = Shader.PropertyToID("_PixelFloor");
 
-        static readonly Color Cobalt = new(0.055f, 0.18f, 0.34f);
-        static readonly Color Aqua = new(0.09f, 0.39f, 0.42f);
-        static readonly Color Pearl = new(0.50f, 0.68f, 0.70f);
-        static readonly Color PufferCoral = new(0.34f, 0.25f, 0.16f);
-        static readonly Color CrabShell = new(0.30f, 0.23f, 0.16f);
+        static readonly Color Cobalt = new(0.09f, 0.38f, 0.78f);
+        static readonly Color Aqua = new(0.12f, 0.78f, 0.72f);
+        static readonly Color Pearl = new(0.58f, 0.88f, 1f);
+        static readonly Color PufferCoral = new(0.76f, 0.48f, 0.22f);
+        static readonly Color CrabShell = new(0.72f, 0.43f, 0.15f);
 
         readonly Mesh[] shoalMeshes = new Mesh[2];
         readonly Mesh[] benthicMeshes = new Mesh[2];
@@ -68,8 +68,8 @@ namespace Liminal
 
             root = new GameObject("Atlantis / all-boss peaceful fauna");
             root.transform.SetParent(parent, false);
-            shoalMaterial = CreateMaterial(shader, "Atlantis / celebratory shoals", 1f, 0.56f);
-            benthicMaterial = CreateMaterial(shader, "Atlantis / walking hermit crabs", 4f, 0.48f);
+            shoalMaterial = CreateMaterial(shader, "Atlantis / celebratory shoals", 1f, 2.3f);
+            benthicMaterial = CreateMaterial(shader, "Atlantis / walking hermit crabs", 4f, 1.85f);
             shoalFilter = PointCloud.Place("Atlantis / expanded fish and puffer schools",
                 shoalMeshes[0], shoalMaterial, root.transform).GetComponent<MeshFilter>();
             benthicFilter = PointCloud.Place("Atlantis / peaceful seabed hermit crabs",
@@ -91,8 +91,8 @@ namespace Liminal
             reducedDensity = useVr;
             shoalFilter.sharedMesh = shoalMeshes[useVr ? 1 : 0];
             benthicFilter.sharedMesh = benthicMeshes[useVr ? 1 : 0];
-            shoalMaterial.SetFloat(PixelFloorId, useVr ? 0.40f : 0.48f);
-            benthicMaterial.SetFloat(PixelFloorId, useVr ? 0.38f : 0.44f);
+            shoalMaterial.SetFloat(PixelFloorId, useVr ? 0.66f : 0.75f);
+            benthicMaterial.SetFloat(PixelFloorId, useVr ? 0.62f : 0.72f);
         }
 
         public void SetProgress(float formation, float song, float beat)
@@ -173,7 +173,7 @@ namespace Liminal
                     float height = Mathf.Sin(member * 0.19f + school * 0.83f + branch) * 1.1f;
                     Vector3 center = pose.Center + forward * along + side * (branchOffset + lane) +
                         Vector3.up * height;
-                    AddSchoolFish(cloud, center, forward, side, school, fish, ref identity);
+                    AddSchoolFish(cloud, center, forward, side, school, fish, useVr, ref identity);
                 }
 
                 int puffersPerSchool = useVr ? 2 : 4;
@@ -182,7 +182,7 @@ namespace Liminal
                     float along = (puffer - (puffersPerSchool - 1) * 0.5f) * 18f;
                     float lane = puffer % 2 == 0 ? 24f : -24f;
                     Vector3 center = pose.Center + forward * along + side * lane + Vector3.down * 6f;
-                    AddPufferfish(cloud, center, rotation, school, ref identity);
+                    AddPufferfish(cloud, center, rotation, school, useVr, ref identity);
                 }
             }
             return cloud.Build("Atlantis / expanded fish and puffer schools", 720f);
@@ -195,110 +195,108 @@ namespace Liminal
             int count = useVr ? VrHermitCrabCount : DesktopHermitCrabCount;
             for (int crab = 0; crab < count; crab++)
             {
-                float u = (crab + 0.5f) / count;
                 float angle = crab * 2.3999632f;
-                float radius = Mathf.Lerp(106f, 254f, Mathf.Sqrt(u));
-                float x = Mathf.Cos(angle) * radius;
-                float z = Mathf.Sin(angle) * radius;
-                Vector3 center = new(x, AtlantisGeometry.GroundHeight(x, z) + 0.14f, z);
                 Quaternion rotation = Quaternion.Euler(0f,
-                    angle * Mathf.Rad2Deg + Mathf.Sin(crab * 1.71f) * 0.45f, 0f);
-                AddHermitCrab(cloud, center, rotation, crab + 1, ref identity);
+                    (angle + Mathf.Sin(crab * 1.71f) * 0.45f) * Mathf.Rad2Deg, 0f);
+                AddHermitCrab(cloud, HermitCenter(crab, useVr), rotation, crab + 1, useVr, ref identity);
             }
             return cloud.Build("Atlantis / walking hermit crabs", 720f);
         }
 
         static void AddSchoolFish(PointCloud cloud, Vector3 center, Vector3 forward,
-            Vector3 side, int school, int fish, ref uint identity)
+            Vector3 side, int school, int fish, bool useVr, ref uint identity)
         {
-            Color body = fish % 13 == 0 ? new Color(0.22f, 0.29f, 0.28f) :
+            Color body = fish % 13 == 0 ? new Color(0.48f, 0.72f, 0.64f) :
                 Color.Lerp(Cobalt, Aqua, Hash01((uint)(fish * 17 + school * 101)) * 0.72f);
-            AddPoint(cloud, center + forward * 0.82f, 0.13f, Pearl, school, ref identity);
-            AddPoint(cloud, center + forward * 0.22f, 0.16f, body, school, ref identity);
-            AddPoint(cloud, center - forward * 0.30f, 0.145f, body, school, ref identity);
-            AddPoint(cloud, center + forward * 0.20f + side * 0.30f, 0.13f, body, school, ref identity);
-            AddPoint(cloud, center + forward * 0.20f - side * 0.30f, 0.13f, body, school, ref identity);
-            AddPoint(cloud, center - forward * 0.48f + side * 0.16f, 0.12f, body, school, ref identity);
-            AddPoint(cloud, center - forward * 0.48f - side * 0.16f, 0.12f, body, school, ref identity);
-            AddPoint(cloud, center - forward * 0.72f + side * 0.34f, 0.105f, Aqua, school, ref identity);
-            AddPoint(cloud, center - forward * 0.72f - side * 0.34f, 0.105f, Aqua, school, ref identity);
-            AddPoint(cloud, center + Vector3.up * 0.18f, 0.10f, Pearl, school, ref identity);
-            AddPoint(cloud, center - forward * 0.22f - Vector3.up * 0.14f, 0.10f, body, school, ref identity);
+            int segments = useVr ? 3 : 4;
+            for (int segment = 0; segment < segments; segment++)
+            {
+                float t = segment / (float)(segments - 1);
+                float z = Mathf.Lerp(1.9f, -1.5f, t);
+                float width = 0.14f + Mathf.Sin(t * Mathf.PI) * 0.54f;
+                AddPoint(cloud, center + forward * z, 0.28f, body, school, ref identity);
+                AddPoint(cloud, center + forward * z + side * width, 0.25f, body, school, ref identity);
+                AddPoint(cloud, center + forward * z - side * width, 0.25f, body, school, ref identity);
+            }
+            AddPoint(cloud, center - forward * 1.55f, 0.23f, Aqua, school, ref identity);
+            AddPoint(cloud, center - forward * 2.3f + side * 0.7f, 0.25f, Aqua, school, ref identity);
+            AddPoint(cloud, center - forward * 2.3f - side * 0.7f, 0.25f, Aqua, school, ref identity);
+            if (!useVr) AddPoint(cloud, center - forward * 1.95f, 0.23f, Aqua, school, ref identity);
+            AddPoint(cloud, center + forward * 1.7f + Vector3.up * 0.18f, 0.24f, Pearl, school, ref identity);
         }
 
         static void AddPufferfish(PointCloud cloud, Vector3 center, Quaternion rotation,
-            int school, ref uint identity)
+            int school, bool useVr, ref uint identity)
         {
-            for (int ring = 0; ring < 3; ring++)
+            int rings = useVr ? 4 : 6;
+            for (int ring = 0; ring < rings; ring++)
             {
-                float y = (ring - 1) * 0.52f;
-                float radius = ring == 1 ? 0.98f : 0.78f;
-                for (int i = 0; i < 8; i++)
+                float latitude = Mathf.Lerp(-1.05f, 1.05f, ring / (float)(rings - 1));
+                for (int i = 0; i < 16; i++)
                 {
-                    float angle = i * Tau / 8f;
-                    Vector3 local = new(Mathf.Cos(angle) * radius, y, Mathf.Sin(angle) * radius);
+                    float angle = i * Tau / 16f + ring * 0.12f;
+                    float radius = 2.5f * Mathf.Cos(latitude) + (i % 4 == 0 ? .3f : 0f);
+                    Vector3 local = new(Mathf.Cos(angle) * radius, Mathf.Sin(latitude) * 2.5f,
+                        Mathf.Sin(angle) * radius);
                     Color color = (i + ring) % 5 == 0 ? Pearl :
                         Color.Lerp(PufferCoral, Aqua, ((i * 3 + ring) % 9) * 0.075f);
-                    AddPoint(cloud, center + rotation * local, 0.15f, color, school, ref identity);
+                    AddPoint(cloud, center + rotation * local, 0.26f, color, school, ref identity);
                 }
             }
+        }
 
-            for (int spike = 0; spike < 8; spike++)
-            {
-                float angle = spike * Tau / 8f + 0.18f;
-                Vector3 local = new(Mathf.Cos(angle) * 1.12f, 0.12f, Mathf.Sin(angle) * 1.12f);
-                AddPoint(cloud, center + rotation * local, 0.11f, Pearl, school, ref identity);
-            }
-            AddPoint(cloud, center + rotation * new Vector3(-0.27f, 0.28f, 0.82f),
-                0.12f, Pearl, school, ref identity);
-            AddPoint(cloud, center + rotation * new Vector3(0.27f, 0.28f, 0.82f),
-                0.12f, Pearl, school, ref identity);
-            AddPoint(cloud, center + rotation * new Vector3(0f, -0.14f, 1.02f),
-                0.10f, PufferCoral, school, ref identity);
-            AddPoint(cloud, center - rotation * Vector3.forward * 1.12f,
-                0.14f, Aqua, school, ref identity);
+        internal static Vector3 HermitCenter(int crab, bool useVr)
+        {
+            int count = useVr ? VrHermitCrabCount : DesktopHermitCrabCount;
+            float radius = Mathf.Lerp(106f, 254f, Mathf.Sqrt((crab + 0.5f) / count));
+            float angle = crab * 2.3999632f;
+            float x = Mathf.Cos(angle) * radius;
+            float z = Mathf.Sin(angle) * radius;
+            return new Vector3(x, AtlantisGeometry.GroundHeight(x, z) + .7f, z);
         }
 
         static void AddHermitCrab(PointCloud cloud, Vector3 center, Quaternion rotation,
-            int motionId, ref uint identity)
+            int motionId, bool useVr, ref uint identity)
         {
-            Vector3 forward = rotation * Vector3.forward;
-            Vector3 side = rotation * Vector3.right;
-            Vector3 up = Vector3.up;
             Color shell = Color.Lerp(CrabShell, Aqua, (motionId % 5) * 0.045f);
-            AddPoint(cloud, center + up * 0.40f, 0.18f, shell, motionId, ref identity);
-            AddPoint(cloud, center + forward * 0.16f + up * 0.42f, 0.16f, shell, motionId, ref identity);
-            AddPoint(cloud, center - forward * 0.16f + up * 0.38f, 0.15f, shell, motionId, ref identity);
-            AddPoint(cloud, center + side * 0.28f + up * 0.35f, 0.14f, shell, motionId, ref identity);
-            AddPoint(cloud, center - side * 0.28f + up * 0.35f, 0.14f, shell, motionId, ref identity);
-
-            for (int crabSide = -1; crabSide <= 1; crabSide += 2)
+            int shellPoints = useVr ? 72 : 192;
+            for (int point = 0; point < shellPoints; point++)
             {
-                for (int leg = 0; leg < 3; leg++)
+                float t = Mathf.Pow((point + .5f) / shellPoints, .62f);
+                Vector3 local = HermitGeometry.ShellSurface(t, point * 2.3999632f) * .85f;
+                AddPoint(cloud, center + rotation * local, .25f,
+                    point % 11 == 0 ? Pearl : shell, motionId, ref identity);
+            }
+            int legPoints = useVr ? 10 : 20;
+            for (int leg = 0; leg < 6; leg++)
+            {
+                for (int point = 0; point < legPoints; point++)
                 {
-                    float z = (leg - 1) * 0.34f;
-                    Vector3 rootPoint = center + side * (crabSide * 0.30f) + forward * z + up * 0.20f;
-                    Vector3 knee = center + side * (crabSide * 0.72f) +
-                        forward * (z + 0.13f) + up * 0.10f;
-                    Vector3 foot = center + side * (crabSide * 0.99f) +
-                        forward * (z - 0.08f) + up * 0.03f;
-                    AddPoint(cloud, rootPoint, 0.11f, shell, motionId, ref identity);
-                    int legIndex = crabSide < 0 ? leg : leg + 3;
-                    AddPoint(cloud, knee, 0.10f, shell,
-                        LegMotionId(motionId, legIndex, true), ref identity);
-                    AddPoint(cloud, foot, 0.095f, Pearl,
-                        LegMotionId(motionId, legIndex, false), ref identity);
+                    float t = point / (float)(legPoints - 1);
+                    Vector3 local = HermitGeometry.LegSurface(leg, t, HermitGeometry.RestFoot(leg)) * .85f;
+                    AddPoint(cloud, center + rotation * local, .24f,
+                        point % 7 == 0 ? Pearl : Aqua,
+                        LegMotionId(motionId, leg, t < .52f), ref identity);
                 }
-
-                Vector3 clawRoot = center + side * (crabSide * 0.38f) + forward * 0.38f + up * 0.19f;
-                Vector3 clawTip = center + side * (crabSide * 0.62f) + forward * 0.67f + up * 0.22f;
-                AddPoint(cloud, clawRoot, 0.12f, shell, motionId, ref identity);
-                AddPoint(cloud, clawTip, 0.13f, Pearl, motionId, ref identity);
-                AddPoint(cloud, clawTip + side * (crabSide * 0.13f), 0.105f, shell, motionId, ref identity);
-
-                Vector3 eyeStalk = center + side * (crabSide * 0.15f) + forward * 0.38f + up * 0.46f;
-                AddPoint(cloud, eyeStalk, 0.09f, shell, motionId, ref identity);
-                AddPoint(cloud, eyeStalk + up * 0.12f, 0.085f, Pearl, motionId, ref identity);
+            }
+            for (int side = -1; side <= 1; side += 2)
+            {
+                int clawPoints = useVr ? 12 : 32;
+                for (int point = 0; point < clawPoints; point++)
+                {
+                    float t = (point / 2) / (float)(clawPoints / 2 - 1);
+                    Vector3 local = Vector3.Lerp(new Vector3(side * 1.45f, .93f, 1.4f),
+                        new Vector3(side * 3.95f, 1.1f + (point % 2 == 0 ? .2f : -.2f), 3.8f), t) * .85f;
+                    AddPoint(cloud, center + rotation * local, .25f, Aqua, motionId, ref identity);
+                }
+                int eyePoints = useVr ? 6 : 12;
+                for (int point = 0; point < eyePoints; point++)
+                {
+                    float t = point / (float)(eyePoints - 1);
+                    Vector3 local = new(side * (.62f + .08f * t), 1.15f + 1.12f * t, 2.1f + .55f * t);
+                    AddPoint(cloud, center + rotation * local * .85f, .23f,
+                        point == eyePoints - 1 ? Pearl : Aqua, motionId, ref identity);
+                }
             }
         }
 
