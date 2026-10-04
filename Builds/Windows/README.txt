@@ -1,4 +1,10 @@
-LIMINAL v0.1.14 / Windows x64 / PCVR / Conditional Endings
+LIMINAL v0.1.15 / Windows x64 / PCVR / Finale & VR Feedback Hotfix
+
+全討伐後の魚群・ヤドカリが小さく暗く見えなかった問題を修正しました。
+追加ヤドカリは戦闘用と同じ立体螺旋の貝殻・関節脚を使い、魚群も識別できるサイズにしました。
+全体のBloomは増やさず、生物の粒数・局所輝度・遠距離の最小粒径を調整しています。
+追加生物の粒数は非VR 48,544、VR 19,488。VR退出時には非VRメッシュへ戻ります。
+VRのロック中リングを復旧しました。HP・カウンター等の通常HUDは引き続き非表示です。
 
 海蛇: Serpent_VelvetKeys / ヤドカリ: Hermit_OrchestralCurrent
 潜水艦: Submarine_OrganicCurrent
@@ -25,11 +31,11 @@ LIMINAL v0.1.14 / Windows x64 / PCVR / Conditional Endings
 新ED曲はイントロと余韻も含め、全長を維持しています。
 StageAudioReport.jsonは無音の限定検査。新曲のゲーム内聴感レビューは未実施です。
 
-このフォルダはv0.1.14の公開Releaseビルドです。
+このフォルダはv0.1.15の公開Releaseビルドです。
 StageAudioReport.json・EndingReleaseReport.jsonに無音の限定検証結果を同梱します。
 今回のQuest実機確認・新ED切り替えの聴感確認は未実施です。
 起動時はOriginal Quad。SharpQuadへの切り替えと横並び比較は設定として残しています。
-VRプレイ中のHUDは洞窟入口の行き先のみ。ポーズとゲームオーバーの操作画面は残します。
+VRプレイ中は洞窟入口の行き先とロック中リングを表示。ポーズとゲームオーバーの操作画面は残します。
 VRポーズから音量・明るさ・描画・チュートリアルなどの設定を利用できます。
 聖炎は色の変化を半速にし、横と奥の広がりを増やし、高さを約1.4倍へ調整しました。
 VR設定は右スティック上下でスクロール、左右で値変更、右トリガーで決定します。

@@ -1,4 +1,4 @@
-# LIMINAL v0.1.14 / Conditional Endings
+# LIMINAL v0.1.15 / Conditional Endings and Feedback Hotfix
 
 ## Ending Selection
 
@@ -52,7 +52,7 @@ points respectively. Existing city brightness and Bloom are not increased.
 
 The desktop full-clear scene has 2,352 fish in total (784 existing plus 1,568
 added), 48 small peaceful hermit crabs and 28 pufferfish. The additional meshes
-contain 19,840 points on desktop and 13,616 in VR. Crabs follow terrain height
+contain 48,544 points on desktop and 19,488 in VR. Crabs follow terrain height
 with alternating limb motion; fish use the established circling-school paths.
 No additional independent serpent or separate tornado creature is introduced
 in this release. Point budgets bound added geometry, but do not substitute for
@@ -71,3 +71,17 @@ approved stage instruments. `EndingReleaseReport.json` verifies finale layers,
 fauna density switching, stable credit pools, all rows, reset, and 180-second
 completion. Silent batch-mode captures are retained in Devlog. These checks do
 not claim a new physical headset or audible mixing review.
+
+## v0.1.15 Hotfix
+
+The correct full-clear mask was reaching the celebration. Its creatures were
+too small, sparse and dim to read in the scene. Peaceful crabs now reuse the
+encounter's raised spiral shell and jointed legs. Fish use larger recognisable
+silhouettes, and local radiance and pixel coverage keep the shoals visible
+without increasing global Bloom. Acquired-target rings return to the VR world
+HUD, independently of the still-hidden HP and counters.
+
+The current `EndingReleaseReport.json` includes render-on/render-off pixel
+comparisons for fish and hermits in both desktop and reduced VR density, plus
+acquired-ring rendering and lifecycle checks. `StageAudioReport.json` is retained
+from v0.1.14 because this hotfix does not change audio or music selection.
