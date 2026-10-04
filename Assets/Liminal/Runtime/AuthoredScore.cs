@@ -242,12 +242,13 @@ namespace Liminal
             int[] notes = timeline.harmony[chord].notes;
             return notes[index % notes.Length] + 12 + 12 * (index / notes.Length);
         }
-        static readonly int[] SerpentShotOrder = { 0, 2, 1, 0, 1, 2, 1, 0 };
+        static readonly int[] HarpShotOrder = { 0, 2, 1, 0, 1, 2, 1, 0 };
+        public static bool UsesHarpShot(int theme) => theme == 1 || theme == 3;
         public static int ShotNote(int index, double song)
         {
             index %= 8;
-            if (ThemeAt(song) != 1) return Note(index, song);
-            int midi = Note(SerpentShotOrder[index], song);
+            if (!UsesHarpShot(ThemeAt(song))) return Note(index, song);
+            int midi = Note(HarpShotOrder[index], song);
             while (midi > 78) midi -= 12;
             while (midi < 60) midi += 12;
             return midi;

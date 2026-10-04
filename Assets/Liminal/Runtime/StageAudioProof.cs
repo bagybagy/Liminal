@@ -57,14 +57,15 @@ namespace Liminal
                 }
                 catch (Exception exception) { errors.Add(exception.ToString()); break; }
                 double boundary = game.Music.ScheduledBoundary;
-                if (theme == 1)
+                if (theme == 1 || theme == 3)
                 {
                     try
                     {
-                        Check(game.Music.CurrentTheme == 0, "Harp reservation must be tested before the theme actually changes.");
+                        Check(game.Music.CurrentTheme == (theme == 1 ? 0 : 1), "Harp reservation must be tested before the theme actually changes.");
                         VerifyShotPhrase(AuthoredScore.Next(boundary, .3, false), true);
-                        report.futureThemeHarp = true;
-                        VerifyHarpRange(boundary);
+                        if (theme == 1) report.futureThemeHarp = true;
+                        else report.futureHermitHarp = true;
+                        VerifyHarpRange(boundary, theme);
                     }
                     catch (Exception exception) { errors.Add(exception.ToString()); break; }
                 }
@@ -95,7 +96,7 @@ namespace Liminal
                     if (theme == 2) report.whaleTidalMemory = true;
                     if (theme == 5) report.endingTheme = true;
                     if (theme == 1) VerifyReleasePhrase();
-                    else VerifyShotPhrase(AuthoredScore.Next(game.Music.Time, .3, false), false);
+                    else if (theme != 3) VerifyShotPhrase(AuthoredScore.Next(game.Music.Time, .3, false), false);
                 }
                 catch (Exception exception) { errors.Add(exception.ToString()); break; }
                 yield return VerifyCrossfade(boundary, theme == 1);
@@ -127,6 +128,8 @@ namespace Liminal
 
         void VerifyShotPhrase(double onset, bool harp)
         {
+            int theme = AuthoredScore.ThemeAt(onset);
+            float expectedVolume = .62f * (theme == 3 ? (float)Math.Pow(10, 3 / 20.0) : 1);
             int beforeNotes = game.Music.ScheduledNotes, beforeHarp = game.Music.ScheduledHarpNotes;
             int[] fold = { 0, 2, 1, 0, 1, 2, 1, 0 };
             var pitches = new int[8];
@@ -147,18 +150,30 @@ namespace Liminal
                 Check(!harp || clip.samples == 52920 && clip.frequency == 44100 && clip.channels == 2 &&
                     clip.loadType == AudioClipLoadType.DecompressOnLoad,
                     "Approved harp audio must use the preloaded 1.2-second PCM note.");
+                Check(Mathf.Abs(game.Music.LastShotVolume - expectedVolume) < .00001f,
+                    "Only the hermit harp must receive the approved +3 dB source volume.");
+                Check(!harp || clip == Resources.Load<AudioClip>("StageNoteAudio/SerpentHarp/Note_" + expected),
+                    "Both approved harp themes must share the unchanged PCM note bank.");
                 Check(AuthoredScore.GridError(onset) < .00003, "Shot reservations must stay on the measured eighth grid.");
                 pitches[i] = expected;
             }
             Check(game.Music.ScheduledNotes == beforeNotes + 8 &&
                 game.Music.ScheduledHarpNotes == beforeHarp + (harp ? 8 : 0), "Shot instrument counters differ.");
-            if (harp) { report.harpShotPitches = pitches; report.foldedHarpPhrase = true; }
+            if (harp && theme == 3) {
+                report.hermitHarpPitches = pitches;
+                report.hermitShotLevel = game.Music.LastShotVolume;
+                report.hermitGainVerified = true;
+            }
+            else if (harp) {
+                report.harpShotPitches = pitches; report.foldedHarpPhrase = true;
+                report.serpentShotLevel = game.Music.LastShotVolume;
+            }
             else report.originalShotThemesVerified++;
         }
 
-        void VerifyHarpRange(double boundary)
+        void VerifyHarpRange(double boundary, int theme)
         {
-            var timeline = AuthoredScore.ThemeData(1);
+            var timeline = AuthoredScore.ThemeData(theme);
             foreach (var chord in timeline.harmony)
                 for (int i = 0; i < 8; i++)
                 {
@@ -333,8 +348,11 @@ namespace Liminal
             public bool threeNoteRelease, customReleaseOnce, pauseClockPreserved, restartTidalMemory;
             public bool crossfadePauseFrozen;
             public bool harpBankReady, foldedHarpPhrase, futureThemeHarp;
+            public bool futureHermitHarp, hermitGainVerified;
+            public float serpentShotLevel, hermitShotLevel;
             public int harpRangeChecks, originalShotThemesVerified;
             public int[] harpShotPitches;
+            public int[] hermitHarpPitches;
             public int verifiedCrossfades, crossfadeInteriorSamples;
             public float maxCrossfadePowerError;
             public List<double> crossfadeDurations = new();
