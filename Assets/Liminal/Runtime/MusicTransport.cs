@@ -11,7 +11,7 @@ namespace Liminal
         public bool EnableStageMusic;
         const float MusicLevel = 0.83f;
         const int VoiceCount = 64;
-        const double CrossfadeBars = .5;
+        const double CrossfadeBars = 2;
         const int ReleaseToneOctavesAboveRoot = 2;
 
         readonly AudioSource[] musicSources = new AudioSource[2];
@@ -52,6 +52,23 @@ namespace Liminal
         public double ScheduledBoundary { get; private set; } = -1;
         public double LastTransitionTime { get; private set; } = -1;
         public double NextTransitionTime => pendingTheme >= 0 ? ScheduledBoundary : -1;
+        public bool IsCrossfading => crossfading;
+        public double CrossfadeDuration => fadeEndSong - fadeStartSong;
+        public float CrossfadeProgress { get; private set; }
+        public float IncomingFadeGain => MusicGain(scheduledMusicSource >= 0 ? scheduledMusicSource : activeMusicSource);
+        public float OutgoingFadeGain => MusicGain(scheduledMusicSource >= 0 ? activeMusicSource : 1 - activeMusicSource);
+
+        public static Vector2 CrossfadeGains(float progress)
+        {
+            progress = Mathf.Clamp01(progress);
+            if (progress <= 0) return new Vector2(1, 0);
+            if (progress >= 1) return new Vector2(0, 1);
+            float smooth = progress * progress * (3 - 2 * progress);
+            float angle = smooth * Mathf.PI * .5f;
+            return new Vector2(Mathf.Clamp01(Mathf.Cos(angle)), Mathf.Clamp01(Mathf.Sin(angle)));
+        }
+
+        float MusicGain(int source) => musicSources[source] ? musicSources[source].volume / MusicLevel : 0;
 
         public void Initialize(bool deferPlayback = false)
         {
@@ -133,6 +150,7 @@ namespace Liminal
             scheduledMusicSource = fadeOutMusicSource = -1;
             pendingTheme = -1;
             fadeStartSong = fadeEndSong = 0;
+            CrossfadeProgress = 0;
             crossfading = false;
             ScheduledBoundary = -1;
             LastTransitionTime = -1;
@@ -210,6 +228,7 @@ namespace Liminal
             incoming.clip = themeClips[pendingTheme];
             incoming.loop = true;
             incoming.volume = 0;
+            CrossfadeProgress = 0;
             incoming.PlayScheduled(origin + ScheduledBoundary);
         }
 
@@ -239,8 +258,10 @@ namespace Liminal
 
             if (crossfading) {
                 float progress = Mathf.Clamp01((float)((songTime - fadeStartSong) / Math.Max(0.001, fadeEndSong - fadeStartSong)));
-                musicSources[fadeOutMusicSource].volume = MusicLevel * (1 - progress);
-                musicSources[activeMusicSource].volume = MusicLevel * progress;
+                CrossfadeProgress = progress;
+                Vector2 gains = CrossfadeGains(progress);
+                musicSources[fadeOutMusicSource].volume = MusicLevel * gains.x;
+                musicSources[activeMusicSource].volume = MusicLevel * gains.y;
                 if (progress >= 1) {
                     musicSources[fadeOutMusicSource].Stop();
                     musicSources[fadeOutMusicSource].clip = null;

@@ -1,0 +1,649 @@
+{
+    "sourceSha256": "78116e5ff5d6e7e81cfd0cd3c26882d45a3c7669168301c7fb2bc6bb1f793e1b",
+    "sourceStartSeconds": 15.354195011337869,
+    "durationSeconds": 23.283809523809525,
+    "masterGain": 0.800000011920929,
+    "candidateIntegratedInGame": false,
+    "musicalGridHumanVerified": false,
+    "source": "Unity-imported approved recording; same BGM excerpt, note onsets and gains in A/B/C",
+    "files": [
+        {
+            "name": "A_Current",
+            "seconds": 23.283809523809525,
+            "peak": 0.53090500831604,
+            "rms": 0.10010948859929923
+        },
+        {
+            "name": "B_FoldedSameTone",
+            "seconds": 23.283809523809525,
+            "peak": 0.5254887938499451,
+            "rms": 0.09969254443788996
+        },
+        {
+            "name": "C_FoldedSoftGlass",
+            "seconds": 23.283809523809525,
+            "peak": 0.5391601324081421,
+            "rms": 0.09973922503193265
+        },
+        {
+            "name": "C_EffectsOnly",
+            "seconds": 23.283809523809525,
+            "peak": 0.31955239176750185,
+            "rms": 0.06993120753522102
+        },
+        {
+            "name": "D_FadeBefore",
+            "seconds": 12.0,
+            "peak": 0.44823241233825686,
+            "rms": 0.06344580432233718
+        },
+        {
+            "name": "E_FadeAfter",
+            "seconds": 12.0,
+            "peak": 0.44823241233825686,
+            "rms": 0.07077103212130892
+        }
+    ],
+    "notes": [
+        {
+            "variant": 0,
+            "sample": 84736,
+            "midi": 62
+        },
+        {
+            "variant": 0,
+            "sample": 95360,
+            "midi": 66
+        },
+        {
+            "variant": 0,
+            "sample": 105984,
+            "midi": 69
+        },
+        {
+            "variant": 0,
+            "sample": 116480,
+            "midi": 74
+        },
+        {
+            "variant": 0,
+            "sample": 126976,
+            "midi": 78
+        },
+        {
+            "variant": 0,
+            "sample": 137600,
+            "midi": 81
+        },
+        {
+            "variant": 0,
+            "sample": 148224,
+            "midi": 86
+        },
+        {
+            "variant": 0,
+            "sample": 158720,
+            "midi": 90
+        },
+        {
+            "variant": 0,
+            "sample": 254208,
+            "midi": 62
+        },
+        {
+            "variant": 0,
+            "sample": 264704,
+            "midi": 66
+        },
+        {
+            "variant": 0,
+            "sample": 275200,
+            "midi": 69
+        },
+        {
+            "variant": 0,
+            "sample": 285824,
+            "midi": 74
+        },
+        {
+            "variant": 0,
+            "sample": 296448,
+            "midi": 78
+        },
+        {
+            "variant": 0,
+            "sample": 307072,
+            "midi": 81
+        },
+        {
+            "variant": 0,
+            "sample": 317696,
+            "midi": 86
+        },
+        {
+            "variant": 0,
+            "sample": 328192,
+            "midi": 90
+        },
+        {
+            "variant": 0,
+            "sample": 423424,
+            "midi": 62
+        },
+        {
+            "variant": 0,
+            "sample": 434048,
+            "midi": 66
+        },
+        {
+            "variant": 0,
+            "sample": 444672,
+            "midi": 69
+        },
+        {
+            "variant": 0,
+            "sample": 455168,
+            "midi": 74
+        },
+        {
+            "variant": 0,
+            "sample": 465664,
+            "midi": 78
+        },
+        {
+            "variant": 0,
+            "sample": 476288,
+            "midi": 81
+        },
+        {
+            "variant": 0,
+            "sample": 486912,
+            "midi": 86
+        },
+        {
+            "variant": 0,
+            "sample": 497536,
+            "midi": 90
+        },
+        {
+            "variant": 0,
+            "sample": 599296,
+            "midi": 67
+        },
+        {
+            "variant": 0,
+            "sample": 611840,
+            "midi": 71
+        },
+        {
+            "variant": 0,
+            "sample": 624384,
+            "midi": 74
+        },
+        {
+            "variant": 0,
+            "sample": 635136,
+            "midi": 79
+        },
+        {
+            "variant": 0,
+            "sample": 645888,
+            "midi": 83
+        },
+        {
+            "variant": 0,
+            "sample": 656512,
+            "midi": 86
+        },
+        {
+            "variant": 0,
+            "sample": 667136,
+            "midi": 91
+        },
+        {
+            "variant": 0,
+            "sample": 677632,
+            "midi": 95
+        },
+        {
+            "variant": 0,
+            "sample": 772864,
+            "midi": 62
+        },
+        {
+            "variant": 0,
+            "sample": 783488,
+            "midi": 66
+        },
+        {
+            "variant": 0,
+            "sample": 794112,
+            "midi": 69
+        },
+        {
+            "variant": 0,
+            "sample": 804608,
+            "midi": 74
+        },
+        {
+            "variant": 0,
+            "sample": 815104,
+            "midi": 78
+        },
+        {
+            "variant": 0,
+            "sample": 825856,
+            "midi": 81
+        },
+        {
+            "variant": 0,
+            "sample": 836608,
+            "midi": 86
+        },
+        {
+            "variant": 0,
+            "sample": 847104,
+            "midi": 90
+        },
+        {
+            "variant": 1,
+            "sample": 84736,
+            "midi": 62
+        },
+        {
+            "variant": 1,
+            "sample": 95360,
+            "midi": 69
+        },
+        {
+            "variant": 1,
+            "sample": 105984,
+            "midi": 66
+        },
+        {
+            "variant": 1,
+            "sample": 116480,
+            "midi": 62
+        },
+        {
+            "variant": 1,
+            "sample": 126976,
+            "midi": 66
+        },
+        {
+            "variant": 1,
+            "sample": 137600,
+            "midi": 69
+        },
+        {
+            "variant": 1,
+            "sample": 148224,
+            "midi": 66
+        },
+        {
+            "variant": 1,
+            "sample": 158720,
+            "midi": 62
+        },
+        {
+            "variant": 1,
+            "sample": 254208,
+            "midi": 62
+        },
+        {
+            "variant": 1,
+            "sample": 264704,
+            "midi": 69
+        },
+        {
+            "variant": 1,
+            "sample": 275200,
+            "midi": 66
+        },
+        {
+            "variant": 1,
+            "sample": 285824,
+            "midi": 62
+        },
+        {
+            "variant": 1,
+            "sample": 296448,
+            "midi": 66
+        },
+        {
+            "variant": 1,
+            "sample": 307072,
+            "midi": 69
+        },
+        {
+            "variant": 1,
+            "sample": 317696,
+            "midi": 66
+        },
+        {
+            "variant": 1,
+            "sample": 328192,
+            "midi": 62
+        },
+        {
+            "variant": 1,
+            "sample": 423424,
+            "midi": 62
+        },
+        {
+            "variant": 1,
+            "sample": 434048,
+            "midi": 69
+        },
+        {
+            "variant": 1,
+            "sample": 444672,
+            "midi": 66
+        },
+        {
+            "variant": 1,
+            "sample": 455168,
+            "midi": 62
+        },
+        {
+            "variant": 1,
+            "sample": 465664,
+            "midi": 66
+        },
+        {
+            "variant": 1,
+            "sample": 476288,
+            "midi": 69
+        },
+        {
+            "variant": 1,
+            "sample": 486912,
+            "midi": 66
+        },
+        {
+            "variant": 1,
+            "sample": 497536,
+            "midi": 62
+        },
+        {
+            "variant": 1,
+            "sample": 599296,
+            "midi": 67
+        },
+        {
+            "variant": 1,
+            "sample": 611840,
+            "midi": 74
+        },
+        {
+            "variant": 1,
+            "sample": 624384,
+            "midi": 71
+        },
+        {
+            "variant": 1,
+            "sample": 635136,
+            "midi": 67
+        },
+        {
+            "variant": 1,
+            "sample": 645888,
+            "midi": 71
+        },
+        {
+            "variant": 1,
+            "sample": 656512,
+            "midi": 74
+        },
+        {
+            "variant": 1,
+            "sample": 667136,
+            "midi": 71
+        },
+        {
+            "variant": 1,
+            "sample": 677632,
+            "midi": 67
+        },
+        {
+            "variant": 1,
+            "sample": 772864,
+            "midi": 62
+        },
+        {
+            "variant": 1,
+            "sample": 783488,
+            "midi": 69
+        },
+        {
+            "variant": 1,
+            "sample": 794112,
+            "midi": 66
+        },
+        {
+            "variant": 1,
+            "sample": 804608,
+            "midi": 62
+        },
+        {
+            "variant": 1,
+            "sample": 815104,
+            "midi": 66
+        },
+        {
+            "variant": 1,
+            "sample": 825856,
+            "midi": 69
+        },
+        {
+            "variant": 1,
+            "sample": 836608,
+            "midi": 66
+        },
+        {
+            "variant": 1,
+            "sample": 847104,
+            "midi": 62
+        },
+        {
+            "variant": 2,
+            "sample": 84736,
+            "midi": 62
+        },
+        {
+            "variant": 2,
+            "sample": 95360,
+            "midi": 69
+        },
+        {
+            "variant": 2,
+            "sample": 105984,
+            "midi": 66
+        },
+        {
+            "variant": 2,
+            "sample": 116480,
+            "midi": 62
+        },
+        {
+            "variant": 2,
+            "sample": 126976,
+            "midi": 66
+        },
+        {
+            "variant": 2,
+            "sample": 137600,
+            "midi": 69
+        },
+        {
+            "variant": 2,
+            "sample": 148224,
+            "midi": 66
+        },
+        {
+            "variant": 2,
+            "sample": 158720,
+            "midi": 62
+        },
+        {
+            "variant": 2,
+            "sample": 254208,
+            "midi": 62
+        },
+        {
+            "variant": 2,
+            "sample": 264704,
+            "midi": 69
+        },
+        {
+            "variant": 2,
+            "sample": 275200,
+            "midi": 66
+        },
+        {
+            "variant": 2,
+            "sample": 285824,
+            "midi": 62
+        },
+        {
+            "variant": 2,
+            "sample": 296448,
+            "midi": 66
+        },
+        {
+            "variant": 2,
+            "sample": 307072,
+            "midi": 69
+        },
+        {
+            "variant": 2,
+            "sample": 317696,
+            "midi": 66
+        },
+        {
+            "variant": 2,
+            "sample": 328192,
+            "midi": 62
+        },
+        {
+            "variant": 2,
+            "sample": 423424,
+            "midi": 62
+        },
+        {
+            "variant": 2,
+            "sample": 434048,
+            "midi": 69
+        },
+        {
+            "variant": 2,
+            "sample": 444672,
+            "midi": 66
+        },
+        {
+            "variant": 2,
+            "sample": 455168,
+            "midi": 62
+        },
+        {
+            "variant": 2,
+            "sample": 465664,
+            "midi": 66
+        },
+        {
+            "variant": 2,
+            "sample": 476288,
+            "midi": 69
+        },
+        {
+            "variant": 2,
+            "sample": 486912,
+            "midi": 66
+        },
+        {
+            "variant": 2,
+            "sample": 497536,
+            "midi": 62
+        },
+        {
+            "variant": 2,
+            "sample": 599296,
+            "midi": 67
+        },
+        {
+            "variant": 2,
+            "sample": 611840,
+            "midi": 74
+        },
+        {
+            "variant": 2,
+            "sample": 624384,
+            "midi": 71
+        },
+        {
+            "variant": 2,
+            "sample": 635136,
+            "midi": 67
+        },
+        {
+            "variant": 2,
+            "sample": 645888,
+            "midi": 71
+        },
+        {
+            "variant": 2,
+            "sample": 656512,
+            "midi": 74
+        },
+        {
+            "variant": 2,
+            "sample": 667136,
+            "midi": 71
+        },
+        {
+            "variant": 2,
+            "sample": 677632,
+            "midi": 67
+        },
+        {
+            "variant": 2,
+            "sample": 772864,
+            "midi": 62
+        },
+        {
+            "variant": 2,
+            "sample": 783488,
+            "midi": 69
+        },
+        {
+            "variant": 2,
+            "sample": 794112,
+            "midi": 66
+        },
+        {
+            "variant": 2,
+            "sample": 804608,
+            "midi": 62
+        },
+        {
+            "variant": 2,
+            "sample": 815104,
+            "midi": 66
+        },
+        {
+            "variant": 2,
+            "sample": 825856,
+            "midi": 69
+        },
+        {
+            "variant": 2,
+            "sample": 836608,
+            "midi": 66
+        },
+        {
+            "variant": 2,
+            "sample": 847104,
+            "midi": 62
+        }
+    ]
+}
