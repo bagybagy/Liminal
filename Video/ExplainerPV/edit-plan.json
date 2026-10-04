@@ -1,0 +1,15 @@
+{
+  "title": "LIMINAL / ABYSSAL CHOIR",
+  "format": "1920x1080 / 30fps",
+  "shots": [
+    {"id":"title","source":"C:/Users/sutea/Videos/Captures/LIMINAL 2026-10-04 23-59-43.mp4","startSeconds":688,"durationSeconds":6,"crop":"crop=2304:1296:128:38","reason":"ホエールの接近を冒頭のフックにする。"},
+    {"id":"world","source":"C:/Users/sutea/Videos/Captures/LIMINAL 2026-10-04 23-59-43.mp4","startSeconds":12,"durationSeconds":10,"crop":"crop=2304:1296:128:38","reason":"メニュー後のクラゲと自由遊泳。"},
+    {"id":"particle","source":"C:/Users/sutea/Videos/Captures/LIMINAL 2026-10-04 23-59-43.mp4","startSeconds":264,"durationSeconds":14,"crop":"crop=2304:1296:128:38","reason":"海底の粒子群を背景に形態継承の概念図を表示。"},
+    {"id":"gpu","source":"C:/Users/sutea/Videos/Captures/LIMINAL 2026-10-04 23-59-43.mp4","startSeconds":112,"durationSeconds":12,"crop":"crop=2304:1296:128:38","reason":"共有骨格を使う海蛇の実映像。"},
+    {"id":"rhythm","source":"C:/Users/sutea/Videos/Captures/LIMINAL 2026-10-04 23-59-43.mp4","startSeconds":52,"durationSeconds":12,"crop":"crop=2304:1296:128:38","reason":"射撃・着弾音を原録画の区間と合わせて使用。図は拍予約の説明で、画面の音の計測結果ではない。"},
+    {"id":"vr","source":"C:/Users/sutea/Videos/Captures/LIMINAL 2026-10-04 14-16-59.mp4","startSeconds":440,"durationSeconds":10,"crop":"crop=2304:1296:128:38","reason":"PCVRミラーのホエール接近と視線ロック。左右眼分離はしない。"},
+    {"id":"production","source":"C:/Users/sutea/Videos/Captures/LIMINAL 2026-10-04 23-59-43.mp4","startSeconds":390,"durationSeconds":12,"crop":"crop=2304:1296:128:38","reason":"潜水艦の実描画を背景に制作工程を図解。"},
+    {"id":"whale","source":"C:/Users/sutea/Videos/Captures/LIMINAL 2026-10-04 23-59-43.mp4","startSeconds":775,"durationSeconds":8,"crop":"crop=2304:1296:128:38","reason":"ホエールの泳ぎを図解なしで見せる。"},
+    {"id":"finale","source":"C:/Users/sutea/Videos/Captures/LIMINAL 2026-10-04 23-59-43.mp4","startSeconds":860,"durationSeconds":6,"crop":"crop=2304:1296:128:38","reason":"粒子都市を作品名と制作者の余韻に使う。"}
+  ]
+}

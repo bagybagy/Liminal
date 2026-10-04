@@ -1,0 +1,10 @@
+node_modules/
+out/
+work/
+analysis/samples/
+analysis/detail_*.jpg
+__pycache__/
+.remotion/
+public/fonts-local/
+public/media/
+*.log

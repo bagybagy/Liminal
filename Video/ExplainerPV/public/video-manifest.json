@@ -1,0 +1,19 @@
+{
+  "title": "LIMINAL / ABYSSAL CHOIR",
+  "creator": "tete",
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "audioMix": "media/mix.wav",
+  "scenes": [
+    {"id":"title","durationSeconds":6,"title":"LIMINAL","subtitle":"ABYSSAL CHOIR — 音を、泳ぐ。","clip":"media/title.mp4"},
+    {"id":"world","durationSeconds":10,"kicker":"01 / THE WORLD","title":"深海を、自由に泳ぐ。","subtitle":"標的をなぞってロック。離して、拍に乗せて撃つ。","clip":"media/world.mp4"},
+    {"id":"particle","durationSeconds":14,"kicker":"02 / PERSISTENT MATTER","title":"倒しても、光は消えない。","subtitle":"同じ粒子が、生物から海底の群落へ。","clip":"media/particle.mp4","diagram":"particle-choir"},
+    {"id":"gpu","durationSeconds":12,"kicker":"03 / RENDERING","title":"輪郭は、数十万の光で描く。","subtitle":"Unity 6・Compute Shader・GraphicsBuffer・URP","clip":"media/gpu.mp4","diagram":"gpu-skeleton"},
+    {"id":"rhythm","durationSeconds":12,"kicker":"04 / SOUND & PLAY","title":"操作が、音楽の一部になる。","subtitle":"音・射撃・着弾を、共通のDSP時計へ。","clip":"media/rhythm.mp4","diagram":"rhythm-sync"},
+    {"id":"vr","durationSeconds":10,"kicker":"05 / PCVR · ACTUAL CAPTURE","title":"同じ世界を、PCVRでも。","subtitle":"OpenXR・視線ロック・コントローラー操作","clip":"media/vr.mp4"},
+    {"id":"production","durationSeconds":12,"kicker":"06 / AI-ASSISTED DEVELOPMENT","title":"人が方向を決め、AIが実装する。","subtitle":"試作 → 実画面で検証 → 修正","clip":"media/production.mp4","diagram":"production-flow"},
+    {"id":"whale","durationSeconds":8,"title":"その光は、世界に還る。","subtitle":"音と光が息づく、海底洞窟へ。","clip":"media/whale.mp4"},
+    {"id":"finale","durationSeconds":6,"title":"LIMINAL","subtitle":"ABYSSAL CHOIR / created by tete","clip":"media/finale.mp4"}
+  ]
+}

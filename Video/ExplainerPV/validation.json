@@ -1,0 +1,16 @@
+{
+  "file": "LIMINAL_ABYSSAL_CHOIR_ExplainerPV_1080p.mp4",
+  "durationSeconds": 90.005,
+  "width": 1920,
+  "height": 1080,
+  "fps": "30/1",
+  "videoCodec": "h264",
+  "colorSpace": "bt709",
+  "colorRange": "tv",
+  "audioCodec": "aac",
+  "audioChannels": 2,
+  "sizeMiB": 77.41,
+  "integratedLUFS": -16.1,
+  "truePeakDBTP": -1.45,
+  "fullDecodePassed": true
+}

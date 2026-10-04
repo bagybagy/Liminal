@@ -45,6 +45,7 @@ Desktop.ini
 # Preserve local recording assets without publishing raw or failed takes.
 /Video/*
 !/Video/PV/
+!/Video/ExplainerPV/
 /Video/PV/LIMINAL_raw.mp4
 /Video/PV/*.log
 /Video/PV/Review/

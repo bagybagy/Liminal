@@ -1,0 +1,178 @@
+{
+  "analysis_date": "2026-10-05",
+  "sources": [
+    {
+      "id": "normal_235943",
+      "file": "C:/Users/sutea/Videos/Captures/LIMINAL 2026-10-04 23-59-43.mp4",
+      "duration_seconds": 899.037233,
+      "size_bytes": 1975334031,
+      "video": {
+        "codec": "h264",
+        "width": 2560,
+        "height": 1372,
+        "nominal_fps": "60/1",
+        "average_fps": "201052500/6742279"
+      },
+      "audio": {
+        "codec": "aac",
+        "sample_rate_hz": 48000,
+        "channels": 2,
+        "mean_volume_dbfs": -17.9,
+        "sample_peak_dbfs": 0.0,
+        "silence_threshold_dbfs": -42,
+        "silence_over_1_5s": [
+          [
+            0.0,
+            7.343396
+          ],
+          [
+            896.663729,
+            898.986396
+          ]
+        ]
+      },
+      "classification": "通常版のゲーム画面キャプチャ。SBSなし。"
+    },
+    {
+      "id": "vr_141659",
+      "file": "C:/Users/sutea/Videos/Captures/LIMINAL 2026-10-04 14-16-59.mp4",
+      "duration_seconds": 628.923933,
+      "size_bytes": 1327197197,
+      "video": {
+        "codec": "h264",
+        "width": 2560,
+        "height": 1372,
+        "nominal_fps": "60/1",
+        "average_fps": "180020000/6288739"
+      },
+      "audio": {
+        "codec": "aac",
+        "sample_rate_hz": 48000,
+        "channels": 2,
+        "mean_volume_dbfs": -17.4,
+        "sample_peak_dbfs": -0.1,
+        "silence_threshold_dbfs": -42,
+        "silence_over_1_5s": [
+          [
+            57.757542,
+            64.989271
+          ],
+          [
+            98.311979,
+            102.301312
+          ],
+          [
+            103.090354,
+            106.655375
+          ]
+        ]
+      },
+      "classification": "VR/OpenXRミラー系キャプチャ。画面にPCVR/OpenXR状態と空間内ターゲット名・距離が見える。左右眼SBSではない。"
+    }
+  ],
+  "audio_notes": "全編のmean_volume/max_volumeと-42 dBFS・1.5秒以上の無音区間をffmpeg volumedetect/silencedetectで確認。両方とも無音区間以外は音声あり。音楽の曲名・音質は耳での聴取評価をしていないため未判定。最終ミックス前にピーク抑制/ラウドネス確認を推奨。",
+  "candidates": [
+    {
+      "id": "N01",
+      "source": "normal_235943",
+      "start_seconds": 12,
+      "end_seconds": 24,
+      "subject": "クラゲ群と粒子場",
+      "reason": "冒頭のメニューが消えた後、クラゲと海中粒子が一気に見える。短い導入カットに向く。"
+    },
+    {
+      "id": "N02",
+      "source": "normal_235943",
+      "start_seconds": 82,
+      "end_seconds": 116,
+      "subject": "細身の海蛇状生物が接近・横切る",
+      "reason": "遠景から長く細身のひれを持つ個体が接近し、胴体が横切る。クジラとは異なる海蛇のシルエットを紹介できる。"
+    },
+    {
+      "id": "N04",
+      "source": "normal_235943",
+      "start_seconds": 238,
+      "end_seconds": 264,
+      "subject": "深海生物と粒子のまとまり",
+      "reason": "粒子が集まり、複数の発光生物が浮かび上がる。世界の密度を見せる中継カット。"
+    },
+    {
+      "id": "N05",
+      "source": "normal_235943",
+      "start_seconds": 382,
+      "end_seconds": 414,
+      "subject": "赤い大型船の全景と寄り",
+      "reason": "青緑の生物群と色調が変わる。船体ディテールも読め、映像に色の変化を作れる。"
+    },
+    {
+      "id": "N07",
+      "source": "normal_235943",
+      "start_seconds": 710,
+      "end_seconds": 752,
+      "subject": "青い流れの中を進むクジラ",
+      "reason": "青い粒子の流れとリング状の発光演出が強く、動きのあるクライマックス候補。"
+    },
+    {
+      "id": "N09",
+      "source": "normal_235943",
+      "start_seconds": 827,
+      "end_seconds": 875,
+      "subject": "青い粒子の大規模な放出と都市/終幕表示",
+      "reason": "粒子の明るい終盤演出から広域の建築的な粒子景観へ移る。締めの余韻候補。"
+    },
+    {
+      "id": "V01",
+      "source": "vr_141659",
+      "start_seconds": 0,
+      "end_seconds": 22,
+      "subject": "近距離クジラとOpenXR状態表示",
+      "reason": "VRの近接感は強いが、PCVR状態表示と対象名ラベルが重なる。UIを避ける短い切り出し向け。"
+    },
+    {
+      "id": "V02",
+      "source": "vr_141659",
+      "start_seconds": 72,
+      "end_seconds": 96,
+      "subject": "粒子で描かれた都市景観とタイトル",
+      "reason": "都市の粒子構造とLIMINAL/ABYSSAL CHOIR表記が見える。世界観紹介かタイトル挿入に向く。"
+    },
+    {
+      "id": "V03",
+      "source": "vr_141659",
+      "start_seconds": 112,
+      "end_seconds": 130,
+      "subject": "クラゲの群れ",
+      "reason": "クラゲの明るい群れが寄ってくる。OpenXR文字が出るタイミングを避けて短く使う。"
+    },
+    {
+      "id": "V04",
+      "source": "vr_141659",
+      "start_seconds": 138,
+      "end_seconds": 168,
+      "subject": "クジラとターゲット群の交差",
+      "reason": "大きな生物の横切りにターゲット表示・攻撃エフェクトが重なる。ゲーム操作/戦闘の説明用。"
+    },
+    {
+      "id": "V05",
+      "source": "vr_141659",
+      "start_seconds": 205,
+      "end_seconds": 230,
+      "subject": "発光敵群への攻撃エフェクト",
+      "reason": "プレイヤー側の弾道と複数の敵影が同居し、操作ゲームであることが伝わる。ラベル類はトリミングか短尺化。"
+    },
+    {
+      "id": "V09",
+      "source": "vr_141659",
+      "start_seconds": 588,
+      "end_seconds": 620,
+      "subject": "都市景観と制作者クレジット",
+      "reason": "粒子都市から制作クレジットへつながる。終幕専用候補。長く見せるとゲーム本編よりクレジット説明になる。"
+    }
+  ],
+  "framing": {
+    "source_aspect_ratio": 1.8659,
+    "target_16_9_crop": "中央基準で幅約2440pxにし、左右を各約60px落とす（縦1372pxを維持）。軽いクロップなので、まず等倍で試し、HUD/対象ラベルが残るショットのみ個別に再フレーム。",
+    "vr_stereo": "14:16録画に左右眼SBSの継ぎ目や二重像は確認できず、単一のミラー映像として扱う。左右眼を分離するクロップは不要。レンズ歪みを含む場合は中央の主被写体を優先し、無理な魚眼補正を加えない。",
+    "ui": "通常版は下中央に小さな操作/照準表示、上端に細い情報表示あり。VR版は下端にPCVR/OpenXRステータス、空間内に対象名・距離ラベルあり。ラベルのない間を優先し、必要なら16:9への左右クロップで残るUIは個別マスク/画角調整。"
+  }
+}

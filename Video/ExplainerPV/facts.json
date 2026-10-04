@@ -1,0 +1,99 @@
+{
+  "title": "LIMINAL / ABYSSAL CHOIR",
+  "scope": "一次資料調査。C:/repos/Antigravity/Liminal 内の資料とコードのみ参照。",
+  "facts": [
+    {
+      "topic": "official_title",
+      "claim": "正式表記はLIMINAL / ABYSSAL CHOIR。「アビサルキュリオ」ではない。",
+      "evidence": ["README.md:1-4", "DESIGN.md:1-4", "Video/PV/README.md:17"]
+    },
+    {
+      "topic": "game_concept",
+      "claim": "音楽シューティング。五つの発光する海底洞窟を遊泳し、ロックオン射撃で戦う。撃破粒子を別の生命や環境へ継承する。",
+      "evidence": ["README.md:3-4", "README.md:54-63", "README.md:73-80", "README.md:91-98"]
+    },
+    {
+      "topic": "particle_technology",
+      "claim": "専用Compute Shaderで粒子状態をGPU更新し、GraphicsBufferとURP Graphics.RenderPrimitivesで描く。VFX Graphを使用しているとは説明しない。",
+      "evidence": ["README.md:126-130", "Assets/Liminal/Runtime/PersistentMatter.cs:51-57", "Assets/Liminal/Runtime/PersistentMatter.cs:81-88", "Assets/Liminal/Runtime/PersistentMatter.cs:255-266", "Assets/Liminal/Runtime/PersistentMatter.cs:288-301"]
+    },
+    {
+      "topic": "rendering_art_direction",
+      "claim": "描画方式はQuad。Original Quadが現在の標準でSharpQuadは比較・切り替え可能な選択肢。SharpQuadでは解析的光芯、粒径上限、独立した揺らぎと輝点で輪郭・色・暗部を保つ。",
+      "evidence": ["SHARP_MATTER.md:5-13", "SHARP_MATTER.md:26-42"]
+    },
+    {
+      "topic": "music_sync",
+      "claim": "DSP予約時計を音楽・射撃・譜面・粒子変形の共通基準にする。採用曲の拍位置は音源解析による推定タイムライン。",
+      "evidence": ["README.md:115-119", "STAGE_MUSIC_ADOPTION.md:19-28", "Assets/Liminal/Runtime/MusicTransport.cs:167-185"]
+    },
+    {
+      "topic": "pcvr",
+      "claim": "Windows版でOpenXR PCVRを提供し、MultiPass描画を設定。PC接続HMD想定であり、Quest単体Android版や実機での快適性保証はない。",
+      "evidence": ["README.md:176-188", "Assets/Liminal/Editor/PcVrSetup.cs:80-115", "Assets/Liminal/Runtime/PcVrSession.cs:323-376"]
+    },
+    {
+      "topic": "ai_music",
+      "claim": "2026-10-05採用のエンディング4曲はACE-Step XL-SFTと1.7B LMによる独立生成で、元音源や既存歌手の声を入力していない。",
+      "evidence": ["MusicReview/12-VocalReferences/README.md:3-12", "Tools/approved-ending-audio.json:1-5", "ENDING_RELEASE.md:15-27"]
+    },
+    {
+      "topic": "production_roster",
+      "claim": "担当割り当てを確認できた制作ワーカー75名を記録。完了69、停止2、未報告4。参加者数であり、全成果が統合・出荷されたという主張ではない。",
+      "evidence": ["CONTRIBUTORS.md:3-9", "ENDING_RELEASE.md:61-64"]
+    },
+    {
+      "topic": "audio_use",
+      "claim": "既存PVはUnity Recorder収録のTidalMemoryとゲームSEを同じソース区間で使う。エンディング曲の使用根拠は個別の直接承認記録に限る。原作素材は含まない。",
+      "evidence": ["Video/PV/README.md:5-9", "Video/PV/final-edit.json:5-8,66-85", "Video/PV/validation.json:1-12", "Tools/approved-ending-audio.json:1-5", "README.md:3-5"]
+    }
+  ],
+  "pv_subtitles": [
+    {
+      "seconds": "0-7",
+      "text": "LIMINAL / ABYSSAL CHOIR\n音と光が息づく、五つの海底洞窟へ。",
+      "evidence": ["README.md:1-4"]
+    },
+    {
+      "seconds": "7-16",
+      "text": "狙いをなぞり、八つまでロック。\n放つ弾も、音楽の拍へ。",
+      "evidence": ["README.md:54-63", "README.md:115-121"],
+      "footage_note": "今回添付の2026-10-04録画から該当場面を選ぶ。"
+    },
+    {
+      "seconds": "16-26",
+      "text": "一粒ずつが、形をつくる。\nGPU上で動き続ける、海の光。",
+      "evidence": ["README.md:126-130", "Assets/Liminal/Runtime/PersistentMatter.cs:51-57,81-88,255-266,288-301"]
+    },
+    {
+      "seconds": "26-36",
+      "text": "倒しても、消えない。\n生き物の粒子が、海底の命へ。",
+      "evidence": ["SHARP_MATTER.md:26-38", "README.md:91-98"]
+    },
+    {
+      "seconds": "36-47",
+      "text": "大渦から現れる、ホエール。\n光の身体はイルカへ受け継がれる。",
+      "evidence": ["README.md:75-77"],
+      "footage_note": "今回添付の2026-10-04録画から該当場面を選ぶ。"
+    },
+    {
+      "seconds": "47-57",
+      "text": "PCVRにも対応。\nOpenXRで、洞窟を自由に遊泳。",
+      "evidence": ["README.md:176-188", "Assets/Liminal/Editor/PcVrSetup.cs:80-115"]
+    },
+    {
+      "seconds": "57-66",
+      "text": "歌も、世界のために生成する。\n拍を読み取り、光とゲームへ結ぶ。",
+      "evidence": ["MusicReview/12-VocalReferences/README.md:3-12", "STAGE_MUSIC_ADOPTION.md:19-28"]
+    },
+    {
+      "seconds": "66-72",
+      "text": "75名の担当記録と、制作技術。\n粒子の海は、まだ続いていく。",
+      "evidence": ["CONTRIBUTORS.md:3-9"]
+    }
+  ],
+  "existing_pv_boundary": {
+    "claim": "リポジトリの既存PVは2026-10-01原録画の約38.7秒版で、クラゲ、海蛇、クジラ、イルカの8点ロックを含み、ヤドカリ、潜水艦、アトランティス、VR操作は含まれない。今回のユーザー添付素材は別の2026-10-04録画で、字幕に使う場面はその録画内で確認して選ぶ。2026-10-05追加の条件付きエンディング、180秒スタッフロール、全撃破時の追加生物を、いずれの録画にも映っていると断定しない。",
+    "evidence": ["Video/PV/README.md:3-17", "Video/PV/final-edit.json:1-8", "ENDING_RELEASE.md:33-59"]
+  }
+}

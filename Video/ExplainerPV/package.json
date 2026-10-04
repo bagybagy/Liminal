@@ -1,0 +1,23 @@
+{
+  "name": "liminal-explainer-pv",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "still": "remotion still src/index.ts ExplainerPV out/preview.png --frame=60 --scale=0.5",
+    "render": "remotion render src/index.ts ExplainerPV work/master.mp4 --concurrency=4 --log=error",
+    "render:preview": "remotion render src/index.ts ExplainerPV out/liminal-explainer-pv-preview.mp4 --scale=0.5"
+  },
+  "dependencies": {
+    "@remotion/media": "4.0.532",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.532"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.532",
+    "@types/react": "19.2.14",
+    "typescript": "5.9.3"
+  }
+}
