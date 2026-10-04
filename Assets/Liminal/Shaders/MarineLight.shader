@@ -20,18 +20,35 @@ Shader "Liminal/Marine Light"
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
+            #pragma multi_compile_instancing
             #pragma target 4.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "SharpMatter.hlsl"
             CBUFFER_START(UnityPerMaterial)
             float4 _Tint;
             float _Gain, _MarineMode, _Activation, _Scatter;
             CBUFFER_END
             float _MarineSong;
-            struct Input { float3 positionOS : POSITION; float4 color : COLOR; float4 uv : TEXCOORD0; float2 data : TEXCOORD1; };
-            struct Vary { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float4 color : COLOR; };
+            struct Input
+            {
+                float3 positionOS : POSITION;
+                float4 color : COLOR;
+                float4 uv : TEXCOORD0;
+                float2 data : TEXCOORD1;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+            };
+            struct Vary
+            {
+                float4 positionCS : SV_POSITION;
+                float2 uv : TEXCOORD0;
+                float4 color : COLOR;
+                UNITY_VERTEX_OUTPUT_STEREO
+            };
             Vary Vert(Input v)
             {
+                UNITY_SETUP_INSTANCE_ID(v);
                 Vary o;
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 float3 p=v.positionOS;
                 float t=_MarineSong;
                 float pulse=0.82+0.18*sin(t*1.35+v.data.x*17);
@@ -66,20 +83,22 @@ Shader "Liminal/Marine Light"
                 float3 world=TransformObjectToWorld(p);
                 float distance=length(_WorldSpaceCameraPos-world);
                 float size=v.uv.z*max(1.0,distance*0.0038);
+                size=MatterGrainRadius(size,MatterPixelWorld(world),v.data.x,1.3);
+                float grainGain=1.0+(MatterGrainLight(v.data.x,t,saturate(v.data.y))-1.0)*0.14;
                 float3 right=UNITY_MATRIX_V[0].xyz, up=UNITY_MATRIX_V[1].xyz;
                 world+=(right*v.uv.x+up*v.uv.y)*size;
                 o.positionCS=TransformWorldToHClip(world);
                 o.uv=v.uv.xy;
                 float3 color=lerp(v.color.rgb,v.color.rgb*float3(0.58,1.28,1.52),_Activation*0.72);
-                o.color=float4(color*_Tint.rgb*_Gain*pulse*exp(-distance*0.0015),1);
+                o.color=float4(color*_Tint.rgb*_Gain*pulse*exp(-distance*0.0015)*grainGain,1);
                 return o;
             }
             half4 Frag(Vary i) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float r=dot(i.uv,i.uv);
                 clip(1-r);
-                float glow=exp(-r*5.5)*0.34+exp(-r*25.0)*1.55;
-                return half4(i.color.rgb*glow,1);
+                return half4(i.color.rgb*MatterSharpCore(i.uv)*0.884,1);
             }
             ENDHLSL
         }

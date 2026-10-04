@@ -20,8 +20,10 @@ Shader "Liminal/Luminous"
             #pragma vertex Vert
             #pragma fragment Frag
             #pragma target 4.5
+            #pragma multi_compile_instancing
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "MatterFlow.hlsl"
+            #include "SharpMatter.hlsl"
             CBUFFER_START(UnityPerMaterial)
             float4 _Tint;
             float _Gain, _Mode;
@@ -43,8 +45,8 @@ Shader "Liminal/Luminous"
                 return (0.3 + pow(saturate(sin((u*0.88+0.07)*PI)), 0.65)*2.9) * (1-smoothstep(0.72,1,u)*0.9) *
                     (1+exp(-pow((u-0.047)/0.032,2))*0.7)*(0.12+0.88*smoothstep(0,0.03,u));
             }
-            struct Input { float4 positionOS : POSITION; float4 color : COLOR; float4 uv : TEXCOORD0; float2 data : TEXCOORD1; };
-            struct Vary { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float4 color : COLOR; float core : TEXCOORD1; };
+            struct Input { float4 positionOS : POSITION; float4 color : COLOR; float4 uv : TEXCOORD0; float2 data : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Vary { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float4 color : COLOR; float core : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
             float Hash(float value, float salt)
             {
                 return frac(sin(value * 127.1 + salt * 311.7) * 43758.5453);
@@ -52,9 +54,11 @@ Shader "Liminal/Luminous"
             Vary Vert(Input input)
             {
                 Vary o;
+                UNITY_SETUP_INSTANCE_ID(input);
                 float3 p = input.positionOS.xyz;
                 float size = input.uv.z;
-                float twinkle = 0.85 + 0.15*sin(_Song*1.1+input.data.x*31);
+                float grainAccent = saturate(input.color.a);
+                float twinkle = MatterGrainLight(input.data.x,_Song,grainAccent);
                 float resonance = 0;
                 float impactCore = 0;
                 if (_Mode > 0.5 && _Mode < 1.5)
@@ -104,7 +108,8 @@ Shader "Liminal/Luminous"
                     }
                     float grainFade = death.w*(.7+death.z*_MatterDeathStyle.y);
                     float coreFade = 0.16 * exp(-age * 1.25) + 0.88 * exp(-age * 12.0);
-                    twinkle = lerp(grainFade, coreFade, impactCore);
+                    twinkle = lerp(grainFade, coreFade, impactCore) *
+                        MatterGrainLight(input.data.x,_Song,max(grainAccent,saturate(death.z)));
                     size *= 1.0 + min(age * 0.16, 0.24);
                 }
                 else
@@ -129,7 +134,9 @@ Shader "Liminal/Luminous"
                 float3 upCam = UNITY_MATRIX_V[1].xyz;
                 size *= max(1, distance * 0.006);
                 if (_Mode > 1.5 && impactCore > 0.5)
-                    size = max(size, distance * 2.5 / (max(_ScreenParams.y, 1.0) * max(abs(UNITY_MATRIX_P[1][1]), 0.01)));
+                    size = max(size, distance * 2.5 / (max(_ScaledScreenParams.y, 1.0) * max(abs(UNITY_MATRIX_P[1][1]), 0.01)));
+                float maxGrainPixels = _Mode > 1.5 ? 1.8 : 2.2;
+                size = MatterGrainRadius(size,MatterPixelWorld(p),input.data.x,maxGrainPixels);
                 p += (right*input.uv.x + upCam*input.uv.y)*size;
                 o.positionCS = TransformWorldToHClip(p);
                 o.uv = input.uv.xy;
@@ -153,18 +160,19 @@ Shader "Liminal/Luminous"
                     o.color = float4(col*_Tint.rgb*_Gain*twinkle*exp(-distance*0.0018),1);
                 }
                 o.core = impactCore;
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 return o;
             }
             half4 Frag(Vary i) : SV_Target
             {
-                float r = dot(i.uv,i.uv);
-                clip(1-r);
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+                float sharpCore = MatterSharpCore(i.uv);
                 if (_Mode > 1.5) {
-                    float grainGlow = exp(-r * 4.2) * 0.58 + exp(-r * 22.0) * 0.8;
-                    float coreGlow = exp(-r * 3.6) * 0.78 + exp(-r * 20.0) * 1.32;
+                    float grainGlow = sharpCore * 0.72;
+                    float coreGlow = sharpCore * 1.10;
                     return half4(i.color.rgb * lerp(grainGlow, coreGlow, i.core), 1);
                 }
-                float glow = exp(-r*5)*0.35 + exp(-r*24)*1.65;
+                float glow = sharpCore * 1.05;
                 return half4(i.color.rgb*glow,1);
             }
             ENDHLSL

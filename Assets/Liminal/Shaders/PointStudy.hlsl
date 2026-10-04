@@ -105,6 +105,10 @@ StudyVaryings StudyVertex(StudyAttributes input)
         // Dense anatomy needs quiet matter between rare sharp sparks, not uniformly emissive skin.
         shimmer *= .055;
         spark *= 2.4 * step(.94, StudyHash(index * 17 + 83));
+        float3 c, forward, side, up; float width;
+        SpineFrame(seedData.x,c,forward,side,up,width);
+        float axial=abs(dot(forward,normalize(_WorldSpaceCameraPos-position)));
+        coverage*=lerp(1,.20,pow(axial,6));
     }
     float drift = .5 + .5 * sin(seedData.x * 12 - _Song * .65 + seedData.y * .3);
     float3 blue = float3(.07, .34, 1);
@@ -113,7 +117,7 @@ StudyVaryings StudyVertex(StudyAttributes input)
     float3 color = lerp(blue, cyan, smoothstep(.12, .82, drift));
     color = lerp(color, violet, smoothstep(.74, 1, id) * .72);
     if (id > .975) color = lerp(color, float3(1, .52, .12), .65);
-    output.light = color * _Gain * coverage * (shimmer + spark) * _Visibility;
+    output.light = color * coverage * (shimmer * min(_Gain,4) + spark * _Gain) * _Visibility;
 #if defined(STUDY_QUAD)
     uint corner = input.vertexID % 6;
     float2 uv = corner == 0 ? float2(-1,-1) : corner == 1 ? float2(1,-1) :

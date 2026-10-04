@@ -228,33 +228,49 @@ namespace Liminal
             for (int r = 0; r < ribs; r++)
             {
                 float a = r * Mathf.PI * 2 / ribs;
-                for (int j = 0; j <= 20; j++)
+                for (int j = 0; j < 63; j++)
                 {
-                    float u = j / 20f, radius = Mathf.Sin(u * Mathf.PI * 0.5f) * 4.6f;
-                    Vector3 p = new(Mathf.Cos(a) * radius, 0.25f + Mathf.Cos(u * Mathf.PI * 0.5f) * 3.5f, Mathf.Sin(a) * radius);
-                    AddSeed(group, p, 0.075f, Color.Lerp(Aqua, Pearl, u * 0.65f) * (0.56f + 0.44f * u),
-                        JellyKind, index * 0.31f + r * 0.13f, u, JellyGarden(index, r, u));
+                    float identity = index * 1987 + r * 63 + j;
+                    float u = (j + .5f) / 63f, radius = Mathf.Sin(u * Mathf.PI * .5f) * 4.6f;
+                    float angle = a + (JellyHash(identity) - .5f) * Mathf.PI * 2 / ribs;
+                    Vector3 p = new(Mathf.Cos(angle) * radius, .25f + Mathf.Cos(u * Mathf.PI * .5f) * 3.5f, Mathf.Sin(angle) * radius);
+                    AddSeed(group, p, .024f, JellyColor(identity, u),
+                        JellyKind, identity * .0137f, u, JellyGarden(index, r, u));
                 }
             }
             for (int t = 0; t < 16 + index % 5; t++)
             {
                 float a = t * Mathf.PI * 2 / (16 + index % 5), length = 8f + (t * 17 % 9) * 1.15f;
-                for (int j = 0; j < 56; j++)
+                for (int j = 0; j < 168; j++)
                 {
-                    float u = j / 55f, sway = Mathf.Sin(u * 5.2f + t * 1.7f) * u * 1.25f;
+                    float u = (j + .5f) / 168f, sway = Mathf.Sin(u * 5.2f + t * 1.7f) * u * 1.25f;
                     Vector3 p = new(Mathf.Cos(a) * (2.2f + u * 0.6f) + Mathf.Cos(a + Mathf.PI / 2) * sway,
                         -0.15f - u * length, Mathf.Sin(a) * (2.2f + u * 0.6f) + Mathf.Sin(a + Mathf.PI / 2) * sway);
-                    AddSeed(group, p, Mathf.Lerp(0.052f, 0.024f, u), Color.Lerp(Aqua, Pearl, u * 0.45f) * (1 - u * 0.35f),
-                        JellyKind, t * 0.7f, u, JellyGarden(index, ribs + t, u));
+                    float identity = index * 3763 + t * 168 + j + 7919;
+                    p += new Vector3(JellyHash(identity) - .5f, 0, JellyHash(identity + 19) - .5f) * .10f;
+                    AddSeed(group, p, Mathf.Lerp(.024f, .012f, u), JellyColor(identity, u) * (1 - u * .20f),
+                        JellyKind, identity * .0137f, 1 + u, JellyGarden(index, ribs + t, u));
                 }
             }
-            for (int j = 0; j < 180; j++)
+            for (int j = 0; j < 540; j++)
             {
-                float a = j * 2.399f, y = 0.2f + (j % 18) * 0.22f, radius = (j % 18) * 0.20f;
+                float u = JellyHash(j + index * 540), a = j * 2.399f;
+                float y = .2f + u * 3.7f, radius = Mathf.Sqrt(JellyHash(j + 571)) * 1.8f;
                 Vector3 p = new(Mathf.Cos(a) * radius, y, Mathf.Sin(a) * radius);
-                AddSeed(group, p, 0.075f, Color.Lerp(Pearl, Aqua, (j % 18) / 18f), JellyKind,
-                    j * 0.18f, 0, JellyGarden(index, ribs + 40 + j / 60, (j % 60) / 59f));
+                AddSeed(group, p, .020f, JellyColor(j + 12971, u) * .65f, JellyKind,
+                    j * .137f, 2 + u, JellyGarden(index, ribs + 40 + j / 180, (j % 180) / 179f));
             }
+        }
+
+        static float JellyHash(float value) => Mathf.Repeat(Mathf.Sin(value * 127.1f + 311.7f) * 43758.5453f, 1f);
+
+        static Color JellyColor(float identity, float u)
+        {
+            float hue = JellyHash(identity + 83);
+            Color color = Color.Lerp(new Color(.07f, .34f, 1f), new Color(.06f, .88f, .74f), u);
+            if (hue > .86f) color = Color.Lerp(color, new Color(.65f, .09f, .62f), .65f);
+            if (hue > .98f) color = Color.Lerp(color, new Color(1f, .52f, .12f), .7f);
+            return color;
         }
 
         static Vector3 JellyGarden(int jelly, int strand, float u)

@@ -18,8 +18,10 @@ Shader "Liminal/Defeated Marine Forms"
             #pragma vertex Vert
             #pragma fragment Frag
             #pragma target 4.5
+            #pragma multi_compile_instancing
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "../Shaders/MatterFlow.hlsl"
+            #include "../Shaders/SharpMatter.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
             float4 _Tint;
@@ -45,6 +47,7 @@ Shader "Liminal/Defeated Marine Forms"
                 float4 color : COLOR;
                 float4 uv : TEXCOORD0;
                 float2 data : TEXCOORD1;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
             struct Varyings
             {
@@ -53,6 +56,7 @@ Shader "Liminal/Defeated Marine Forms"
                 float4 color : COLOR;
                 float visible : TEXCOORD1;
                 float4 field : TEXCOORD2;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             float Hash(float value, float salt)
@@ -136,6 +140,7 @@ Shader "Liminal/Defeated Marine Forms"
             Varyings Vert(Input input)
             {
                 Varyings output;
+                UNITY_SETUP_INSTANCE_ID(input);
                 float3 local = input.positionOS.xyz;
                 local.y += sin(local.x * 0.06 + local.z * 0.04 + _DeathSong * 0.16) * input.data.y;
                 float3 source = mul(_SourceLocalToWorld, float4(local, 1)).xyz;
@@ -176,6 +181,7 @@ Shader "Liminal/Defeated Marine Forms"
                 float distanceToCamera = length(_WorldSpaceCameraPos - world);
                 float fieldWeight = smoothstep(0.52, 1.17, elapsed) * (1.0 - settle);
                 float size = input.uv.z * max(1.0, distanceToCamera * 0.006) * (1.0 + settle) * (1.0 + fieldWeight * 3.0);
+                size = MatterGrainRadius(size,MatterPixelWorld(world),input.data.x,2.2);
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;
                 float3 cameraUp = UNITY_MATRIX_V[1].xyz;
                 world += (cameraRight * input.uv.x + cameraUp * input.uv.y) * size;
@@ -193,21 +199,23 @@ Shader "Liminal/Defeated Marine Forms"
                 formColor *= 1.0+.24*exp(-pow((settle-.88)*8.0,2.0));
                 float pulse = lerp(0.92 + 0.08 * _Pulse * (1.0 - _Reduced), 1.0 + _Pulse * 0.055 * (1.0 - _Reduced), settle);
                 float distanceFade = exp(-distanceToCamera * 0.0018);
+                float grainLight = MatterGrainLight(input.data.x,_Song,accent);
 
                 output.positionCS = TransformWorldToHClip(world);
                 output.uv = input.uv.xy;
-                output.color = float4(lerp(startColor, formColor, settle) * _Tint.rgb * _Gain * pulse * distanceFade, 1);
-                output.field = float4(formColor * _Tint.rgb * _Gain * pulse * distanceFade, fieldWeight * 0.58);
+                output.color = float4(lerp(startColor, formColor, settle) * _Tint.rgb * _Gain * pulse * distanceFade * grainLight, 1);
+                output.field = float4(formColor * _Tint.rgb * _Gain * pulse * distanceFade * grainLight, fieldWeight * 0.58);
                 output.visible = lerp(1.0, visible, settle);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
                 return output;
             }
 
             half4 Frag(Varyings input) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 clip(input.visible - 0.5);
+                float glow = MatterSharpCore(input.uv);
                 float radius = dot(input.uv, input.uv);
-                clip(1.0 - radius);
-                float glow = exp(-radius * 5.0) * 0.35 + exp(-radius * 24.0) * 1.65;
                 float fieldGlow = exp(-radius * 3.6) * 0.42 + exp(-radius * 10.0) * 0.3;
                 return half4(input.color.rgb * glow + input.field.rgb * input.field.a * fieldGlow, 1);
             }

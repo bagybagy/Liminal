@@ -36,9 +36,11 @@ Shader "Liminal/Hermit Matter"
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
+            #pragma multi_compile_instancing
             #pragma target 4.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "../Shaders/MatterFlow.hlsl"
+            #include "../Shaders/SharpMatter.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
             float4 _Tint;
@@ -57,6 +59,7 @@ Shader "Liminal/Hermit Matter"
                 float4 uv : TEXCOORD0;
                 float4 data : TEXCOORD1;
                 float4 extra : TEXCOORD2;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Varyings
@@ -64,6 +67,7 @@ Shader "Liminal/Hermit Matter"
                 float4 positionCS : SV_POSITION;
                 float2 uv : TEXCOORD0;
                 float4 color : COLOR;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             static const float TAU = 6.28318530718;
@@ -318,7 +322,9 @@ Shader "Liminal/Hermit Matter"
 
             Varyings Vert(Input input)
             {
+                UNITY_SETUP_INSTANCE_ID(input);
                 Varyings output;
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
                 float3 world;
                 float3 color = input.color.rgb;
                 float id = _CrabId * _ParticlesPerCrab + input.data.x;
@@ -386,6 +392,7 @@ Shader "Liminal/Hermit Matter"
                 else
                     world = TransformObjectToWorld(input.positionOS.xyz);
 
+                float grainAccent = saturate(max(max(color.r, color.g), color.b));
                 float distanceToCamera = length(_WorldSpaceCameraPos - world);
                 float rootScale = length(unity_ObjectToWorld._m00_m10_m20);
                 // Small animals retain their size when scaled for readability;
@@ -404,11 +411,9 @@ Shader "Liminal/Hermit Matter"
                     1 - smoothstep(0.16 + Hash(_CrabId, 41.0) * 0.10, 1, _RefugeProgress) : 0;
                 // Enlarge the animal with more samples, not overlapping metre-wide billboards.
                 size = lerp(size, min(size, .32 + glintMask * .08), giantWeight);
-                float4 centerClip = TransformWorldToHClip(world);
-                float pixelsPerWorldUnit = abs(UNITY_MATRIX_P._m11) * _ScreenParams.y * 0.5 /
-                    max(abs(centerClip.w), 0.001);
+                float pixelWorld = MatterPixelWorld(world);
                 float minimumPixels = lerp(lerp(1.15, 1.9, glintMask), lerp(.72, 1.15, glintMask), giantWeight);
-                size = max(size, minimumPixels / max(pixelsPerWorldUnit, 0.001));
+                size = MatterGrainRadius(max(size, pixelWorld * minimumPixels), pixelWorld, id, 1.3);
                 world += (UNITY_MATRIX_V[0].xyz * input.uv.x + UNITY_MATRIX_V[1].xyz * input.uv.y) * size;
                 float pulse = 0.96 + 0.04 * sin(_Beat * TAU + input.data.z * TAU);
                 float distanceFade = exp(-distanceToCamera * 0.0014);
@@ -420,6 +425,7 @@ Shader "Liminal/Hermit Matter"
                     _State<3.5 && _State>2.5?MatterDeathEnvelope(_RefugeProgress*7.0,true).z:0;
                 color *= 1.0+transitionLight*_MatterDeathStyle.y;
                 color *= 1.0 + glintMask * max(0.0, sin(_Song * 3.6 + input.data.z * 29.0)) * 0.5;
+                color *= 1.0 + (MatterGrainLight(id, _Song, grainAccent) - 1.0) * 0.14;
 
                 output.positionCS = TransformWorldToHClip(world);
                 output.uv = input.uv.xy;
@@ -429,11 +435,10 @@ Shader "Liminal/Hermit Matter"
 
             half4 Frag(Varyings input) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 float radius = dot(input.uv, input.uv);
                 clip(1.0 - radius);
-                float core = exp(-radius * 15.0) * 1.35;
-                float halo = exp(-radius * 5.5) * 0.22;
-                return half4(input.color.rgb * (core + halo), 1.0);
+                return half4(input.color.rgb * MatterSharpCore(input.uv) * 0.725, 1.0);
             }
             ENDHLSL
         }

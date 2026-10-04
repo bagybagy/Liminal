@@ -20,8 +20,10 @@ Shader "Liminal/Pufferfish Particles"
             #pragma vertex Vert
             #pragma fragment Frag
             #pragma target 4.5
+            #pragma multi_compile_instancing
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "../Shaders/MatterFlow.hlsl"
+            #include "../Shaders/SharpMatter.hlsl"
             CBUFFER_START(UnityPerMaterial)
             float4 _Tint;
             float _Gain, _DeathProgress, _HitAge;
@@ -36,6 +38,7 @@ Shader "Liminal/Pufferfish Particles"
                 float4 color : COLOR;
                 float4 uv : TEXCOORD0;
                 float2 data : TEXCOORD1;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Vary
@@ -43,6 +46,7 @@ Shader "Liminal/Pufferfish Particles"
                 float4 positionCS : SV_POSITION;
                 float2 uv : TEXCOORD0;
                 float4 color : COLOR;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             float Hash(float value)
@@ -53,6 +57,7 @@ Shader "Liminal/Pufferfish Particles"
             Vary Vert(Input input)
             {
                 Vary output;
+                UNITY_SETUP_INSTANCE_ID(input);
                 float progress = saturate(_DeathProgress);
                 float4 transition=MatterDeathEnvelope(_DeathAge,false);
                 float spread=transition.y*_MatterDeathStyle.x;
@@ -74,12 +79,13 @@ Shader "Liminal/Pufferfish Particles"
                 float3 cameraPosition = _WorldSpaceCameraPos;
                 float distanceToCamera = length(cameraPosition - worldPosition);
                 size *= max(1.0, distanceToCamera * 0.006);
+                size = MatterGrainRadius(size,MatterPixelWorld(worldPosition),seed,2.2);
                 worldPosition += (cameraRight * input.uv.x + cameraUp * input.uv.y) * size;
 
                 float deathFade = transition.w;
-                float shimmer = 0.9 + 0.1 * sin(_Song * 1.7 + input.data.x * 31.0);
+                float grainLight = MatterGrainLight(seed,_Song,saturate(input.color.a));
                 float pulse = 1.0 + _Pulse * 0.18 * (1.0 - _Reduced);
-                float3 color = input.color.rgb * _Tint.rgb * _Gain * shimmer * pulse * deathFade;
+                float3 color = input.color.rgb * _Tint.rgb * _Gain * grainLight * pulse * deathFade;
                 float flash=exp(-_HitAge*6);
                 color=lerp(color,float3(.05,.85,2.2)*deathFade,flash*.4);
                 float glow = 1.0 + transition.z*_MatterDeathStyle.y+flash*.22;
@@ -87,15 +93,14 @@ Shader "Liminal/Pufferfish Particles"
                 output.positionCS = TransformWorldToHClip(worldPosition);
                 output.uv = input.uv.xy;
                 output.color = float4(color * glow * exp(-distanceToCamera * 0.0018), 1.0);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
                 return output;
             }
 
             half4 Frag(Vary input) : SV_Target
             {
-                float radius = dot(input.uv, input.uv);
-                clip(1.0 - radius);
-                float glow = exp(-radius * 5.0) * 0.38 + exp(-radius * 24.0) * 1.55;
-                return half4(input.color.rgb * glow, 1.0);
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+                return half4(input.color.rgb * MatterSharpCore(input.uv), 1.0);
             }
             ENDHLSL
         }

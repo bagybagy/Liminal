@@ -17,9 +17,11 @@ Shader "Liminal/Submarine Matter"
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
+            #pragma multi_compile_instancing
             #pragma target 4.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "../Shaders/MatterFlow.hlsl"
+            #include "../Shaders/SharpMatter.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
             float4 _Tint;
@@ -51,12 +53,14 @@ Shader "Liminal/Submarine Matter"
                 float4 giantFlowCenter : TEXCOORD5;
                 float4 giantFlowTangent : TEXCOORD6;
                 float4 hullNormals : TEXCOORD7;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
                 float2 uv : TEXCOORD0;
                 float4 color : COLOR;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             float3 RotateZ(float3 p, float angle)
@@ -231,7 +235,9 @@ Shader "Liminal/Submarine Matter"
 
             Varyings Vert(Input input)
             {
+                UNITY_SETUP_INSTANCE_ID(input);
                 Varyings output;
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
                 float3 from = FormPosition(_FormFrom, input);
                 float3 to = FormPosition(_FormTo, input);
                 float morph = smoothstep(0.0, 1.0, _Morph);
@@ -241,13 +247,11 @@ Shader "Liminal/Submarine Matter"
                 world += MatterFlowDelta(from*.08,_Morph*4.0,input.data.x)*sin(morph*3.14159265)*3.5;
 
                 float distanceToCamera = length(_WorldSpaceCameraPos - world);
-                float viewDepth = abs(mul(UNITY_MATRIX_V, float4(world, 1.0)).z);
-                float projectionScale = max(0.001, abs(UNITY_MATRIX_P._m11));
-                float worldPerPixel = 2.0 * max(0.01, viewDepth) /
-                    (max(1.0, _ScreenParams.y) * projectionScale);
                 float glint = smoothstep(0.90, 0.99, input.data.w);
-                float minimumRadius = lerp(1.4, 2.3, glint) * worldPerPixel;
-                float size = max(input.uv.z, minimumRadius);
+                float pixelWorld = MatterPixelWorld(world);
+                float minimumRadius = pixelWorld * lerp(0.98, 1.18, glint);
+                float size = MatterGrainRadius(max(input.uv.z, minimumRadius), pixelWorld,
+                    input.data.x, 1.3);
                 float pulse = 0.92 + 0.08 * (1.0 - _Reduced) * (0.5 + 0.5 * sin(_BeatPosition * 6.2831853));
                 float fromAccent = FormAccent(_FormFrom, input);
                 float toAccent = FormAccent(_FormTo, input);
@@ -269,22 +273,25 @@ Shader "Liminal/Submarine Matter"
                     MatterDeathEnvelope(max(0.0,_Song-_FleetCloudStates[craft].x),true).z : 0.0;
                 flare *= 1.0+cloudLight*cloud*_MatterDeathStyle.y;
                 float fade = exp(-distanceToCamera * 0.00165);
+                float grainAccent = saturate(lerp(fromAccent, toAccent, morph));
+                float grainGain = 1.0 +
+                    (MatterGrainLight(input.data.x, _Song, grainAccent) - 1.0) * 0.14;
 
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;
                 float3 cameraUp = UNITY_MATRIX_V[1].xyz;
                 world += (cameraRight * input.uv.x + cameraUp * input.uv.y) * size;
                 output.positionCS = TransformWorldToHClip(world);
                 output.uv = input.uv.xy;
-                output.color = float4(palette * input.color.rgb * _Tint.rgb * _Gain * pulse * flare * fade * hullLight * matterOpacity, 1.0);
+                output.color = float4(palette * input.color.rgb * _Tint.rgb * _Gain * pulse * flare * fade * hullLight * matterOpacity * grainGain, 1.0);
                 return output;
             }
 
             half4 Frag(Varyings input) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 float radius = dot(input.uv, input.uv);
                 clip(1.0 - radius);
-                float glow = exp(-radius * 5.0) * 0.32 + exp(-radius * 24.0) * 1.58;
-                return half4(input.color.rgb * glow, 1.0);
+                return half4(input.color.rgb * MatterSharpCore(input.uv) * 0.884, 1.0);
             }
             ENDHLSL
         }

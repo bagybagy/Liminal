@@ -91,6 +91,7 @@ namespace Liminal
                 releasePosePending = false;
             }
             simulation.SetFloat("_Song", released ? releaseSong : song);
+            simulation.SetVector("_LiminalGrainLook", ParticleLook.Current);
             simulation.SetFloat("_Evolution", evolution);
             simulation.SetFloat("_Dissolve", dissolve);
             simulation.SetFloat("_Pulse", Score.Pulse(song));

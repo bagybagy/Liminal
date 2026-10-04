@@ -17,8 +17,10 @@ Shader "Liminal/Passage Beacon"
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
+            #pragma multi_compile_instancing
             #pragma target 4.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "../Shaders/SharpMatter.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
             float _Gain;
@@ -37,12 +39,14 @@ Shader "Liminal/Passage Beacon"
                 float3 path2 : TEXCOORD4;
                 float3 path3 : TEXCOORD5;
                 float3 path4 : TEXCOORD6;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
                 float2 uv : TEXCOORD0;
                 float3 radiance : COLOR;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             float3 PathPosition(float3 a, float3 b, float3 c, float3 d, float3 e, float t, out float3 tangent)
@@ -62,7 +66,9 @@ Shader "Liminal/Passage Beacon"
 
             Varyings Vert(Input input)
             {
+                UNITY_SETUP_INSTANCE_ID(input);
                 Varyings output;
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
                 float3 world;
                 float brightness = 1.0;
                 if (_FlowEnabled > 0.5)
@@ -82,26 +88,27 @@ Shader "Liminal/Passage Beacon"
                 }
                 else world = TransformObjectToWorld(input.positionOS);
 
-                float viewDepth = abs(mul(UNITY_MATRIX_V,float4(world,1.0)).z);
-                float projectionScale = max(0.001,abs(UNITY_MATRIX_P._m11));
-                float worldPerPixel = 2.0 * max(0.01,viewDepth) / (max(1.0,_ScreenParams.y) * projectionScale);
-                float radius = max(input.uv.z,1.3 * worldPerPixel) * (1.0 + 0.18 * saturate(input.data.y));
+                float pixelWorld = MatterPixelWorld(world);
+                float physicalRadius = input.uv.z * (1.0 + 0.18 * saturate(input.data.y));
+                float radius = MatterGrainRadius(physicalRadius, pixelWorld, input.data.x, 1.3);
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;
                 float3 cameraUp = UNITY_MATRIX_V[1].xyz;
                 world += (cameraRight * input.uv.x + cameraUp * input.uv.y) * radius;
                 float pulse = 0.94 + 0.06 * (0.5 + 0.5 * sin(_BeatPosition * 6.2831853));
+                float grainGain = 1.0 +
+                    (MatterGrainLight(input.data.x, _BeatPosition, saturate(input.data.y)) - 1.0) * 0.14;
                 output.positionCS = TransformWorldToHClip(world);
                 output.uv = input.uv.xy;
-                output.radiance = input.color.rgb * _Gain * pulse * brightness;
+                output.radiance = input.color.rgb * _Gain * pulse * brightness * grainGain;
                 return output;
             }
 
             half4 Frag(Varyings input) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 float r = dot(input.uv,input.uv);
                 clip(1.0-r);
-                float glow = exp(-r*5.0)*0.34 + exp(-r*22.0)*1.18;
-                return half4(input.radiance * glow,1.0);
+                return half4(input.radiance * MatterSharpCore(input.uv) * 0.707, 1.0);
             }
             ENDHLSL
         }

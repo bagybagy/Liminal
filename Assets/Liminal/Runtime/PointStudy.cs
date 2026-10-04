@@ -20,12 +20,14 @@ namespace Liminal
         bool ready;
 
         public bool Visible { get; private set; } = true;
-        public RenderMode Mode { get; private set; } = RenderMode.NativePoint;
+        public RenderMode Mode { get; private set; } = RenderMode.SharpQuad;
         public int DensityMultiplier { get; private set; } = 3;
-        public float Gain { get; private set; } = 4f;
-        public float Flow { get; private set; } = 1f;
+        public float Gain { get; private set; } = 12f;
+        public float Flow { get; private set; } = 2f;
         public Vector3 JellyPosition { get; private set; }
         public Vector3 SerpentPosition { get; private set; }
+        public Vector3 SerpentHeadPosition => spineData[0];
+        public Vector3 SerpentHeadForward => ((Vector3)spineData[0] - (Vector3)spineData[1]).normalized;
         public int JellyPointCount => JellyBudget * DensityMultiplier;
         public int SerpentPointCount => SerpentBudget * DensityMultiplier;
         public MeshTopology NativeTopology => Mode == RenderMode.NativePoint ? MeshTopology.Points : MeshTopology.Triangles;

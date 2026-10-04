@@ -8,6 +8,7 @@ uint _Count;
 float _Delta, _Song, _Evolution, _Dissolve, _Pulse;
 float _ResonanceClock, _Released, _ReleaseBlend;
 float _ReleaseAge;
+float4 _LiminalGrainLook;
 uint _ResonanceEventCount;
 float3 _HeadVelocity;
 float3 _SanctumCenter, _SanctumRadius;
@@ -26,14 +27,19 @@ float3 Curl(float3 p, float t)
 }
 float3 Anchor(in FlowParticle p)
 {
+    float flow = _LiminalGrainLook.z;
     float angle = p.anatomy.y + sin(_Song*0.7+p.seed*50)*0.035;
+    if(p.anatomy.w >= 0 && p.anatomy.w < .5) angle += _Song * .20 * flow;
     float radial = p.anatomy.z;
     if(p.anatomy.w > 0.5 && p.anatomy.w < 1.5)
     {
         angle += sin(p.anatomy.x*25-_Song*1.7)*0.12;
         radial *= 1+_Evolution*0.45;
     }
-    return SkinPosition(p.anatomy.x,angle,radial,_Evolution);
+    float u = p.anatomy.x;
+    if(p.anatomy.w >= 0 && p.anatomy.w < .5)
+        u = clamp(u + .003 * sin(u * 25 - _Song * .55 * flow), .0001, .9999);
+    return SkinPosition(u,angle,radial,_Evolution);
 }
 FlowParticle Make(uint id, float generation)
 {

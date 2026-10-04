@@ -114,11 +114,17 @@ namespace Liminal.Editor
             AssetDatabase.Refresh();
             PcVrSetup.Configure();
             Directory.CreateDirectory("Builds/Windows");
-            var report=BuildPipeline.BuildPlayer(new BuildPlayerOptions {
-                scenes=new[]{Generated+"/AbyssalChoir.unity"},
-                locationPathName="Builds/Windows/Liminal.exe",target=BuildTarget.StandaloneWindows64,
-                options=BuildOptions.CompressWithLz4HC
-            });
+            bool previousFrameTimingStats=PlayerSettings.enableFrameTimingStats;
+            BuildReport report;
+            try {
+                PlayerSettings.enableFrameTimingStats=true;
+                report=BuildPipeline.BuildPlayer(new BuildPlayerOptions {
+                    scenes=new[]{Generated+"/AbyssalChoir.unity"},
+                    locationPathName="Builds/Windows/Liminal.exe",target=BuildTarget.StandaloneWindows64,
+                    options=BuildOptions.CompressWithLz4HC
+                });
+            }
+            finally { PlayerSettings.enableFrameTimingStats=previousFrameTimingStats; }
             if(report.summary.result!=BuildResult.Succeeded) throw new Exception("Build failed: "+report.summary.result);
             Debug.Log("LIMINAL_BUILD_SUCCESS bytes="+report.summary.totalSize);
         }

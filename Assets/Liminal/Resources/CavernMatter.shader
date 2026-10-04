@@ -24,8 +24,10 @@ Shader "Liminal/Cavern Matter"
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
+            #pragma multi_compile_instancing
             #pragma target 4.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "../Shaders/SharpMatter.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _Tint;
@@ -51,17 +53,21 @@ Shader "Liminal/Cavern Matter"
                 float4 color : COLOR;
                 float4 uv : TEXCOORD0;
                 float2 data : TEXCOORD1;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
                 float2 uv : TEXCOORD0;
                 float4 color : COLOR;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             Varyings Vert(Attributes input)
             {
+                UNITY_SETUP_INSTANCE_ID(input);
                 Varyings output;
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
                 float3 anchor = TransformObjectToWorld(input.positionOS.xyz);
                 float3 p = anchor;
                 float seed = input.data.x;
@@ -121,13 +127,15 @@ Shader "Liminal/Cavern Matter"
                     color += float3(0.32, 0.72, 0.94) * (ring * _CaveWaveEnergy * 0.12);
                 }
 
-                float projectionScale = max(1.0, abs(UNITY_MATRIX_P[1][1]) * _ScreenParams.y * 0.5);
-                float nativeRadiusPixels = input.uv.z * projectionScale / max(1.0, distanceToCamera);
-                float maxRadiusPixels = lerp(1.12, 1.65, max(sparkle, edgeSweep));
-                maxRadiusPixels = lerp(maxRadiusPixels, 1.95, marineLayer * playerProximity);
+                color *= lerp(1.0,
+                    MatterGrainLight(seed, _CaveSong, saturate(max(sparkle, edgeSweep))), 0.5);
+
+                float pixelWorld = MatterPixelWorld(p);
+                float maxRadiusPixels = lerp(1.0, 1.25, max(sparkle, edgeSweep));
+                maxRadiusPixels = lerp(maxRadiusPixels, 1.34, marineLayer * playerProximity);
                 float minRadiusPixels = volumeLayer > 0.5 ? 1.10 : 0.95;
-                float radiusPixels = clamp(nativeRadiusPixels, minRadiusPixels, maxRadiusPixels);
-                float worldRadius = radiusPixels * distanceToCamera / projectionScale;
+                float worldRadius = MatterGrainRadius(max(input.uv.z, pixelWorld * minRadiusPixels),
+                    pixelWorld, seed, maxRadiusPixels);
                 float3 right = UNITY_MATRIX_V[0].xyz;
                 float3 up = UNITY_MATRIX_V[1].xyz;
                 p += (right * input.uv.x + up * input.uv.y) * worldRadius;
@@ -140,12 +148,16 @@ Shader "Liminal/Cavern Matter"
 
             half4 Frag(Varyings input) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 float r = dot(input.uv, input.uv);
                 clip(1.0 - r);
                 float soft = exp(-r * 3.0) * 0.48 + exp(-r * 15.0) * 0.42 + exp(-r * 38.0) * 0.15;
                 float crisp = exp(-r * 4.0) * 0.14 + exp(-r * 8.0) * 0.82;
                 float crispness = saturate(_CaveBind * 0.7 + _CaveReveal * 0.32);
-                return half4(input.color.rgb * lerp(soft, crisp, crispness), 1.0);
+                float authoredGlow = lerp(soft, crisp, crispness);
+                float sharpness = 0.72 + crispness * 0.28;
+                float sharpCore = MatterSharpCore(input.uv) * 0.5;
+                return half4(input.color.rgb * lerp(authoredGlow, sharpCore, sharpness), 1.0);
             }
             ENDHLSL
         }

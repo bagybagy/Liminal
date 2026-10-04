@@ -110,6 +110,7 @@ namespace Liminal
             simulation.SetBuffer(initializeKernel, "_AlternateForms", alternateForms);
             simulation.SetBuffer(initializeKernel, "_BirthMatrices", birthMatrices);
             simulation.SetBuffer(initializeKernel, "_GroupVelocities", groupVelocities);
+            simulation.SetBuffer(initializeKernel, "_SurfaceFrames", surfaceFrames);
             simulation.SetBuffer(simulateKernel, "_Seeds", seeds);
             simulation.SetBuffer(simulateKernel, "_Groups", groups);
             simulation.SetBuffer(simulateKernel, "_Particles", particles);
@@ -117,6 +118,7 @@ namespace Liminal
             simulation.SetBuffer(simulateKernel, "_AlternateForms", alternateForms);
             simulation.SetBuffer(simulateKernel, "_BirthMatrices", birthMatrices);
             simulation.SetBuffer(simulateKernel, "_GroupVelocities", groupVelocities);
+            simulation.SetBuffer(simulateKernel, "_SurfaceFrames", surfaceFrames);
             simulation.SetInt("_Count", ParticleCount);
             drawMaterial.SetBuffer("_Particles", particles);
             drawMaterial.SetBuffer("_Seeds", seeds);
@@ -225,6 +227,7 @@ namespace Liminal
             birthMatrices.SetData(birthData);
             groupVelocities.SetData(groupVelocityData);
             simulation.SetFloat("_Song", song);
+            simulation.SetVector("_LiminalGrainLook", ParticleLook.Current);
             simulation.SetFloat("_AuthoredBeat", (float)AuthoredScore.BeatPosition(song));
             simulation.SetVector("_Current", new Vector4(currentCenter.x, currentCenter.y, currentCenter.z, currentRadius));
             simulation.SetVector("_CurrentVelocity", currentVelocity);

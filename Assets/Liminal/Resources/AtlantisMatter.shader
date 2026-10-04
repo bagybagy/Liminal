@@ -21,9 +21,11 @@ Shader "Liminal/Atlantis Matter"
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
+            #pragma multi_compile_instancing
             #pragma target 3.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "../Shaders/AtlantisLight.hlsl"
+            #include "../Shaders/SharpMatter.hlsl"
 
             #define ATLANTIS_TAU 6.28318530718
 
@@ -194,13 +196,13 @@ Shader "Liminal/Atlantis Matter"
                 float2 quad = input.uv.xy;
                 float3 cameraRight = UNITY_MATRIX_V[0].xyz;
                 float3 cameraUp = UNITY_MATRIX_V[1].xyz;
-                float depth = max(0.01, -TransformWorldToView(world).z);
-                float pixelWorld = 2.0 * depth /
-                    (max(abs(UNITY_MATRIX_P[1][1]), 0.01) * max(_ScreenParams.y, 1.0));
+                float pixelWorld = MatterPixelWorld(world);
                 float variation = frac(seed * 73.197 + input.uv.z * 29.31);
                 float sizeTier = lerp(0.78, 1.22, variation) + roleContour * 0.07 + roleGlint * 0.12;
                 float nominalSize = input.uv.z * sizeTier * cityField.size;
-                float size = max(nominalSize, min(pixelWorld * _PixelFloor * cityField.size, 0.42));
+                float physicalSize = min(max(nominalSize,
+                    pixelWorld * _PixelFloor * cityField.size), 0.42);
+                float size = MatterGrainRadius(physicalSize, pixelWorld, seed, 1.3);
                 float3 positionWS = world +
                     (cameraRight * quad.x + cameraUp * quad.y) * size;
                 output.positionCS = TransformWorldToHClip(positionWS);
@@ -222,6 +224,8 @@ Shader "Liminal/Atlantis Matter"
                     frac(seed * 17.17));
                 output.color = lerp(output.color, glintColor * _Gain * 0.72,
                     saturate(max(seededGlint, authoredGlint) * 0.36));
+                float grainAccent = saturate(max(roleGlint, cityField.glint));
+                output.color *= lerp(1.0, MatterGrainLight(seed, _Song, grainAccent), 0.65);
                 output.alpha = input.color.a * formation;
                 return output;
             }
@@ -232,9 +236,7 @@ Shader "Liminal/Atlantis Matter"
                 clip(input.alpha - 0.015);
                 float radius = dot(input.uv, input.uv);
                 clip(1.0 - radius);
-                float core = exp(-radius * 6.4) * 0.88;
-                float halo = exp(-radius * 2.6) * 0.08;
-                return half4(input.color * (core + halo), 1.0);
+                return half4(input.color * MatterSharpCore(input.uv) * 0.5, 1.0);
             }
             ENDHLSL
         }

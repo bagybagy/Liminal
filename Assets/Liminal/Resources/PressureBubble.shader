@@ -11,10 +11,12 @@ Shader "Liminal/Pressure Bubble"
             Cull Off
             HLSLPROGRAM
             #pragma target 4.5
+            #pragma multi_compile_instancing
             #pragma vertex Vert
             #pragma fragment Frag
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "../Shaders/MatterFlow.hlsl"
+            #include "../Shaders/SharpMatter.hlsl"
             CBUFFER_START(UnityPerMaterial)
             float4 _Tint;
             float _Dissolve;
@@ -22,11 +24,12 @@ Shader "Liminal/Pressure Bubble"
             float4 _FlowVelocity;
             CBUFFER_END
             float _Song;
-            struct Input { float3 positionOS:POSITION;float4 uv:TEXCOORD0;float2 data:TEXCOORD1; };
-            struct Varyings { float4 positionCS:SV_POSITION;float2 uv:TEXCOORD0;float glow:TEXCOORD1; };
+            struct Input { float3 positionOS:POSITION;float4 uv:TEXCOORD0;float2 data:TEXCOORD1;UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Varyings { float4 positionCS:SV_POSITION;float2 uv:TEXCOORD0;float glow:TEXCOORD1;UNITY_VERTEX_OUTPUT_STEREO };
             Varyings Vert(Input v)
             {
                 Varyings o;
+                UNITY_SETUP_INSTANCE_ID(v);
                 float phase=v.data.x*6.2831853;
                 float4 transition=MatterDeathEnvelope(_DissolveAge,false);
                 float spread=transition.y*_MatterDeathStyle.x;
@@ -38,17 +41,19 @@ Shader "Liminal/Pressure Bubble"
                 float3 center=TransformObjectToWorld(local)+_FlowVelocity.xyz*(1-exp(-age*2.5))*.4;
                 float scale=length(GetObjectToWorldMatrix()[0].xyz);
                 float size=max(v.uv.z*scale,.065);
+                size=MatterGrainRadius(size,MatterPixelWorld(center),v.data.x,2.1);
                 float3 pos=center+(UNITY_MATRIX_V[0].xyz*v.uv.x+UNITY_MATRIX_V[1].xyz*v.uv.y)*size;
                 o.positionCS=TransformWorldToHClip(pos);o.uv=v.uv.xy;
-                o.glow=(.7+.5*pow(saturate(sin(phase+_Song*3)),6))*transition.w*
+                o.glow=MatterGrainLight(v.data.x,_Song,0.0)*transition.w*
                     (1+_MatterDeathStyle.y*transition.z);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 return o;
             }
             half4 Frag(Varyings i):SV_Target
             {
-                float r2=dot(i.uv,i.uv);clip(1-r2);
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float3 color=lerp(_Tint.rgb,_Tint.rgb*.8+float3(.03,.14,.35),_Dissolve*.4);
-                return half4(color*exp(-r2*5)*i.glow*2.4,1);
+                return half4(color*MatterSharpCore(i.uv)*.52*i.glow*2.4,1);
             }
             ENDHLSL
         }

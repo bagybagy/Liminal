@@ -32,6 +32,7 @@ namespace Liminal
         public AtlantisFinale Finale { get; private set; }
         public PcVrSession Vr { get; private set; }
         public PointStudy PointStudy { get; private set; }
+        public ParticleLook ParticleLook { get; private set; }
         public bool CavernMode { get; private set; }
         public int CurrentRoom { get; private set; }
         public int RoomsVisited { get; private set; }
@@ -66,17 +67,19 @@ namespace Liminal
             bool whaleSplashProof=Array.IndexOf(args,"--verify-whale-splash")>=0;
             bool roomRetryProof=Array.IndexOf(args,"--verify-room-retry")>=0;
             bool pointStudyProof=Array.IndexOf(args,"--verify-point-study")>=0;
+            bool sharpMatterProof=Array.IndexOf(args,"--verify-sharp-matter")>=0;
             bool capturePV=false;
 #if UNITY_EDITOR
             legacyProof|=UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false);
             capturePV=UnityEditor.EditorPrefs.GetBool("Liminal.CavernPV",false);
 #endif
-            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||encounterReview||pressureProof||finalReviewProof||whaleSplashProof||roomRetryProof||pointStudyProof||capturePV;
+            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||encounterReview||pressureProof||finalReviewProof||whaleSplashProof||roomRetryProof||pointStudyProof||sharpMatterProof||capturePV;
             BackgroundProof=ProofActive && Application.isBatchMode && Array.IndexOf(args,"--background-proof")>=0;
             if(BackgroundProof) AudioListener.volume=0f;
             CavernMode=!legacyProof && Array.IndexOf(args,"--legacy-arena")<0;
             if(!BackgroundProof) Cursor.visible=ProofActive;
             World=gameObject.AddComponent<ParticleWorld>();
+            ParticleLook=gameObject.AddComponent<ParticleLook>();
             ParticleTransitionSettings.Current.ApplyGlobals();
             World.particleTemplate=particles;World.ribbonMaterial=ribbons;
             World.cavernSurface=cavernSurface;World.marineLight=marineLight;
@@ -98,8 +101,9 @@ namespace Liminal
                 PassageGuide=gameObject.AddComponent<PassageBeacons>();PassageGuide.Initialize(World,Combat);
                 Finale=gameObject.AddComponent<AtlantisFinale>();Finale.Initialize(World,Marine,Progress);
                 sceneCamera.farClipPlane=2300;
-                if(!ProofActive || pointStudyProof) {
+                if(!ProofActive || pointStudyProof || sharpMatterProof) {
                     PointStudy=gameObject.AddComponent<PointStudy>();PointStudy.Initialize(this);
+                    if(!pointStudyProof) PointStudy.SetVisible(false);
                 }
             }
             Brightness=gameObject.AddComponent<DisplayBrightness>();Brightness.Initialize(sceneCamera);
@@ -121,6 +125,7 @@ namespace Liminal
             if(whaleSplashProof) gameObject.AddComponent<WhaleSplashProof>().Initialize(this);
             if(roomRetryProof) gameObject.AddComponent<RoomRetryProof>().Initialize(this);
             if(pointStudyProof) gameObject.AddComponent<PointStudyProof>().Initialize(this);
+            if(sharpMatterProof) gameObject.AddComponent<SharpMatterProof>().Initialize(this);
             if(capturePV) gameObject.AddComponent<PvDirector>().Initialize(this);
 #if UNITY_EDITOR
             if(UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false))
@@ -148,7 +153,7 @@ namespace Liminal
                 if(!ProofActive && Vr.PausePressed) TogglePause();
             }
             if(Music.Paused) return;
-            if(PointStudy) PointStudy.Tick(song,dt);
+            if(PointStudy && PointStudy.Visible) PointStudy.Tick(song,dt);
             if(!ProofActive && (!Vr || !Vr.Enabled)) Flight.Tick(song,dt,!Combat.Ended);
             if(CavernMode) {
                 CurrentRoom=CaveLayout.NearestRoom(Flight.Position);
