@@ -6,6 +6,9 @@ Shader "Liminal/Sacred Flame Matter"
         _Formation ("Formation", Range(0,1)) = 0
         _Beat ("Authored Music Beat", Float) = 0
         _PixelFloor ("Pixel Radius Floor", Range(0,1)) = 0.44
+        _ColorRate ("Palette Cycles Per Beat", Float) = 0.125
+        _FlameWidth ("Flame Width", Float) = 6
+        _FlameHeight ("Flame Height", Float) = 24.5
     }
     SubShader
     {
@@ -31,6 +34,9 @@ Shader "Liminal/Sacred Flame Matter"
                 float _Formation;
                 float _Beat;
                 float _PixelFloor;
+                float _ColorRate;
+                float _FlameWidth;
+                float _FlameHeight;
             CBUFFER_END
 
             struct Attributes
@@ -85,13 +91,13 @@ Shader "Liminal/Sacred Flame Matter"
                 float strandPhase = strand * 2.399963;
                 float swirl = seed * FLAME_TAU + age * (8.2 + motion * 4.4) + beatPhase * 0.025;
                 float curl = sin(age * FLAME_TAU * 2.1 + seed * FLAME_TAU * 3.0 + beatPhase * 0.11);
-                float radius = 3.7 * pow(1.0 - age, 0.85) + sin(age * 3.14159265) * 0.75;
+                float radius = _FlameWidth * pow(1.0 - age, 0.85) + sin(age * 3.14159265) * 1.1;
                 radius *= sqrt(motion) * (0.84 + pulse * 0.16);
                 float2 bend = float2(sin(_Beat * 0.65 + age * 4.2),
-                    cos(_Beat * 0.49 + age * 3.7)) * pow(age, 1.7) * 2.8;
-                float fork = sin(age * 3.14159265) * age * 2.7;
+                    cos(_Beat * 0.49 + age * 3.7)) * pow(age, 1.7) * 3.2;
+                float fork = sin(age * 3.14159265) * age * 3.6;
                 bend += float2(cos(strandPhase), sin(strandPhase)) * fork;
-                float tongueHeight = 17.5 + 3.2 * sin(_Beat * 0.53 + strandPhase);
+                float tongueHeight = _FlameHeight + 3.2 * sin(_Beat * 0.53 + strandPhase);
                 float3 flowLocal = input.positionOS + float3(
                     cos(swirl + curl * 0.32) * radius + bend.x + sin(age * FLAME_TAU + seed * 8.0) * age * 0.55,
                     age * tongueHeight - 7.0,
@@ -121,7 +127,7 @@ Shader "Liminal/Sacred Flame Matter"
                 output.uv = quad;
 
                 float alive = smoothstep(0.0, 0.065, age) * (1.0 - smoothstep(0.88, 1.0, age));
-                float palettePhase = _Beat * 0.25 + seed * 0.035 + age * 0.025 + motion * 0.012;
+                float palettePhase = _Beat * _ColorRate + seed * 0.035 + age * 0.025 + motion * 0.012;
                 float3 palette = FlamePalette(palettePhase);
                 float radiance = 0.58 + pulse * 0.30 + sin(seed * FLAME_TAU + beatPhase) * 0.055;
                 float sparkleWave = pow(saturate(0.5 + 0.5 * sin(

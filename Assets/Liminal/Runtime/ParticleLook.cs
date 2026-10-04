@@ -14,7 +14,7 @@ namespace Liminal
         static readonly int QuadStyleId = Shader.PropertyToID("_LiminalQuadStyle");
         public static Vector4 Current => Shader.GetGlobalVector(LookId);
         public static bool SideBySide { get; private set; }
-        public QuadStyle quadStyle;
+        public QuadStyle quadStyle = QuadStyle.OriginalQuad;
         public bool sideBySide;
         public bool IsLegacy => quadStyle == QuadStyle.OriginalQuad;
         Vector4 previous;

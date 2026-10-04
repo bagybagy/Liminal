@@ -7,6 +7,10 @@ namespace Liminal
         public const int DesktopParticleCount = 9000;
         public const int VrParticleCount = 4500;
 
+        [Range(0.025f, 0.5f)] public float paletteCyclesPerBeat = 0.125f;
+        [Range(2f, 10f)] public float flameWidth = 6f;
+        [Range(12f, 32f)] public float flameHeight = 24.5f;
+
         Mesh desktopMesh;
         Mesh vrMesh;
         Material material;
@@ -40,6 +44,7 @@ namespace Liminal
             material.SetFloat("_Formation", 0f);
             material.SetFloat("_Beat", 0f);
             material.SetFloat("_PixelFloor", 0.44f);
+            ApplyShape();
 
             GameObject particles = PointCloud.Place("Sacred flame / living embers",
                 desktopMesh, material, transform);
@@ -62,7 +67,17 @@ namespace Liminal
             float beat = Mathf.Max(0f, authoredBeat);
             material.SetFloat("_Formation", Mathf.Clamp01(formation));
             material.SetFloat("_Beat", beat);
-            PaletteColorDiagnostic = EvaluatePalette(beat * 0.25f + 0.036f);
+            PaletteColorDiagnostic = EvaluatePalette(beat * paletteCyclesPerBeat + 0.036f);
+        }
+
+        void OnValidate() => ApplyShape();
+
+        void ApplyShape()
+        {
+            if (!material) return;
+            material.SetFloat("_ColorRate", paletteCyclesPerBeat);
+            material.SetFloat("_FlameWidth", flameWidth);
+            material.SetFloat("_FlameHeight", flameHeight);
         }
 
         public void Dispose()

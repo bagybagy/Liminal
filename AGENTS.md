@@ -12,6 +12,12 @@ Preserve existing uncommitted user changes. Do not revert them during migration
 or later implementation. Commit completed features with Japanese messages that
 describe the design and technology, and push the completed Windows builds.
 
+# Release Boundary (2026-10-04)
+
+Keep the public GitHub Release at v0.1.10 during particle and presentation
+validation. Later development builds may be committed and pushed, but do not
+publish a newer Release or replace v0.1.10 assets without user approval.
+
 # Bounded Work
 
 Avoid repetitive polling, unchanged screenshots, and unrelated investigations.
