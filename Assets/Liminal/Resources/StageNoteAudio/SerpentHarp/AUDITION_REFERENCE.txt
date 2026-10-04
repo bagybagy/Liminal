@@ -1,0 +1,55 @@
+{
+  "originalGeneratorSha256": "1984bcd4249460b33e063a4cbf3f0f6c131eeac761e9676d8e48f1a79ee800e6",
+  "toneSourceSha256": "5dfb97177a73c9782de5c2172edc1286d0f0ff8c4d685d267c35c72e0648f688",
+  "sourceManifestSha256": "840f6ee27cdfd21756dcee518ef71692a1a9dd4b7bc1708c1b47bc212932801c",
+  "sources": [
+    {
+      "file": "Tools/se-audition-samples/harp-59.wav",
+      "sha256": "1c59ee730aa4f0416fe9bb8d75a97e3d52e7ca993679b570961332d7d60b6f3a"
+    },
+    {
+      "file": "Tools/se-audition-samples/harp-72.wav",
+      "sha256": "f2c4dd5c0f2549a6561df52b0637fb8a3822e626e998b5c934db3ed1669b3c04"
+    }
+  ],
+  "auditionMidis": [
+    62,
+    66,
+    69
+  ],
+  "tones": [
+    {
+      "midi": 62,
+      "floatLeftSha256": "213a294257aa87455569c6c6c88b601b7570bfb491c8946320289c7b2151758c",
+      "floatRightSha256": "213a294257aa87455569c6c6c88b601b7570bfb491c8946320289c7b2151758c",
+      "source": {
+        "file": "Tools/se-audition-samples/harp-59.wav",
+        "rootMidi": 59,
+        "onsetTrimSamples": 1344,
+        "sha256": "1c59ee730aa4f0416fe9bb8d75a97e3d52e7ca993679b570961332d7d60b6f3a"
+      }
+    },
+    {
+      "midi": 66,
+      "floatLeftSha256": "ef688d60c493bf40d492c3f1dbf1c9b8e6dd7c56c60c6f5b3d881f2e3adcd7a5",
+      "floatRightSha256": "ef688d60c493bf40d492c3f1dbf1c9b8e6dd7c56c60c6f5b3d881f2e3adcd7a5",
+      "source": {
+        "file": "Tools/se-audition-samples/harp-72.wav",
+        "rootMidi": 72,
+        "onsetTrimSamples": 986,
+        "sha256": "f2c4dd5c0f2549a6561df52b0637fb8a3822e626e998b5c934db3ed1669b3c04"
+      }
+    },
+    {
+      "midi": 69,
+      "floatLeftSha256": "7a87b8f087e53c89eb91fddcca62326ee6ca7d1f3461e1648a83016e3f49e39d",
+      "floatRightSha256": "7a87b8f087e53c89eb91fddcca62326ee6ca7d1f3461e1648a83016e3f49e39d",
+      "source": {
+        "file": "Tools/se-audition-samples/harp-72.wav",
+        "rootMidi": 72,
+        "onsetTrimSamples": 986,
+        "sha256": "f2c4dd5c0f2549a6561df52b0637fb8a3822e626e998b5c934db3ed1669b3c04"
+      }
+    }
+  ]
+}

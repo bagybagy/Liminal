@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { Renderer, RATE, BEAT, readWav, writeWav } from './music-review/renderer.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const exportHarp = process.argv.includes('--export-harp-bank');
 const folder = path.join(root, 'MusicReview/14-TenSePalette');
 const sampleFolder = path.join(root, 'Tools/se-audition-samples');
 const asset = 'Assets/Liminal/Resources/StageAudio/Serpent_VelvetKeys';
@@ -27,7 +28,7 @@ const voices = [
 ];
 const first = score.beats[32], length = score.beats[48] - first;
 const intro = Math.round(RATE * 2.1), total = intro + length;
-fs.mkdirSync(folder, { recursive: true });
+if (!exportHarp) fs.mkdirSync(folder, { recursive: true });
 
 function hash(bytes) { return createHash('sha256').update(bytes).digest('hex'); }
 function ffmpeg(args, binary = false) {
@@ -42,13 +43,13 @@ function floats(bytes) {
   for (let i = 0; i < pcm.length; i++) pcm[i] = bytes.readFloatLE(i * 4);
   return pcm;
 }
-const bgm = floats(ffmpeg(['-i', path.join(root, asset + '.wav'), '-af',
+const bgm = exportHarp ? null : floats(ffmpeg(['-i', path.join(root, asset + '.wav'), '-af',
   `atrim=start_sample=${first}:end_sample=${first + length},asetpts=PTS-STARTPTS`,
   '-ac', '2', '-ar', String(RATE), '-f', 'f32le', '-'], true));
-if (bgm.length !== length * 2) throw new Error('BGM sample crop length changed');
+if (!exportHarp && bgm.length !== length * 2) throw new Error('BGM sample crop length changed');
 
 const sources = {}, cache = new Map(), prototype = new Renderer({ bars: 1, seed: 171, duck: 0 }, null);
-for (const voice of voices.filter(v => v.sample)) {
+for (const voice of voices.filter(v => v.sample && (!exportHarp || v.sample === 'harp'))) {
   const entries = voice.sample === 'flute' ? oldSamples.instruments.flute : manifest.instruments[voice.sample];
   if (!entries?.length) throw new Error('Missing recorded instrument: ' + voice.sample);
   sources[voice.sample] = entries.map(entry => {
@@ -125,6 +126,113 @@ function edgeFade(left, right) {
     const gain = Math.min(i / edge, (left.length - 1 - i) / edge, 1) * .8;
     left[i] *= gain; right[i] *= gain;
   }
+}
+function writeImporterMeta(filename, importer, folderAsset = false) {
+  const meta = filename + '.meta';
+  const previous = fs.existsSync(meta) ? fs.readFileSync(meta, 'utf8').match(/^guid: ([a-f0-9]{32})$/m)?.[1] : null;
+  const guid = previous ?? hash(Buffer.from('Liminal:' + path.relative(root, filename).replaceAll('\\', '/'))).slice(0, 32);
+  fs.writeFileSync(meta, `fileFormatVersion: 2\nguid: ${guid}\n${folderAsset ? 'folderAsset: yes\n' : ''}${importer}\n`);
+}
+function verifyBankWav(filename, sound) {
+  const bytes = fs.readFileSync(filename), count = 52920;
+  if (bytes.length !== 44 + count * 4 || bytes.toString('ascii', 0, 4) !== 'RIFF' ||
+      bytes.toString('ascii', 8, 12) !== 'WAVE' || bytes.readUInt16LE(20) !== 1 ||
+      bytes.readUInt16LE(22) !== 2 || bytes.readUInt32LE(24) !== 44100 ||
+      bytes.readUInt16LE(34) !== 16 || bytes.readUInt32LE(40) !== count * 4)
+    throw new Error('Bank WAV format changed: ' + filename);
+  let maxError = 0, peak = 0, energy = 0;
+  for (let i = 0; i < count; i++) {
+    for (let c = 0; c < 2; c++) {
+      const expected = c ? sound.right[i] : sound.left[i];
+      const integer = bytes.readInt16LE(44 + i * 4 + c * 2), decoded = integer / 32767;
+      if (!Number.isFinite(expected) || !Number.isFinite(decoded) || Math.abs(integer) >= 32767)
+        throw new Error('Nonfinite or clipped bank note: ' + filename);
+      maxError = Math.max(maxError, Math.abs(decoded - expected));
+      peak = Math.max(peak, Math.abs(decoded));
+      energy += decoded ** 2 / (2 * RATE);
+    }
+  }
+  if (!(energy > 1e-8) || peak > .48 + 1 / 32767 || maxError > 1 / 32767)
+    throw new Error('Silent, over-peak or inaccurate bank note: ' + filename);
+  return { pcmPeak: peak, pcmEnergy: energy, pcmMaxError: maxError };
+}
+function exportHarpBank() {
+  if (RATE !== 44100 || manifest.license !== 'CC0-1.0') throw new Error('Bank input format or license changed');
+  const bank = path.join(root, 'Assets/Liminal/Resources/StageNoteAudio/SerpentHarp');
+  const referenceFile = path.join(bank, 'AUDITION_REFERENCE.txt');
+  const reference = JSON.parse(fs.readFileSync(referenceFile, 'utf8'));
+  const toneSourceSha256 = hash(Buffer.from(tone.toString().replaceAll('\r\n', '\n')));
+  if (reference.toneSourceSha256 !== toneSourceSha256 ||
+      reference.sourceManifestSha256 !== hash(fs.readFileSync(path.join(sampleFolder, 'samples.json'))))
+    throw new Error('Approved audition tone or source manifest changed');
+  for (const input of reference.sources) {
+    if (hash(fs.readFileSync(path.join(root, input.file))) !== input.sha256)
+      throw new Error('Approved harp recording changed: ' + input.file);
+  }
+  const voice = voices.find(v => v.id === '05_Harp');
+  const auditionMidis = [...new Set([noteAt(0, score.beats[36]),
+    ...Array.from({ length: 8 }, (_, i) => noteAt(i, score.eighths[72 + i]))])].sort((a, b) => a - b);
+  if (JSON.stringify(auditionMidis) !== JSON.stringify(reference.auditionMidis))
+    throw new Error('Approved audition MIDI set changed');
+  const defaultImporter = 'DefaultImporter:\n  externalObjects: {}\n  userData: \n  assetBundleName: \n  assetBundleVariant: ';
+  const textImporter = 'TextScriptImporter:\n  externalObjects: {}\n  userData: \n  assetBundleName: \n  assetBundleVariant: ';
+  const audioImporter = 'AudioImporter:\n  externalObjects: {}\n  serializedVersion: 8\n  defaultSettings:\n'
+    + '    serializedVersion: 2\n    loadType: 0\n    sampleRateSetting: 2\n    sampleRateOverride: 44100\n'
+    + '    compressionFormat: 0\n    quality: 1\n    conversionMode: 0\n    preloadAudioData: 1\n'
+    + '  platformSettingOverrides: {}\n  forceToMono: 0\n  normalize: 0\n  loadInBackground: 0\n'
+    + '  ambisonic: 0\n  3D: 1\n  userData: \n  assetBundleName: \n  assetBundleVariant: ';
+  fs.mkdirSync(bank, { recursive: true });
+  if (!fs.existsSync(path.dirname(bank) + '.meta')) writeImporterMeta(path.dirname(bank), defaultImporter, true);
+  writeImporterMeta(bank, defaultImporter, true);
+  const notes = [];
+  for (let midi = 60; midi <= 78; midi++) {
+    const sound = tone(voice, midi), file = `Note_${midi}.wav`, filename = path.join(bank, file);
+    if (sound.left.length !== 52920 || sound.right.length !== 52920) throw new Error('Bank tone length changed');
+    const floatLeftSha256 = hash(Buffer.from(sound.left.buffer));
+    const floatRightSha256 = hash(Buffer.from(sound.right.buffer));
+    const approved = reference.tones.find(t => t.midi === midi);
+    if (approved && (approved.floatLeftSha256 !== floatLeftSha256 || approved.floatRightSha256 !== floatRightSha256))
+      throw new Error('Float tone differs from approved audition: ' + midi);
+    const metrics = writeWav(filename, sound.left, sound.right);
+    const verification = verifyBankWav(filename, sound);
+    writeImporterMeta(filename, audioImporter);
+    const source = manifest.instruments.harp.find(entry => entry.midi === sound.source.rootMidi);
+    notes.push({ midi, file, resourcePath: `StageNoteAudio/SerpentHarp/Note_${midi}`, sampleRate: RATE,
+      channels: 2, bitsPerSample: 16, sampleCount: 52920, seconds: 1.2,
+      sha256: hash(fs.readFileSync(filename)), floatLeftSha256, floatRightSha256,
+      source: { ...sound.source, url: source.source }, gain: sound.gain,
+      floatEnergy: sound.energy, floatPeak: metrics.peak, ...verification });
+  }
+  const repositoryFile = filename => ({ file: path.relative(root, filename).replaceAll('\\', '/'),
+    link: path.relative(bank, filename).replaceAll('\\', '/'), sha256: hash(fs.readFileSync(filename)) });
+  const proof = { passed: true, checkedNotes: notes.length, finite: true, silentNotes: 0, clippedSamples: 0,
+    auditionMidis, approvedFloatHashMatches: reference.tones.length,
+    maxPcmError: Math.max(...notes.map(note => note.pcmMaxError)), maxAllowedPcmError: 1 / 32767,
+    maxPcmPeak: Math.max(...notes.map(note => note.pcmPeak)) };
+  const provenance = { license: 'CC0-1.0', instrument: 'Harp', approvedAudition: '05_Harp',
+    generator: repositoryFile(fileURLToPath(import.meta.url)), renderer: repositoryFile(path.join(root, 'Tools/music-review/renderer.mjs')),
+    ffmpegVersion: ffmpeg(['-version']).split(/\r?\n/)[0],
+    toneSourceSha256, sourceManifest: repositoryFile(path.join(sampleFolder, 'samples.json')),
+    sourceDocumentation: repositoryFile(path.join(sampleFolder, 'SOURCES.md')),
+    auditionReference: repositoryFile(referenceFile),
+    originalAuditionGeneratorSha256: reference.originalGeneratorSha256,
+    licenseFile: repositoryFile(path.join(bank, 'LICENSE.txt')),
+    officialLicenseUrl: 'https://raw.githubusercontent.com/sgossner/VSCO-2-CE/6dd651d55dde97fd4028699be9d4481f26917891/LICENSE',
+    processing: { sharedFunction: 'tone()', onsetThresholdFraction: .02, onsetPrerollSeconds: .003,
+      resampling: 'atrim=start_sample=onset,asetpts=PTS-STARTPTS,asetrate=round(sourceRate*2^((midi-rootMidi)/12)),aresample=44100,apad=whole_len=52920,atrim=end_sample=52920',
+      attackSeconds: .003, gateStartSeconds: .78, gateEndSeconds: 1.2, gatePower: 1.5,
+      energyTarget: .010, peakCap: .48, gameVolumeBakedIn: false, masterVolumeBakedIn: false },
+    unityImporter: { compressionFormat: 0, loadType: 0, preloadAudioData: 1, normalize: 0 },
+    notes, verification: proof };
+  const provenanceFile = path.join(bank, 'PROVENANCE.txt');
+  fs.writeFileSync(provenanceFile, JSON.stringify(provenance, null, 2) + '\n');
+  for (const filename of [referenceFile, path.join(bank, 'LICENSE.txt'), provenanceFile])
+    writeImporterMeta(filename, textImporter);
+  fs.writeSync(1, JSON.stringify({ output: path.relative(root, bank).replaceAll('\\', '/'), ...proof }) + '\n');
+}
+if (exportHarp) {
+  exportHarpBank();
+  process.exit(0);
 }
 const medleyL = new Float32Array(total * voices.length), medleyR = new Float32Array(total * voices.length);
 const report = { candidateIntegratedInGame: false, sampleRate: RATE, musicalGridHumanVerified: false,

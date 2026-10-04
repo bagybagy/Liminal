@@ -19,6 +19,7 @@ namespace Liminal
         readonly AudioSource[] voices = new AudioSource[VoiceCount];
         readonly double[] voiceEnds = new double[VoiceCount];
         readonly Dictionary<int, AudioClip> notes = new();
+        readonly Dictionary<int, AudioClip> serpentHarpNotes = new();
         readonly Dictionary<int, AudioClip> releaseTones = new();
         AudioClip impact, lockTone, whaleTone;
         double origin;
@@ -32,6 +33,10 @@ namespace Liminal
         public double DspOrigin => origin;
         public float Volume { get; private set; } = 0.8f;
         public int ScheduledNotes { get; private set; }
+        public int ScheduledHarpNotes { get; private set; }
+        public int LastShotPitch { get; private set; }
+        public AudioClip LastShotClip { get; private set; }
+        public bool SerpentHarpReady => serpentHarpNotes.Count == 19;
         public double MaxGridError { get; private set; }
         public double MaxPlaybackPhaseError { get; private set; }
         public int DroppedNotes { get; private set; }
@@ -85,6 +90,7 @@ namespace Liminal
             CacheHarmony(AuthoredScore.Data);
             if (stageMusicAvailable)
                 for (int i = 0; i < themeClips.Length; i++) CacheHarmony(AuthoredScore.ThemeData(i));
+            if (stageMusicAvailable) LoadSerpentHarp();
 
             for (int i = 0; i < voices.Length; i++) {
                 voices[i] = gameObject.AddComponent<AudioSource>();
@@ -133,6 +139,16 @@ namespace Liminal
             }
         }
 
+        void LoadSerpentHarp()
+        {
+            for (int midi = 60; midi <= 78; midi++) {
+                var clip = Resources.Load<AudioClip>("StageNoteAudio/SerpentHarp/Note_" + midi);
+                if (!clip || clip.frequency != 44100 || clip.samples != 52920 || clip.channels != 2)
+                    throw new InvalidOperationException("Missing or invalid approved harp note: " + midi);
+                serpentHarpNotes.Add(midi, clip);
+            }
+        }
+
         public void Restart()
         {
             SetPaused(false);
@@ -164,6 +180,9 @@ namespace Liminal
             source.volume = MusicLevel;
             source.PlayScheduled(origin);
             ScheduledNotes = 0;
+            ScheduledHarpNotes = 0;
+            LastShotPitch = 0;
+            LastShotClip = null;
             MaxGridError = 0;
             MaxPlaybackPhaseError = 0;
             DroppedNotes = 0;
@@ -277,8 +296,12 @@ namespace Liminal
         public bool ScheduleNote(int index, double songTime, float pan, float strength = 1)
         {
             if (!playbackStarted) return false;
-            int midi = AuthoredScore.Note(index % 8, songTime);
-            if (!notes.TryGetValue(midi, out AudioClip note)) {
+            int midi = AuthoredScore.ShotNote(index, songTime);
+            // Resolve the scheduled onset's theme, not the current frame's theme.
+            bool harp = stageMusicAvailable && AuthoredScore.ThemeAt(songTime) == 1;
+            AudioClip note;
+            if (harp) note = serpentHarpNotes[midi];
+            else if (!notes.TryGetValue(midi, out note)) {
                 note = Synthesize(midi, 1.8f, false);
                 notes.Add(midi, note);
             }
@@ -287,6 +310,9 @@ namespace Liminal
             }
             MaxGridError = Math.Max(MaxGridError, AuthoredScore.GridError(songTime));
             ScheduledNotes++;
+            if (harp) ScheduledHarpNotes++;
+            LastShotPitch = midi;
+            LastShotClip = note;
             return true;
         }
 
