@@ -22,7 +22,10 @@ namespace Liminal
             public Vector3 moteCenter;
             public float moteRadius;
             public bool dispersed;
+            public GlyphInputMode inputMode;
         }
+
+        enum GlyphInputMode { Desktop, Vr, Any }
 
         readonly List<GlyphGroup> glyphs = new();
         readonly List<Mesh> ownedMeshes = new();
@@ -46,6 +49,7 @@ namespace Liminal
         Mesh socketMesh;
         bool initialized, isEnabled, complete, resetPending, restoreEnabledAfterReset;
         bool lookArmed, holdTracking, holdPromptDispersed;
+        bool vrInputMode;
         bool releaseAwaitingRegistration, releaseAwaitingCallbacks, releaseQualified;
         int releaseLesson, releaseScheduledCount, releaseResolvedCount;
         int stepIndex, completedActions, particleCount;
@@ -57,6 +61,7 @@ namespace Liminal
         public int StepIndex => stepIndex;
         public int CompletedActions => completedActions;
         public int ParticleCount => particleCount;
+        public bool UsesVrInstructions => vrInputMode;
         public IReadOnlyList<LockTarget> Targets => activeTargets;
         public string Status
         {
@@ -64,6 +69,16 @@ namespace Liminal
             {
                 if (!initialized) return "TUTORIAL";
                 if (!isEnabled) return "TUTORIAL OFF";
+                if (flight != null && flight.VrEnabled) {
+                    switch (stepIndex) {
+                        case 0: return "HEADLOOK OR RIGHT STICK";
+                        case 1: return "LEFT STICK: FORWARD, STRAFE, BACK";
+                        case 2: return "RIGHT STICK: UP/DOWN, LEFT GRIP: BOOST";
+                        case 3: return "RIGHT TRIGGER: HOLD, RELEASE TO FIRE";
+                        case 4: return "LOCK 8 TARGETS, HOLD, RELEASE";
+                        default: return "TUTORIAL COMPLETE";
+                    }
+                }
                 switch (stepIndex) {
                     case 0: return "MOVE MOUSE TO LOOK";
                     case 1: return "WASD / SWIM: HOLD EACH DIRECTION";
@@ -114,6 +129,10 @@ namespace Liminal
         public void Tick(float song, float dt, bool controls)
         {
             if (!initialized) return;
+            if (flight.VrEnabled) {
+                UpdateInputMode();
+                return;
+            }
             dt = Mathf.Max(0f, dt);
 
             Vector2 look = Vector2.zero;
@@ -141,6 +160,7 @@ namespace Liminal
             bool fireReleased, float song, float dt)
         {
             if (!initialized) return;
+            UpdateInputMode();
             dt = Mathf.Max(0f, dt);
             TryFinishDeferredReset(song);
             if (isEnabled) FollowBoard(dt, false);
@@ -209,6 +229,7 @@ namespace Liminal
         public void SetEnabled(bool value)
         {
             if (!initialized) return;
+            UpdateInputMode();
             if (resetPending) {
                 restoreEnabledAfterReset = value;
                 if (!value) { isEnabled = false; HidePresentation(); }
@@ -322,7 +343,8 @@ namespace Liminal
                 0.7f, 0.08f, gold, 422);
             AddGroup(3, 0, release, new Vector3(0f, -2.35f, 0f), 1.7f);
 
-            AddTextGroup(4, -1, "8 LOCKS", new Vector2(0f, 5.9f), 0.24f, 0.105f, pearl, 501, 2.2f);
+            AddTextGroup(4, -1, "8 LOCKS", new Vector2(0f, 5.9f), 0.24f, 0.105f,
+                pearl, 501, 2.2f, GlyphInputMode.Any);
             AddTextGroup(4, HoldPrompt, "HOLD / LOCK", new Vector2(0f, -5.05f), 0.20f, 0.09f, gold, 511, 2.2f);
             AddTextGroup(4, ReleasePrompt, "RELEASE / FIRE", new Vector2(0f, -6.65f), 0.19f, 0.085f, pearl, 521, 2.4f);
             for (int i = 0; i < ActionLimit; i++) {
@@ -332,19 +354,85 @@ namespace Liminal
                 TutorialGlyphs.AddSocket(socket, center, 0.5f, 0.075f, i % 2 == 0 ? cyan : gold, 531 + i);
                 TutorialGlyphs.AddText(socket, (i + 1).ToString(), center + Vector2.up * 0.72f,
                     0.16f, 0.06f, pearl, 551 + i);
-                AddGroup(4, i, socket, new Vector3(center.x, center.y, 0f), 1.45f);
+                AddGroup(4, i, socket, new Vector3(center.x, center.y, 0f), 1.45f, GlyphInputMode.Any);
             }
+
+            BuildVrLessons(cyan, pearl, gold, dim);
+        }
+
+        void BuildVrLessons(Color cyan, Color pearl, Color gold, Color dim)
+        {
+            AddTextGroup(0, -1, "HEAD / STICK LOOK", new Vector2(0f, 2.3f),
+                0.17f, 0.075f, pearl, 601, 2f, GlyphInputMode.Vr);
+            var look = new PointCloud();
+            TutorialGlyphs.AddSocket(look, Vector2.zero, 0.58f, 0.075f, cyan, 611);
+            TutorialGlyphs.AddArrow(look, new Vector2(0f, 1.05f), Vector2.up, 0.62f, 0.07f, gold, 612);
+            TutorialGlyphs.AddArrow(look, new Vector2(0f, -1.05f), Vector2.down, 0.62f, 0.07f, gold, 613);
+            TutorialGlyphs.AddArrow(look, new Vector2(-1.05f, 0f), Vector2.left, 0.62f, 0.07f, dim, 614);
+            TutorialGlyphs.AddArrow(look, new Vector2(1.05f, 0f), Vector2.right, 0.62f, 0.07f, dim, 615);
+            AddGroup(0, 0, look, Vector3.zero, 1.8f, GlyphInputMode.Vr);
+
+            AddTextGroup(1, -1, "LEFT STICK / SWIM", new Vector2(0f, 3.35f),
+                0.16f, 0.07f, pearl, 621, 2.4f, GlyphInputMode.Vr);
+            var swimStick = new PointCloud();
+            TutorialGlyphs.AddSocket(swimStick, Vector2.zero, 0.48f, 0.065f, cyan, 631);
+            AddGroup(1, -1, swimStick, Vector3.zero, 1.4f, GlyphInputMode.Vr);
+            var swimForward = new PointCloud();
+            TutorialGlyphs.AddArrow(swimForward, new Vector2(0f, 1.22f), Vector2.up, 0.58f, 0.07f, gold, 632);
+            TutorialGlyphs.AddText(swimForward, "FORWARD", new Vector2(0f, 1.78f), 0.12f, 0.055f, pearl, 636);
+            AddGroup(1, 0, swimForward, new Vector3(0f, 1.3f, 0f), 1.2f, GlyphInputMode.Vr);
+            var swimLeft = new PointCloud();
+            TutorialGlyphs.AddArrow(swimLeft, new Vector2(-1.22f, 0f), Vector2.left, 0.58f, 0.07f, dim, 642);
+            TutorialGlyphs.AddText(swimLeft, "LEFT", new Vector2(-1.78f, 0f), 0.12f, 0.055f, pearl, 643);
+            AddGroup(1, 1, swimLeft, new Vector3(-1.25f, 0f, 0f), 1.2f, GlyphInputMode.Vr);
+            var swimBack = new PointCloud();
+            TutorialGlyphs.AddArrow(swimBack, new Vector2(0f, -1.22f), Vector2.down, 0.58f, 0.07f, gold, 652);
+            TutorialGlyphs.AddText(swimBack, "BACK", new Vector2(0f, -1.82f), 0.12f, 0.055f, pearl, 653);
+            AddGroup(1, 2, swimBack, new Vector3(0f, -1.25f, 0f), 1.2f, GlyphInputMode.Vr);
+            var swimRight = new PointCloud();
+            TutorialGlyphs.AddArrow(swimRight, new Vector2(1.22f, 0f), Vector2.right, 0.58f, 0.07f, dim, 662);
+            TutorialGlyphs.AddText(swimRight, "RIGHT", new Vector2(1.78f, 0f), 0.12f, 0.055f, pearl, 663);
+            AddGroup(1, 3, swimRight, new Vector3(1.25f, 0f, 0f), 1.2f, GlyphInputMode.Vr);
+
+            AddTextGroup(2, -1, "RIGHT STICK / UP DOWN", new Vector2(0f, 3.35f),
+                0.14f, 0.06f, pearl, 641, 2.5f, GlyphInputMode.Vr);
+            var altitudeDown = new PointCloud();
+            TutorialGlyphs.AddArrow(altitudeDown, new Vector2(-1.2f, 0.05f), Vector2.down, 0.72f, 0.08f, cyan, 651);
+            TutorialGlyphs.AddText(altitudeDown, "DOWN", new Vector2(-1.2f, -0.75f), 0.15f, 0.065f, pearl, 652);
+            AddGroup(2, 0, altitudeDown, new Vector3(-1.2f, 0f, 0f), 1.3f, GlyphInputMode.Vr);
+            var altitudeUp = new PointCloud();
+            TutorialGlyphs.AddArrow(altitudeUp, new Vector2(1.2f, 0.05f), Vector2.up, 0.72f, 0.08f, cyan, 661);
+            TutorialGlyphs.AddText(altitudeUp, "UP", new Vector2(1.2f, 0.85f), 0.16f, 0.07f, pearl, 662);
+            AddGroup(2, 1, altitudeUp, new Vector3(1.2f, 0f, 0f), 1.3f, GlyphInputMode.Vr);
+            var vrBoost = new PointCloud();
+            TutorialGlyphs.AddText(vrBoost, "LEFT GRIP / BOOST", new Vector2(0f, -2.35f),
+                0.14f, 0.06f, gold, 671);
+            TutorialGlyphs.AddArrow(vrBoost, new Vector2(0f, -3.05f), Vector2.up, 0.52f, 0.07f, cyan, 672);
+            AddGroup(2, 2, vrBoost, new Vector3(0f, -2.6f, 0f), 1.4f, GlyphInputMode.Vr);
+
+            AddTextGroup(3, HoldPrompt, "RIGHT TRIGGER", new Vector2(0f, 2.9f),
+                0.17f, 0.075f, gold, 661, 2f, GlyphInputMode.Vr);
+            AddTextGroup(3, HoldPrompt, "HOLD / LOCK", new Vector2(0f, 2.15f),
+                0.18f, 0.075f, pearl, 662, 2f, GlyphInputMode.Vr);
+            AddTextGroup(3, ReleasePrompt, "RELEASE / FIRE", new Vector2(0f, -2.8f),
+                0.18f, 0.075f, pearl, 663, 2f, GlyphInputMode.Vr);
+
+            AddTextGroup(4, HoldPrompt, "RIGHT TRIGGER / HOLD", new Vector2(0f, -5.05f),
+                0.15f, 0.065f, gold, 681, 2.2f, GlyphInputMode.Vr);
+            AddTextGroup(4, ReleasePrompt, "RELEASE / FIRE", new Vector2(0f, -6.65f),
+                0.17f, 0.07f, pearl, 691, 2.4f, GlyphInputMode.Vr);
         }
 
         void AddTextGroup(int step, int action, string text, Vector2 center, float cell,
-            float size, Color color, int seed, float moteRadius)
+            float size, Color color, int seed, float moteRadius, GlyphInputMode mode = GlyphInputMode.Desktop)
         {
             var cloud = new PointCloud();
             TutorialGlyphs.AddText(cloud, text, center, cell, size, color, seed);
-            AddGroup(step, action, cloud, new Vector3(center.x, center.y, 0f), moteRadius);
+            AddGroup(step, action, cloud, new Vector3(center.x, center.y, 0f), moteRadius, mode);
         }
 
-        void AddGroup(int step, int action, PointCloud cloud, Vector3 moteCenter, float moteRadius)
+        void AddGroup(int step, int action, PointCloud cloud, Vector3 moteCenter, float moteRadius,
+            GlyphInputMode mode = GlyphInputMode.Desktop)
         {
             if (cloud.Count == 0) return;
             if (particleCount + cloud.Count > ParticleLimit)
@@ -364,7 +452,8 @@ namespace Liminal
             renderer.SetPropertyBlock(properties);
             glyphs.Add(new GlyphGroup {
                 step = step, action = action, obj = obj, renderer = renderer,
-                properties = properties, moteCenter = moteCenter, moteRadius = moteRadius
+                properties = properties, moteCenter = moteCenter, moteRadius = moteRadius,
+                inputMode = mode
             });
         }
 
@@ -418,7 +507,7 @@ namespace Liminal
             ResetHoldTracking();
             ClearReleaseTracking();
             foreach (GlyphGroup glyph in glyphs)
-                glyph.obj.SetActive(isEnabled && (glyph.dispersed || glyph.step == step));
+                glyph.obj.SetActive(IsGlyphVisible(glyph));
             SetTargetsForStep();
             UpdateShaderClock(song);
         }
@@ -427,7 +516,7 @@ namespace Liminal
         {
             if (!initialized || resetPending) return;
             foreach (GlyphGroup glyph in glyphs)
-                glyph.obj.SetActive(isEnabled && (glyph.dispersed || glyph.step == stepIndex));
+                glyph.obj.SetActive(IsGlyphVisible(glyph));
             if (complete) HideTargets();
             else SetTargetsForStep();
         }
@@ -630,7 +719,22 @@ namespace Liminal
             glyph.properties.SetFloat(moteRadiusId, glyph.moteRadius);
             glyph.renderer.SetPropertyBlock(glyph.properties);
             glyph.dispersed = true;
-            glyph.obj.SetActive(isEnabled);
+            glyph.obj.SetActive(IsGlyphVisible(glyph));
+        }
+
+        bool IsGlyphVisible(GlyphGroup glyph)
+        {
+            bool correctInputMode = glyph.inputMode == GlyphInputMode.Any ||
+                (glyph.inputMode == GlyphInputMode.Vr) == vrInputMode;
+            return isEnabled && correctInputMode && (glyph.dispersed || glyph.step == stepIndex);
+        }
+
+        void UpdateInputMode()
+        {
+            bool nextMode = flight != null && flight.VrEnabled;
+            if (nextMode == vrInputMode) return;
+            vrInputMode = nextMode;
+            RefreshCurrentStep();
         }
 
         void UpdateShaderClock(float song)

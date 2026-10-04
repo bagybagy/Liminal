@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -6,18 +7,21 @@ namespace Liminal
 {
     public sealed class VrWorldHud : MonoBehaviour
     {
-        const int RingSegments = 40;
-        const int MenuItemCount = 7;
-        const float OnboardingSeconds = 24f;
-        const float MinimumTargetRadius = 0.13f;
-        const float TargetRadiusRadians = 0.038f;
+        enum PauseOption
+        {
+            Resume, Music, Brightness, ResetBrightness, ReducedMotion, ParticleStyle, SideBySide,
+            ReplayTutorial, SkipTutorial, Restart, Recenter, ExitPcVr, Quit, PointStudy
+        }
+
+        enum StudyOption { Visible, RenderMode, Density, Gain, Flow, Back }
+
+        const int VisibleMenuItems = 6;
         const float PassageLabelAngularWidthDegrees = 12f;
         const float PassageLabelAngularHeightDegrees = 3.5f;
         public const float LockRingAngularWidthDegrees = 0.16f;
 
-        readonly LineRenderer[] lockRings = new LineRenderer[8];
-        readonly TextMesh[] lockLabels = new TextMesh[8];
         readonly List<string> passageLabelTexts = new();
+        readonly StringBuilder pauseMenuBuilder = new(512);
         Experience experience;
         PcVrSession session;
         Transform hudRoot;
@@ -28,22 +32,35 @@ namespace Liminal
         TextMesh pauseItems;
         TextMesh[] passageLabels;
         Transform passageLabelsRoot;
-        LineRenderer reticle;
-        Material hudMaterial;
         Material textMaterial;
         Font font;
-        float onboardingUntil;
         float nextMenuMoveAt;
-        float nextBrightnessStepAt;
+        float nextMenuAdjustAt;
+        float nextPassageLabelUpdateAt;
+        float nextBossStatusUpdateAt;
         int selectedMenuItem;
+        int previousPassageRoom = -1;
+        Vector3 previousPassagePosition;
         bool active;
         bool wasMenuVisible;
+        bool wasGameOver;
+        bool pauseMenuDirty = true;
+        bool passageLabelsDirty = true;
+        int previousMenuItemCount = -1;
+        int previousStatusRoom = -1;
+        bool studySubmenu;
+        int savedMainMenuSelection;
         public bool PauseMenuVisible => active && pauseTitle != null && pauseTitle.gameObject.activeInHierarchy;
         public string BossStatusText { get; private set; } = string.Empty;
         public string PauseButtonLabel => "Y / LEFT STICK CLICK / MENU";
         public int VisibleLocks { get; private set; }
         public int VisiblePassageLabels { get; private set; }
         public IReadOnlyList<string> PassageLabelTexts => passageLabelTexts;
+        public string PauseMenuText => pauseItems != null ? pauseItems.text : string.Empty;
+        public bool GameplayHudHidden => active &&
+            (stageText == null || !stageText.gameObject.activeSelf) &&
+            (statusText == null || !statusText.gameObject.activeSelf) &&
+            (onboardingText == null || !onboardingText.gameObject.activeSelf) && VisibleLocks == 0;
         public static float LockRingWidth(float distance) => Mathf.Max(.012f, distance * Mathf.Tan(LockRingAngularWidthDegrees * Mathf.Deg2Rad));
 
         public void Initialize(Experience owner, PcVrSession vrSession)
@@ -64,9 +81,6 @@ namespace Liminal
                 return;
             }
 
-            hudMaterial = new Material(shader) { name = "LIMINAL PCVR HUD" };
-            hudMaterial.mainTexture = Texture2D.whiteTexture;
-            hudMaterial.renderQueue = (int)RenderQueue.Transparent;
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (font != null)
             {
@@ -81,11 +95,12 @@ namespace Liminal
             CreateText("Onboarding", new Vector3(0f, -0.25f, 0f), 0.029f, out onboardingText);
             CreateText("VR status", new Vector3(0f, -0.53f, 0f), 0.024f, out statusText);
             CreateText("Pause title", new Vector3(0f, 0.21f, 0f), 0.04f, out pauseTitle);
-            CreateText("Pause choices", new Vector3(0f, -0.18f, 0f), 0.029f, out pauseItems);
+            CreateText("Pause choices", new Vector3(0f, -0.34f, 0f), 0.029f, out pauseItems);
             int passageLabelCapacity = 1;
             for (int room = 0; room < CaveLayout.Rooms.Length; room++)
                 passageLabelCapacity = Mathf.Max(passageLabelCapacity, CaveLayout.IncidentPassages(room).Count);
             passageLabels = new TextMesh[passageLabelCapacity];
+            passageLabelTexts.Capacity = passageLabelCapacity;
             passageLabelsRoot = new GameObject("VR passage destination labels").transform;
             passageLabelsRoot.SetParent(experience.transform, false);
             for (int i = 0; i < passageLabels.Length; i++)
@@ -103,19 +118,9 @@ namespace Liminal
             pauseItems.color = Color.white;
             pauseTitle.gameObject.SetActive(false);
             pauseItems.gameObject.SetActive(false);
-
-            reticle = CreateLine("Gaze reticle", 37, 0.008f);
-            reticle.startColor = reticle.endColor = new Color(0.8f, 1f, 0.93f, 0.86f);
-            for (int i = 0; i < lockRings.Length; i++)
-            {
-                lockRings[i] = CreateLine("Lock ring " + (i + 1), RingSegments + 1, 0.018f);
-                lockRings[i].startColor = lockRings[i].endColor = new Color(0.3f, 1f, 0.88f, 0.92f);
-                lockRings[i].enabled = false;
-                CreateText("Lock number " + (i + 1), Vector3.zero, .04f, out lockLabels[i]);
-                lockLabels[i].text = (i + 1).ToString();
-                lockLabels[i].color = Color.white;
-                lockLabels[i].gameObject.SetActive(false);
-            }
+            stageText.gameObject.SetActive(false);
+            statusText.gameObject.SetActive(false);
+            onboardingText.gameObject.SetActive(false);
             hudRoot.gameObject.SetActive(false);
         }
 
@@ -128,6 +133,13 @@ namespace Liminal
             hudRoot.gameObject.SetActive(value);
             passageLabelsRoot.gameObject.SetActive(value);
             wasMenuVisible = false;
+            studySubmenu = false;
+            pauseMenuDirty = true;
+            passageLabelsDirty = true;
+            VisibleLocks = 0;
+            stageText.gameObject.SetActive(false);
+            statusText.gameObject.SetActive(false);
+            onboardingText.gameObject.SetActive(false);
             pauseTitle.gameObject.SetActive(false);
             pauseItems.gameObject.SetActive(false);
             if (!value)
@@ -148,10 +160,10 @@ namespace Liminal
             Quaternion facing = Quaternion.Euler(0f, yaw, 0f);
             hudRoot.localPosition = localPosition + facing * new Vector3(0f, -0.12f, 1.65f);
             hudRoot.localRotation = facing;
-            onboardingUntil = Time.realtimeSinceStartup + OnboardingSeconds;
             selectedMenuItem = 0;
             nextMenuMoveAt = 0f;
-            nextBrightnessStepAt = 0f;
+            nextMenuAdjustAt = 0f;
+            nextPassageLabelUpdateAt = 0f;
         }
 
         public void Tick(float song, float dt)
@@ -160,43 +172,20 @@ namespace Liminal
                 return;
 
             bool paused = experience.Music != null && experience.Music.Paused;
-            bool gameOver=experience.Combat != null && experience.Combat.Lost;
-            bool menuVisible=paused || gameOver;
-            if (menuVisible != wasMenuVisible)
-            {
-                PositionPanel(menuVisible ? 2f : 1.65f, menuVisible ? 0f : -.12f);
-                wasMenuVisible = menuVisible;
-            }
-            stageText.gameObject.SetActive(!menuVisible);
-            UpdateReadouts(song);
-            if (statusText != null)
-                statusText.gameObject.SetActive(!menuVisible);
-            UpdateReticle();
-            reticle.enabled = !menuVisible;
-            UpdateLockRings(menuVisible);
+            UpdateBossStatusDiagnostic();
+            bool menuVisible = paused || experience.Combat != null && experience.Combat.Lost;
             UpdatePassageLabels(menuVisible);
-            UpdateOnboarding(menuVisible);
             UpdatePauseMenu(paused);
         }
 
-        void UpdateReadouts(float song)
+        void UpdateBossStatusDiagnostic()
         {
-            string stage = experience.CavernMode && CaveLayout.Rooms.Length > 0
-                ? CaveLayout.Rooms[Mathf.Clamp(experience.CurrentRoom, 0, CaveLayout.Rooms.Length - 1)].Name
-                : Score.SectionName(experience.Combat != null ? experience.Combat.Section : Score.Section(song));
-            if (stageText != null && experience.Combat != null)
-            {
-                stageText.text = stage + "\nLIFE " + experience.Combat.Life.ToString("00") +
-                    "   LOCKS " + experience.Combat.Locks.Count + "/8";
-                FitText(stageText, 1.1f, .12f);
-            }
+            int room = experience.CurrentRoom;
+            if (room == previousStatusRoom && Time.unscaledTime < nextBossStatusUpdateAt)
+                return;
+            previousStatusRoom = room;
+            nextBossStatusUpdateAt = Time.unscaledTime + 0.25f;
             BossStatusText = BuildBossStatusText();
-            if (statusText != null)
-            {
-                string runtimeStatus = session != null ? session.Status : "PCVR";
-                statusText.text = runtimeStatus + "\n" + BossStatusText;
-                FitText(statusText, 1.5f, .09f);
-            }
         }
 
         string BuildBossStatusText()
@@ -311,88 +300,29 @@ namespace Liminal
                 " LEFT " + progressPercent.ToString("D2") + "%";
         }
 
-        void UpdateOnboarding(bool paused)
-        {
-            bool show = !paused && Time.realtimeSinceStartup < onboardingUntil;
-            if (onboardingText != null)
-            {
-                onboardingText.gameObject.SetActive(show);
-                if (show)
-                {
-                    onboardingText.text = "PCVR FLIGHT\nLEFT STICK: FORWARD / BACK / STRAFE\n" +
-                        "RIGHT STICK: TURN / RISE / DESCEND\n" +
-                        "LEFT GRIP: BOOST   RIGHT TRIGGER: HOLD TO LOCK, RELEASE TO FIRE\n" +
-                        "X / A: OVERDRIVE\nPAUSE: " + PauseButtonLabel;
-                    FitText(onboardingText, 1.85f, .34f);
-                }
-            }
-        }
-
-        void UpdateReticle()
-        {
-            if (reticle == null || experience.Flight.View == null)
-                return;
-
-            Transform view = experience.Flight.View.transform;
-            const float distance = 5f;
-            float radius = Mathf.Max(0.018f, distance * Mathf.Tan(0.18f * Mathf.Deg2Rad));
-            SetCircle(reticle, view.position + view.forward * distance, view.right, view.up, radius, 36);
-        }
-
-        void UpdateLockRings(bool paused)
-        {
-            if (experience.Combat == null || experience.Flight.View == null)
-                return;
-
-            int count = paused ? 0 : Mathf.Min(lockRings.Length, experience.Combat.Locks.Count);
-            VisibleLocks = count;
-            Transform view = experience.Flight.View.transform;
-            for (int i = 0; i < lockRings.Length; i++)
-            {
-                LineRenderer ring = lockRings[i];
-                if (i >= count || experience.Combat.Locks[i] == null)
-                {
-                    ring.enabled = false;
-                    lockLabels[i].gameObject.SetActive(false);
-                    continue;
-                }
-
-                LockTarget target = experience.Combat.Locks[i];
-                Vector3 offset = target.position - view.position;
-                float distance = Mathf.Max(0.1f, offset.magnitude);
-                float radius = Mathf.Max(MinimumTargetRadius, distance * Mathf.Tan(TargetRadiusRadians));
-                int stacked=0;
-                for(int j=0;j<i;j++) if(experience.Combat.Locks[j]==target) stacked++;
-                radius*=1+stacked*.1f;
-                SetCircle(ring, target.position, view.right, view.up, radius, RingSegments);
-                ring.widthMultiplier = LockRingWidth(distance);
-                Color color = target.kind == TargetKind.Threat || target.kind == TargetKind.Ray
-                    ? new Color(1f, 0.58f, 0.26f, 0.96f)
-                    : new Color(0.3f, 1f, 0.88f, 0.96f);
-                ring.startColor = ring.endColor = color;
-                ring.enabled = true;
-                TextMesh label = lockLabels[i];
-                float angle=.65f+stacked*.65f;
-                label.transform.SetPositionAndRotation(target.position +
-                    (view.right*Mathf.Cos(angle)+view.up*Mathf.Sin(angle))*radius*1.3f, view.rotation);
-                FitText(label, distance * Mathf.Tan(1.1f * Mathf.Deg2Rad), distance * Mathf.Tan(.85f * Mathf.Deg2Rad));
-                label.gameObject.SetActive(true);
-            }
-        }
-
         void UpdatePassageLabels(bool paused)
         {
-            VisiblePassageLabels = 0;
-            passageLabelTexts.Clear();
             if (paused || !active || !experience.CavernMode || experience.Flight.View == null)
             {
                 HidePassageLabels();
+                passageLabelsDirty = true;
                 return;
             }
 
-            Transform view = experience.Flight.View.transform;
-            Vector3 position = experience.Flight.Position;
             int room = Mathf.Clamp(experience.CurrentRoom, 0, CaveLayout.Rooms.Length - 1);
+            Vector3 position = experience.Flight.Position;
+            bool routeChanged = room != previousPassageRoom ||
+                (position - previousPassagePosition).sqrMagnitude > 0.25f;
+            if (!passageLabelsDirty && !routeChanged && Time.unscaledTime < nextPassageLabelUpdateAt)
+                return;
+            passageLabelsDirty = false;
+            nextPassageLabelUpdateAt = Time.unscaledTime + 0.2f;
+            previousPassageRoom = room;
+            previousPassagePosition = position;
+            VisiblePassageLabels = 0;
+            passageLabelTexts.Clear();
+
+            Transform view = experience.Flight.View.transform;
             int nextLabel = 0;
             if (CaveLayout.RoomDistance(room, position) < 1f)
             {
@@ -462,86 +392,376 @@ namespace Liminal
             if (pauseTitle == null || pauseItems == null)
                 return;
 
-            bool gameOver=experience.Combat != null && experience.Combat.Lost;
-            bool retryAvailable=experience.CanRetryRoom;
-            bool visible=paused || gameOver;
-            pauseTitle.gameObject.SetActive(visible);
-            pauseItems.gameObject.SetActive(visible);
+            bool gameOver = experience.Combat != null && experience.Combat.Lost;
+            bool retryAvailable = experience.CanRetryRoom;
+            bool visible = paused || gameOver;
             if (!visible)
+            {
+                pauseTitle.gameObject.SetActive(false);
+                pauseItems.gameObject.SetActive(false);
+                if (wasMenuVisible)
+                {
+                    wasMenuVisible = false;
+                    studySubmenu = false;
+                    pauseMenuDirty = true;
+                }
                 return;
+            }
+
+            if (!wasMenuVisible)
+            {
+                wasMenuVisible = true;
+                selectedMenuItem = 0;
+                studySubmenu = false;
+                previousMenuItemCount = -1;
+                pauseMenuDirty = true;
+            }
+            if (wasGameOver != gameOver)
+            {
+                wasGameOver = gameOver;
+                selectedMenuItem = 0;
+                studySubmenu = false;
+                pauseMenuDirty = true;
+            }
+
+            int itemCount = CurrentMenuItemCount(gameOver, retryAvailable);
+            if (itemCount != previousMenuItemCount)
+            {
+                previousMenuItemCount = itemCount;
+                pauseMenuDirty = true;
+            }
+            if (selectedMenuItem >= itemCount)
+            {
+                selectedMenuItem = 0;
+                pauseMenuDirty = true;
+            }
 
             Vector2 axis = session != null ? session.MenuAxis : Vector2.zero;
-            int itemCount=gameOver?(retryAvailable?3:2):MenuItemCount;
             if (Mathf.Abs(axis.y) > 0.62f && Time.unscaledTime >= nextMenuMoveAt)
             {
                 selectedMenuItem = (selectedMenuItem + (axis.y > 0f ? itemCount - 1 : 1)) % itemCount;
                 nextMenuMoveAt = Time.unscaledTime + 0.24f;
+                pauseMenuDirty = true;
             }
 
-            if (!gameOver && selectedMenuItem == 4 && Mathf.Abs(axis.x) > 0.55f && Time.unscaledTime >= nextBrightnessStepAt &&
-                experience.Brightness != null && experience.Brightness.Available)
+            if (!gameOver && Mathf.Abs(axis.x) > 0.55f && Time.unscaledTime >= nextMenuAdjustAt)
             {
-                float next = experience.Brightness.Offset + Mathf.Sign(axis.x) * 0.1f;
-                experience.Brightness.SetOffset(next);
-                experience.Brightness.Save();
-                PlayerPrefs.Save();
-                nextBrightnessStepAt = Time.unscaledTime + 0.1f;
+                int direction = axis.x > 0f ? 1 : -1;
+                if (AdjustSelectedOption(direction))
+                    pauseMenuDirty = true;
+                nextMenuAdjustAt = Time.unscaledTime + 0.16f;
             }
 
-            string brightness = experience.Brightness != null && experience.Brightness.Available
-                ? experience.Brightness.Offset.ToString("+0.0;-0.0;0.0") + " EV"
-                : "UNAVAILABLE";
-            string[] labels=gameOver
-                ? retryAvailable ? new[] {"RETRY CURRENT ROOM", "RESTART RUN", "EXIT PCVR"} : new[] {"RESTART RUN", "EXIT PCVR"}
-                : new[] {"RESUME", "RESTART RUN", "RECENTER VIEW", "EXIT PCVR", "BRIGHTNESS  " + brightness + "  LEFT/RIGHT ADJUST",
-                    "PARTICLES  " + (experience.ParticleLook.IsLegacy ? "ORIGINAL QUAD" : "SHARP QUAD"),
-                    "SIDE BY SIDE  " + (ParticleLook.SideBySide ? "ON" : "OFF")};
-            if(selectedMenuItem>=itemCount) selectedMenuItem=0;
-            string menu = "RIGHT STICK: SELECT   RIGHT TRIGGER: CONFIRM\n";
-            for (int i = 0; i < labels.Length; i++)
-                menu += (i == selectedMenuItem ? "> " : "  ") + labels[i] + (i + 1 < labels.Length ? "\n" : "");
-            pauseItems.text = menu;
-            FitText(pauseItems, 1.8f, gameOver ? .38f : .54f);
-            pauseTitle.text = gameOver ? "SIGNAL LOST" : "PAUSED";
-            FitText(pauseTitle, 1.2f, .09f);
+            pauseTitle.gameObject.SetActive(true);
+            pauseItems.gameObject.SetActive(true);
+            string title = gameOver ? "SIGNAL LOST" : "PAUSED";
+            if (pauseTitle.text != title)
+            {
+                pauseTitle.text = title;
+                FitText(pauseTitle, 1.2f, .09f);
+            }
+            PositionPanel(2f, 0f);
 
             if (session != null && session.MenuConfirmPressed)
-                ConfirmMenuSelection();
+            {
+                ConfirmMenuSelection(gameOver, retryAvailable);
+                itemCount = CurrentMenuItemCount(gameOver, retryAvailable);
+                if (itemCount != previousMenuItemCount)
+                {
+                    previousMenuItemCount = itemCount;
+                    pauseMenuDirty = true;
+                }
+                if (selectedMenuItem >= itemCount)
+                    selectedMenuItem = 0;
+            }
+
+            if (pauseMenuDirty)
+                RefreshPauseMenu(gameOver, retryAvailable, itemCount);
         }
 
-        void ConfirmMenuSelection()
+        int CurrentMenuItemCount(bool gameOver, bool retryAvailable)
         {
-            if(experience.Combat != null && experience.Combat.Lost)
+            if (gameOver)
+                return retryAvailable ? 4 : 3;
+            if (studySubmenu)
+                return 6;
+            return 7 + (experience.Tutorial != null ? 2 : 0) + 4 +
+                (experience.CavernMode && experience.PointStudy != null ? 1 : 0);
+        }
+
+        PauseOption GetMainOption(int index)
+        {
+            if (index < 7)
+                return (PauseOption)index;
+            index -= 7;
+            if (experience.Tutorial != null)
             {
-                if(experience.CanRetryRoom) {
-                    if(selectedMenuItem==0) experience.RetryCurrentRoom();
-                    else if(selectedMenuItem==1) experience.Restart();
-                    else if(selectedMenuItem==2) session.RequestDisable();
-                } else {
-                    if(selectedMenuItem==0) experience.Restart();
-                    else if(selectedMenuItem==1) session.RequestDisable();
+                if (index == 0) return PauseOption.ReplayTutorial;
+                if (index == 1) return PauseOption.SkipTutorial;
+                index -= 2;
+            }
+
+            if (index == 0) return PauseOption.Restart;
+            if (index == 1) return PauseOption.Recenter;
+            if (index == 2) return PauseOption.ExitPcVr;
+            if (index == 3) return PauseOption.Quit;
+            return PauseOption.PointStudy;
+        }
+
+        bool AdjustSelectedOption(int direction)
+        {
+            if (studySubmenu)
+            {
+                PointStudy study = experience.PointStudy;
+                if (study == null) return false;
+                switch ((StudyOption)selectedMenuItem)
+                {
+                    case StudyOption.Visible:
+                        study.SetVisible(!study.Visible);
+                        return true;
+                    case StudyOption.RenderMode:
+                        study.SetMode(study.Mode == PointStudy.RenderMode.NativePoint
+                            ? PointStudy.RenderMode.SharpQuad : PointStudy.RenderMode.NativePoint);
+                        return true;
+                    case StudyOption.Density:
+                        study.SetDensity(study.DensityMultiplier == 3 ? 1 : 3);
+                        return true;
+                    case StudyOption.Gain:
+                        float gain = Mathf.Clamp(study.Gain + direction * 0.25f, 0.25f, 12f);
+                        if (Mathf.Approximately(gain, study.Gain)) return false;
+                        study.SetGain(gain);
+                        return true;
+                    case StudyOption.Flow:
+                        float flow = Mathf.Clamp(study.Flow + direction * 0.1f, 0f, 2f);
+                        if (Mathf.Approximately(flow, study.Flow)) return false;
+                        study.SetFlow(flow);
+                        return true;
+                    default:
+                        return false;
                 }
+            }
+
+            switch (GetMainOption(selectedMenuItem))
+            {
+                case PauseOption.Music:
+                    float volume = Mathf.Clamp01(experience.Music.Volume + direction * 0.05f);
+                    if (Mathf.Approximately(volume, experience.Music.Volume)) return false;
+                    experience.Music.SetVolume(volume);
+                    return true;
+                case PauseOption.Brightness:
+                    if (experience.Brightness == null || !experience.Brightness.Available) return false;
+                    float offset = Mathf.Clamp(experience.Brightness.Offset + direction * 0.1f,
+                        DisplayBrightness.MinOffset, DisplayBrightness.MaxOffset);
+                    if (Mathf.Approximately(offset, experience.Brightness.Offset)) return false;
+                    experience.Brightness.SetOffset(offset);
+                    experience.Brightness.Save();
+                    PlayerPrefs.Save();
+                    return true;
+                case PauseOption.ReducedMotion:
+                    experience.SetReducedMotion(!experience.ReducedMotion);
+                    return true;
+                case PauseOption.ParticleStyle:
+                    experience.ParticleLook.SetStyle(!experience.ParticleLook.IsLegacy);
+                    return true;
+                case PauseOption.SideBySide:
+                    experience.ParticleLook.SetSideBySide(!ParticleLook.SideBySide);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        void ConfirmMenuSelection(bool gameOver, bool retryAvailable)
+        {
+            if (gameOver)
+            {
+                int quitIndex = retryAvailable ? 3 : 2;
+                if (retryAvailable && selectedMenuItem == 0)
+                    experience.RetryCurrentRoom();
+                else if (selectedMenuItem == (retryAvailable ? 1 : 0))
+                    experience.Restart();
+                else if (selectedMenuItem == (retryAvailable ? 2 : 1) && session != null)
+                    session.RequestDisable();
+                else if (selectedMenuItem == quitIndex)
+                    experience.Quit();
                 return;
             }
-            switch (selectedMenuItem)
+
+            if (studySubmenu)
             {
-                case 0:
+                if (selectedMenuItem == (int)StudyOption.Back)
+                {
+                    studySubmenu = false;
+                    selectedMenuItem = savedMainMenuSelection;
+                    pauseMenuDirty = true;
+                }
+                else if (selectedMenuItem < (int)StudyOption.Gain && AdjustSelectedOption(1))
+                    pauseMenuDirty = true;
+                return;
+            }
+
+            switch (GetMainOption(selectedMenuItem))
+            {
+                case PauseOption.Resume:
                     experience.TogglePause();
                     break;
-                case 1:
+                case PauseOption.ResetBrightness:
+                    if (experience.Brightness != null)
+                    {
+                        experience.Brightness.SetOffset(0f);
+                        experience.Brightness.Save();
+                        PlayerPrefs.Save();
+                        pauseMenuDirty = true;
+                    }
+                    break;
+                case PauseOption.ReducedMotion:
+                case PauseOption.ParticleStyle:
+                case PauseOption.SideBySide:
+                    if (AdjustSelectedOption(1)) pauseMenuDirty = true;
+                    break;
+                case PauseOption.ReplayTutorial:
+                    experience.ReplayTutorial();
+                    break;
+                case PauseOption.SkipTutorial:
+                    experience.SkipTutorial();
+                    pauseMenuDirty = true;
+                    break;
+                case PauseOption.Restart:
                     experience.Restart();
                     break;
-                case 2:
-                    session.Recenter();
+                case PauseOption.Recenter:
+                    if (session != null) session.Recenter();
                     break;
-                case 3:
-                    session.RequestDisable();
+                case PauseOption.ExitPcVr:
+                    if (session != null) session.RequestDisable();
                     break;
-                case 5:
-                    experience.ParticleLook.SetStyle(!experience.ParticleLook.IsLegacy);
+                case PauseOption.Quit:
+                    experience.Quit();
                     break;
-                case 6:
-                    experience.ParticleLook.SetSideBySide(!ParticleLook.SideBySide);
+                case PauseOption.PointStudy:
+                    if (experience.PointStudy != null)
+                    {
+                        savedMainMenuSelection = selectedMenuItem;
+                        studySubmenu = true;
+                        selectedMenuItem = 0;
+                        pauseMenuDirty = true;
+                    }
+                    break;
+            }
+        }
+
+        void RefreshPauseMenu(bool gameOver, bool retryAvailable, int itemCount)
+        {
+            pauseMenuBuilder.Clear();
+            if (gameOver)
+                pauseMenuBuilder.Append("UP/DOWN SELECT\nRIGHT TRIGGER: CONFIRM\n");
+            else if (studySubmenu)
+                pauseMenuBuilder.Append("POINT STUDY\nUP/DOWN SELECT  LEFT/RIGHT CHANGE\nTRIGGER: CONFIRM\n");
+            else
+                pauseMenuBuilder.Append("UP/DOWN SELECT  LEFT/RIGHT CHANGE\nRIGHT TRIGGER: CONFIRM\n");
+
+            int first = Mathf.Clamp(selectedMenuItem - VisibleMenuItems / 2, 0,
+                Mathf.Max(0, itemCount - VisibleMenuItems));
+            int last = Mathf.Min(itemCount, first + VisibleMenuItems);
+            for (int i = first; i < last; i++)
+            {
+                pauseMenuBuilder.Append(i == selectedMenuItem ? "> " : "  ");
+                if (gameOver)
+                    AppendGameOverOption(i, retryAvailable);
+                else if (studySubmenu)
+                    AppendStudyOption((StudyOption)i);
+                else
+                    AppendMainOption(GetMainOption(i));
+                if (i + 1 < last) pauseMenuBuilder.Append('\n');
+            }
+
+            pauseItems.text = pauseMenuBuilder.ToString();
+            FitText(pauseItems, 2.1f, .95f);
+            pauseMenuDirty = false;
+        }
+
+        void AppendGameOverOption(int index, bool retryAvailable)
+        {
+            if (retryAvailable)
+            {
+                switch (index)
+                {
+                    case 0: pauseMenuBuilder.Append("RETRY CURRENT ROOM"); return;
+                    case 1: pauseMenuBuilder.Append("RESTART RUN"); return;
+                    case 2: pauseMenuBuilder.Append("EXIT PCVR"); return;
+                    default: pauseMenuBuilder.Append("QUIT"); return;
+                }
+            }
+
+            switch (index)
+            {
+                case 0: pauseMenuBuilder.Append("RESTART RUN"); break;
+                case 1: pauseMenuBuilder.Append("EXIT PCVR"); break;
+                default: pauseMenuBuilder.Append("QUIT"); break;
+            }
+        }
+
+        void AppendMainOption(PauseOption option)
+        {
+            switch (option)
+            {
+                case PauseOption.Resume: pauseMenuBuilder.Append("RESUME"); break;
+                case PauseOption.Music:
+                    pauseMenuBuilder.Append("MUSIC  ").Append(Mathf.RoundToInt(experience.Music.Volume * 100f))
+                        .Append("%  LEFT/RIGHT");
+                    break;
+                case PauseOption.Brightness:
+                    pauseMenuBuilder.Append("BRIGHTNESS  ");
+                    if (experience.Brightness != null && experience.Brightness.Available)
+                        pauseMenuBuilder.Append(experience.Brightness.Offset.ToString("+0.0;-0.0;0.0")).Append(" EV");
+                    else
+                        pauseMenuBuilder.Append("UNAVAILABLE");
+                    break;
+                case PauseOption.ResetBrightness: pauseMenuBuilder.Append("RESET BRIGHTNESS"); break;
+                case PauseOption.ReducedMotion:
+                    pauseMenuBuilder.Append("REDUCED MOTION  ").Append(experience.ReducedMotion ? "ON" : "OFF");
+                    break;
+                case PauseOption.ParticleStyle:
+                    pauseMenuBuilder.Append("PARTICLE STYLE  ")
+                        .Append(experience.ParticleLook.IsLegacy ? "ORIGINAL QUAD" : "SHARP QUAD");
+                    break;
+                case PauseOption.SideBySide:
+                    pauseMenuBuilder.Append("SIDE BY SIDE  ").Append(ParticleLook.SideBySide ? "ON" : "OFF");
+                    break;
+                case PauseOption.ReplayTutorial: pauseMenuBuilder.Append("REPLAY TUTORIAL"); break;
+                case PauseOption.SkipTutorial: pauseMenuBuilder.Append("SKIP TUTORIAL"); break;
+                case PauseOption.Restart: pauseMenuBuilder.Append("RESTART RUN"); break;
+                case PauseOption.Recenter: pauseMenuBuilder.Append("RECENTER VIEW"); break;
+                case PauseOption.ExitPcVr: pauseMenuBuilder.Append("EXIT PCVR"); break;
+                case PauseOption.Quit: pauseMenuBuilder.Append("QUIT"); break;
+                case PauseOption.PointStudy: pauseMenuBuilder.Append("POINT STUDY >"); break;
+            }
+        }
+
+        void AppendStudyOption(StudyOption option)
+        {
+            PointStudy study = experience.PointStudy;
+            if (study == null) return;
+            switch (option)
+            {
+                case StudyOption.Visible:
+                    pauseMenuBuilder.Append("VISIBLE  ").Append(study.Visible ? "ON" : "OFF");
+                    break;
+                case StudyOption.RenderMode:
+                    pauseMenuBuilder.Append("RENDER  ").Append(study.Mode == PointStudy.RenderMode.NativePoint
+                        ? "NATIVE POINT" : "SHARP QUAD");
+                    break;
+                case StudyOption.Density:
+                    pauseMenuBuilder.Append("DENSITY  ").Append(study.DensityMultiplier).Append("X");
+                    break;
+                case StudyOption.Gain:
+                    pauseMenuBuilder.Append("GAIN  ").Append(study.Gain.ToString("0.00")).Append("  LEFT/RIGHT");
+                    break;
+                case StudyOption.Flow:
+                    pauseMenuBuilder.Append("FLOW  ").Append(study.Flow.ToString("0.00")).Append("  LEFT/RIGHT");
+                    break;
+                case StudyOption.Back:
+                    pauseMenuBuilder.Append("BACK");
                     break;
             }
         }
@@ -576,33 +796,6 @@ namespace Liminal
             text.transform.localScale = Vector3.one * scale;
         }
 
-        LineRenderer CreateLine(string objectName, int points, float width)
-        {
-            GameObject child = new GameObject(objectName);
-            child.transform.SetParent(hudRoot, false);
-            LineRenderer line = child.AddComponent<LineRenderer>();
-            line.useWorldSpace = true;
-            line.loop = false;
-            line.positionCount = points;
-            line.widthMultiplier = width;
-            line.sharedMaterial = hudMaterial;
-            line.shadowCastingMode = ShadowCastingMode.Off;
-            line.receiveShadows = false;
-            line.alignment = LineAlignment.View;
-            line.textureMode = LineTextureMode.Stretch;
-            return line;
-        }
-
-        static void SetCircle(LineRenderer line, Vector3 center, Vector3 right, Vector3 up, float radius, int segments)
-        {
-            for (int i = 0; i <= segments; i++)
-            {
-                float angle = i * Mathf.PI * 2f / segments;
-                Vector3 point = center + (right * Mathf.Cos(angle) + up * Mathf.Sin(angle)) * radius;
-                line.SetPosition(i, point);
-            }
-        }
-
         void OnDestroy()
         {
             HidePassageLabels();
@@ -610,8 +803,6 @@ namespace Liminal
                 Destroy(passageLabelsRoot.gameObject);
             if (hudRoot != null)
                 Destroy(hudRoot.gameObject);
-            if (hudMaterial != null)
-                Destroy(hudMaterial);
             if (textMaterial != null)
                 Destroy(textMaterial);
         }

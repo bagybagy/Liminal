@@ -24,12 +24,15 @@ namespace Liminal
         bool lockWasHeld;
         bool overdriveWasDown;
         bool pauseWasDown;
-        bool tutorialWasEnabled;
+        bool tutorialFireWasHeld;
+        bool tutorialConfirmReleaseGate;
+        bool hasTutorialHeadRotation;
         bool previousRunInBackground;
         bool changedRunInBackground;
         float trackingLostSince = -1f;
         Vector3 lastHeadPosition;
         Quaternion lastHeadRotation = Quaternion.identity;
+        Quaternion previousTutorialHeadRotation = Quaternion.identity;
         bool hasHeadPose;
 
         public bool Enabled { get; private set; }
@@ -124,9 +127,14 @@ namespace Liminal
             bool triggerDown = triggerWasDown ? rightTrigger > 0.42f : rightTrigger >= 0.62f;
             MenuConfirmPressed = menuInput && triggerDown && !triggerWasDown;
             MenuAxis = menuInput ? ApplyDeadzone(rightAxis, 0.28f) : Vector2.zero;
+            if (tutorialConfirmReleaseGate && !triggerDown)
+                tutorialConfirmReleaseGate = false;
+            if (MenuConfirmPressed)
+                tutorialConfirmReleaseGate = true;
             triggerWasDown = triggerDown;
 
-            bool activeControls = controls && !paused && hasPose;
+            bool activeControls = controls && !paused && !menuInput && !PausePressed &&
+                !tutorialConfirmReleaseGate && hasPose;
             bool lockNow = activeControls && triggerDown;
             LockHeld = lockNow;
             LockReleased = lockWasHeld && !lockNow && !paused;
@@ -142,6 +150,26 @@ namespace Liminal
                     activeControls ? rightAxis.y : 0f,
                     activeControls ? rightAxis.x : 0f,
                     activeControls && leftGrip >= 0.55f);
+            }
+
+            if (experience.Tutorial != null)
+            {
+                Vector2 headLook = ReadTutorialHeadLook(hasPose);
+                Vector2 look = activeControls ? rightAxis * (dt * 8f) + headLook : Vector2.zero;
+                Vector3 movement = activeControls
+                    ? new Vector3(leftAxis.x, rightAxis.y, leftAxis.y)
+                    : Vector3.zero;
+                bool tutorialFireHeld = activeControls && triggerDown;
+                bool tutorialFireReleased = activeControls && tutorialFireWasHeld && !triggerDown;
+                experience.Tutorial.ObserveInput(look, movement,
+                    activeControls && leftGrip >= 0.55f,
+                    tutorialFireHeld, tutorialFireReleased, song, dt);
+                tutorialFireWasHeld = tutorialFireHeld;
+            }
+            else
+            {
+                hasTutorialHeadRotation = false;
+                tutorialFireWasHeld = false;
             }
 
             if (hasPose)
@@ -175,14 +203,37 @@ namespace Liminal
 
         public void ResetPose()
         {
+            bool waitForTriggerRelease = triggerWasDown || tutorialConfirmReleaseGate;
             ResetInputEdges();
+            tutorialConfirmReleaseGate = waitForTriggerRelease;
             if (Enabled && flight != null)
             {
                 flight.ResetVrYaw();
                 UpdateHeadPose();
-                if (experience.Tutorial != null)
-                    experience.Tutorial.SetEnabled(false);
             }
+        }
+
+        Vector2 ReadTutorialHeadLook(bool hasPose)
+        {
+            if (!hasPose)
+            {
+                hasTutorialHeadRotation = false;
+                return Vector2.zero;
+            }
+
+            if (!hasTutorialHeadRotation)
+            {
+                previousTutorialHeadRotation = lastHeadRotation;
+                hasTutorialHeadRotation = true;
+                return Vector2.zero;
+            }
+
+            Quaternion delta = Quaternion.Inverse(previousTutorialHeadRotation) * lastHeadRotation;
+            previousTutorialHeadRotation = lastHeadRotation;
+            Vector3 angles = delta.eulerAngles;
+            float yaw = Mathf.DeltaAngle(0f, angles.y);
+            float pitch = Mathf.DeltaAngle(0f, angles.x);
+            return new Vector2(yaw, -pitch) * 0.5f;
         }
 
         public bool Recenter()
@@ -198,6 +249,7 @@ namespace Liminal
                 {
                     flight.ResetVrYaw();
                     UpdateHeadPose();
+                    hasTutorialHeadRotation = false;
                     Status = "Tracking recentered.";
                     return true;
                 }
@@ -306,10 +358,6 @@ namespace Liminal
             }
 
             BeginVrBackgroundRun();
-            tutorialWasEnabled = experience.Tutorial != null && experience.Tutorial.Enabled;
-            if (experience.Tutorial != null)
-                experience.Tutorial.SetEnabled(false);
-
             flight.EnableVr(true);
             if (!flight.VrEnabled)
             {
@@ -352,9 +400,6 @@ namespace Liminal
                 manager.DeinitializeLoader();
             RestoreBackgroundRun();
 
-            if (tutorialWasEnabled && experience != null && experience.Tutorial != null)
-                experience.Tutorial.SetEnabled(true);
-            tutorialWasEnabled = false;
             ResetInputEdges();
             Status = "PCVR off; desktop flight active.";
             yield return null;
@@ -372,9 +417,6 @@ namespace Liminal
                 flight.EnableVr(false);
             StopOpenXr(manager);
             RestoreBackgroundRun();
-            if (tutorialWasEnabled && experience != null && experience.Tutorial != null)
-                experience.Tutorial.SetEnabled(true);
-            tutorialWasEnabled = false;
             Status = "PCVR unavailable; desktop flight active. " + reason;
             Debug.LogWarning("[LIMINAL PCVR] " + Status, this);
             ResetInputEdges();
@@ -492,6 +534,9 @@ namespace Liminal
             lockWasHeld = false;
             overdriveWasDown = false;
             pauseWasDown = false;
+            tutorialFireWasHeld = false;
+            tutorialConfirmReleaseGate = false;
+            hasTutorialHeadRotation = false;
             LockHeld = LockReleased = OverdrivePressed = PausePressed = MenuConfirmPressed = false;
             MenuAxis = Vector2.zero;
         }
