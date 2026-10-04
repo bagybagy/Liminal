@@ -1,0 +1,27 @@
+{
+    "passed": true,
+    "distinctRenderStyles": true,
+    "identicalSimulationBuffer": true,
+    "targetCountUnchanged": true,
+    "initializationCountUnchanged": true,
+    "flameDynamic": true,
+    "baseEndingVerified": true,
+    "originalQuadDefault": true,
+    "flamePaletteEightBeatCycle": true,
+    "vrGameplayHudHidden": true,
+    "vrPassageLabelsKept": true,
+    "vrTutorialReplay": true,
+    "vrTutorialMovement": true,
+    "vrPauseSettingsParity": true,
+    "desktopAuxiliaryPoints": 239278,
+    "vrAuxiliaryPoints": 99458,
+    "flamePoints": 9000,
+    "whaleParticleCenter": {
+        "x": 306.44085693359377,
+        "y": -288.0224304199219,
+        "z": 816.6569213867188
+    },
+    "maximumWhiteFraction": 0.019214583560824395,
+    "hardwareVrTested": false,
+    "errors": []
+}

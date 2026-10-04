@@ -38,14 +38,18 @@ namespace Liminal
                 game.ManualProofTick = true;
                 AudioListener.volume = 0;
                 song = (float)game.Music.Time;
+                report.originalQuadDefault = game.ParticleLook.IsLegacy &&
+                    Shader.GetGlobalFloat("_LiminalQuadStyle") > .5f && !ParticleLook.SideBySide;
+                Check(report.originalQuadDefault, "Startup must use original Quad without comparison ghosts.");
                 VerifyComparison();
+                VerifyVrPresentation();
                 VerifyAtlantis();
             }
             catch (Exception exception) { errors.Add(exception.ToString()); }
             finally
             {
                 game.ParticleLook.SetSideBySide(false);
-                game.ParticleLook.SetStyle(false);
+                game.ParticleLook.SetStyle(true);
                 report.errors = errors.ToArray();
                 report.passed = errors.Count == 0;
                 File.WriteAllText(Path.Combine(output, "report.json"), JsonUtility.ToJson(report, true));
@@ -113,7 +117,7 @@ namespace Liminal
             Frame(mid + new Vector3(0, -30, -285), mid);
             Capture("whale-side-by-side.png");
             game.ParticleLook.SetSideBySide(false);
-            game.ParticleLook.SetStyle(false);
+            game.ParticleLook.SetStyle(true);
         }
 
         void VerifyAtlantis()
@@ -134,6 +138,22 @@ namespace Liminal
             report.vrAuxiliaryPoints = game.Finale.VrAuxiliaryPointCount;
             report.flamePoints = game.Finale.FlamePointCount;
             Check(report.flamePoints == SacredFlame.DesktopParticleCount, "Sacred flame particle pool is missing.");
+            var flame = game.World.GetComponentInChildren<SacredFlame>(true);
+            Check(flame, "Sacred flame component is missing.");
+            var flameMaterial = flame.GetComponentInChildren<MeshRenderer>().sharedMaterial;
+            Check(Mathf.Approximately(flameMaterial.GetFloat("_ColorRate"), .125f) &&
+                Mathf.Approximately(flameMaterial.GetFloat("_FlameWidth"), 6f) &&
+                Mathf.Approximately(flameMaterial.GetFloat("_FlameHeight"), 24.5f),
+                "Sacred flame render profile does not match its half-speed palette and broader silhouette.");
+            flame.SetProgress(1, 0);
+            Color paletteStart = flame.PaletteColorDiagnostic;
+            flame.SetProgress(1, 4);
+            Color paletteMid = flame.PaletteColorDiagnostic;
+            flame.SetProgress(1, 8);
+            Color paletteEnd = flame.PaletteColorDiagnostic;
+            report.flamePaletteEightBeatCycle = paletteStart == paletteEnd && paletteStart != paletteMid;
+            Check(report.flamePaletteEightBeatCycle, "Flame color cycle must take eight beats rather than four.");
+            game.Finale.Tick(song, 0);
             Check(report.desktopAuxiliaryPoints <= AtlantisGeometry.AuxiliaryPointBudget &&
                 report.vrAuxiliaryPoints <= AtlantisGeometry.VrAuxiliaryPointBudget, "Atlantis auxiliary point budget exceeded.");
             Vector3 city = AtlantisGeometry.CityOrigin;
@@ -157,6 +177,77 @@ namespace Liminal
             Frame(city + new Vector3(26, 28, -60), city + Vector3.up * 37);
             Capture("holy-flame-base-ending.png");
             report.baseEndingVerified = true;
+        }
+
+        void VerifyVrPresentation()
+        {
+            var hud = game.GetComponent<VrWorldHud>();
+            Check(hud, "VR presentation component is missing.");
+            game.Flight.EnableVr(true);
+            game.Flight.SetVrHeadPose(Vector3.zero, Quaternion.identity);
+            try
+            {
+                CaveLayout.GetPortal(0, true, out Vector3 mouth, out _);
+                Frame(CaveLayout.Rooms[0].Center, mouth);
+                hud.SetVrActive(true);
+                hud.Tick(song, Step);
+                report.vrGameplayHudHidden = hud.GameplayHudHidden && !hud.PauseMenuVisible;
+                report.vrPassageLabelsKept = hud.VisiblePassageLabels > 0;
+                Check(report.vrGameplayHudHidden && report.vrPassageLabelsKept,
+                    "Normal VR presentation must hide gameplay HUD and retain passage destinations.");
+                game.TogglePause();
+                hud.Tick(song, Step);
+                Check(hud.PauseMenuVisible, "VR pause menu did not open.");
+                const BindingFlags privateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
+                var selection = typeof(VrWorldHud).GetField("selectedMenuItem", privateInstance);
+                var refresh = typeof(VrWorldHud).GetMethod("RefreshPauseMenu", privateInstance);
+                var confirm = typeof(VrWorldHud).GetMethod("ConfirmMenuSelection", privateInstance);
+                var adjust = typeof(VrWorldHud).GetMethod("AdjustSelectedOption", privateInstance);
+                Check(selection != null && refresh != null && confirm != null && adjust != null,
+                    "VR pause menu acceptance hooks are unavailable.");
+                string[] required = { "RESUME", "MUSIC", "BRIGHTNESS", "RESET BRIGHTNESS", "REDUCED MOTION",
+                    "PARTICLE STYLE", "SIDE BY SIDE", "REPLAY TUTORIAL", "SKIP TUTORIAL", "RESTART RUN",
+                    "RECENTER VIEW", "EXIT PCVR", "QUIT" };
+                for (int i = 0; i < required.Length; i++)
+                {
+                    selection.SetValue(hud, i);
+                    refresh.Invoke(hud, new object[] { false, false, required.Length });
+                    Check(hud.PauseMenuText.Contains(required[i]), "VR pause option is missing: " + required[i]);
+                }
+                report.vrPauseSettingsParity = true;
+                float previousVolume = game.Music.Volume;
+                selection.SetValue(hud, 1);
+                adjust.Invoke(hud, new object[] { previousVolume > .05f ? -1 : 1 });
+                Check(!Mathf.Approximately(previousVolume, game.Music.Volume), "VR music setting did not respond.");
+                game.Music.SetVolume(previousVolume);
+                selection.SetValue(hud, 7);
+                refresh.Invoke(hud, new object[] { false, false, required.Length });
+                Capture("vr-pause-tutorial.png");
+                confirm.Invoke(hud, new object[] { false, false });
+                game.Tutorial.ObserveInput(Vector2.zero, Vector3.zero, false, false, false, song, Step);
+                report.vrTutorialReplay = game.Tutorial.Enabled && game.Tutorial.UsesVrInstructions &&
+                    game.Tutorial.StepIndex == 0 && !game.Music.Paused;
+                Check(report.vrTutorialReplay, "VR tutorial replay must enable VR instructions and resume play.");
+                game.Tutorial.ObserveInput(new Vector2(6, 0), Vector3.zero, false, false, false, song, .2f);
+                foreach (var direction in new[] { Vector3.forward, Vector3.left, Vector3.back, Vector3.right })
+                    game.Tutorial.ObserveInput(Vector2.zero, direction, false, false, false, song, .2f);
+                game.Tutorial.ObserveInput(Vector2.zero, Vector3.down, false, false, false, song, .2f);
+                game.Tutorial.ObserveInput(Vector2.zero, Vector3.up, false, false, false, song, .2f);
+                game.Tutorial.ObserveInput(Vector2.zero, Vector3.forward, true, false, false, song, .3f);
+                report.vrTutorialMovement = game.Tutorial.StepIndex == 3 &&
+                    game.Tutorial.Status.Contains("TRIGGER");
+                Check(report.vrTutorialMovement, "VR movement and boost inputs must reveal the trigger shooting lesson.");
+                hud.Tick(song, Step);
+                Check(hud.GameplayHudHidden && !hud.PauseMenuVisible,
+                    "Replaying a tutorial must not restore hidden VR HUD.");
+            }
+            finally
+            {
+                if (game.Music.Paused) game.TogglePause();
+                game.Tutorial.SetEnabled(false);
+                hud.SetVrActive(false);
+                game.Flight.EnableVr(false);
+            }
         }
 
         void TickMarine()
@@ -229,6 +320,9 @@ namespace Liminal
         {
             public bool passed, distinctRenderStyles, identicalSimulationBuffer, targetCountUnchanged;
             public bool initializationCountUnchanged, flameDynamic, baseEndingVerified;
+            public bool originalQuadDefault, flamePaletteEightBeatCycle;
+            public bool vrGameplayHudHidden, vrPassageLabelsKept, vrTutorialReplay, vrTutorialMovement;
+            public bool vrPauseSettingsParity;
             public int desktopAuxiliaryPoints, vrAuxiliaryPoints, flamePoints;
             public Vector3 whaleParticleCenter;
             public float maximumWhiteFraction;

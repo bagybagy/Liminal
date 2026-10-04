@@ -1,4 +1,13 @@
-LIMINAL v0.1.11 / Windows x64 / PCVR / Quad comparison and sacred flame
+LIMINAL v0.1.12-dev / Windows x64 / PCVR / Original Quad and VR presentation
+
+このフォルダは開発ビルドです。公開GitHub Releaseはv0.1.10を維持しています。
+起動時はOriginal Quad。SharpQuadへの切り替えと横並び比較は設定として残しています。
+VRプレイ中のHUDは洞窟入口の行き先のみ。ポーズとゲームオーバーの操作画面は残します。
+VRポーズから音量・明るさ・描画・チュートリアルなどの設定を利用できます。
+聖炎は色の変化を半速にし、横と奥の広がりを増やし、高さを約1.4倍へ調整しました。
+VR設定は右スティック上下でスクロール、左右で値変更、右トリガーで決定します。
+REPLAY TUTORIALを選ぶと頭の向き・スティック・グリップ・右トリガーの説明を再生します。
+OriginalQuadVrReport.jsonに今回の限定検査結果を同梱。今回のQuest実機確認は未実施です。
 
 Escape: PARTICLE LOOKでSHARP QUAD / ORIGINAL QUADを切り替えられます。
 SIDE BY SIDEでクラゲ・海蛇・クジラの描画だけを横並びにします。
@@ -21,7 +30,7 @@ PCVRは Quest Link / Air Link などでPCに接続し、対応するOpenXRラン
 ポーズ画面のPCVRボタンで切り替えます。Quest単体のAndroid版ではありません。
 左スティックで前後・横移動、右スティックで上下・旋回、左グリップでダッシュ。
 右トリガー保持でロック、離すと発射。左Y・左スティック押し込み・左メニューでポーズ。
-VRのワールド空間HUDにボス残HP・形態・チャージを表示します。
+VRの通常UIにHP・ロック数・ボスHPなどは表示しません。
 
 音楽は全編 TidalMemory。実HMDの今回の変更への再確認は未実施です。
 神殿の巨大な加算粒子を修正し、神殿だけBloomの広がりを抑えました。

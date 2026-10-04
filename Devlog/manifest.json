@@ -556,6 +556,25 @@
       { "path": "Devlog/images/20-holy-flame-cyan.png", "source": "holy-flame-b.png" }
     ]
   },
+  "latest_original_quad_vr": {
+    "date": "2026-10-04",
+    "version": "v0.1.12-dev",
+    "public_release": "v0.1.10",
+    "report": "Builds/Windows/OriginalQuadVrReport.json",
+    "passed": true,
+    "source_folder": "Verification/OriginalQuadVr",
+    "capture_method": "Silent batch-mode offscreen 1600x900 URP with postprocessing; VR HUD logic without an active XR loader; no desktop capture",
+    "default_render_style": "Original Quad",
+    "flame_palette_beats_per_cycle": 8,
+    "vr_pause_options_verified": 13,
+    "vr_tutorial_verified_through": "Controller instructions, replay from pause, look/swim/altitude/boost lessons; actual HMD input not tested",
+    "hardware_vr_tested": false,
+    "new_video_recorded": false,
+    "images": [
+      { "path": "Devlog/images/21-original-holy-flame.png", "source": "holy-flame-a.png" },
+      { "path": "Devlog/images/21-vr-pause-tutorial.png", "source": "vr-pause-tutorial.png" }
+    ]
+  },
   "latest_musical_balance": {
     "implementation_commit": "bac3059",
     "report": "Liminal/Verification/MusicalDolphins/report.json",
