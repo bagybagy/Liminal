@@ -1,4 +1,4 @@
-LIMINAL v0.1.9 / Windows x64 / PCVR / Point comparison prototype
+LIMINAL v0.1.10 / Windows x64 / PCVR / Sharp matter
 
 フォルダ全体を展開して Liminal.exe を起動してください。
 Liminal_Data・DLLなどを移動したり削除しないでください。
@@ -73,3 +73,13 @@ Direct3Dでは点は基本1ピクセルです。近景の粒感・視差を比�
 PointStudyReport.json に無音バックグラウンドの実描画検査を同梱。実HMD・VR負荷は未確認です。
 
 プロジェクト: https://github.com/bagybagy/Liminal
+
+v0.1.10: SharpQuadの光芯と粒径上限を本編へ適用。
+実クラゲ15体を3倍密度にし、傘・触手・内部の粒が常に流れます。
+最初のクラゲは5,118粒で、撃破後の植物まで同じGPU粒子とIDを保持します。
+海蛇は既存の眼・鰭・内部層・膜・器官反応を残し、皮膚の表面流動を追加しました。
+他の生物・弾・撃破・環境も独立した輝点と光芯を共有。全体BloomとTidalMemoryは維持。
+比較個体は初期非表示です。POINT STUDY +から表示すれば再比較できます。
+比較の初期値はSharpQuad、3x、Gain 12、Flow 2。本編全体を12倍にする値ではありません。
+SharpMatterReport.json に無音バックグラウンドの描画・ID保持・射撃検査を同梱。
+GPU単体の時間は無画面実行で取得できず、性能判定は保留。VR実機も未確認です。

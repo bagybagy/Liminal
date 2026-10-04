@@ -512,6 +512,27 @@
     "hardware_vr_tested": false,
     "new_video_recorded": false
   },
+  "latest_sharp_matter": {
+    "date": "2026-10-04",
+    "version": "v0.1.10",
+    "report": "Builds/Windows/SharpMatterReport.json",
+    "passed": true,
+    "source_folder": "Verification/SharpMatter",
+    "capture_method": "Silent batch-mode offscreen 1600x900 URP with postprocessing; actual gameplay forms; no desktop capture or active XR loader",
+    "first_jelly_particles": 5118,
+    "persistent_marine_pool": 218515,
+    "stable_particle_ids": true,
+    "maximum_white_fraction": 0.004451389,
+    "gpu_frame_time_available": false,
+    "hardware_vr_tested": false,
+    "new_video_recorded": false,
+    "images": [
+      { "path": "Devlog/images/19-sharp-jelly.png", "source": "jelly-near.png" },
+      { "path": "Devlog/images/19-sharp-garden.png", "source": "settled-garden.png" },
+      { "path": "Devlog/images/19-sharp-serpent.png", "source": "serpent-side-anatomy.png" },
+      { "path": "Devlog/images/19-sharp-projectile-return.png", "source": "projectile-dissolve.png" }
+    ]
+  },
   "latest_musical_balance": {
     "implementation_commit": "bac3059",
     "report": "Liminal/Verification/MusicalDolphins/report.json",
