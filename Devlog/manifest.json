@@ -575,6 +575,27 @@
       { "path": "Devlog/images/21-vr-pause-tutorial.png", "source": "vr-pause-tutorial.png" }
     ]
   },
+  "latest_approved_stage_audio": {
+    "date": "2026-10-04",
+    "version": "v0.1.13-dev",
+    "public_release": "v0.1.10",
+    "report": "Builds/Windows/StageAudioReport.json",
+    "passed": true,
+    "approved_manifest": "Assets/Liminal/Resources/StageAudio/ApprovedTracks.json",
+    "themes": {
+      "first_room": "TidalMemory",
+      "serpent": "Serpent_VelvetKeys",
+      "hermit": "Hermit_OrchestralCurrent",
+      "submarine": "Submarine_OrganicCurrent",
+      "whale": "TidalMemory",
+      "ending": "Ending_BreathingLine"
+    },
+    "generated_boss_release_notes": 3,
+    "timing_method": "Offline measured beat sample positions; automatic downbeat and harmonic estimates",
+    "audible_runtime_review_performed": false,
+    "hardware_vr_tested": false,
+    "new_video_recorded": false
+  },
   "latest_musical_balance": {
     "implementation_commit": "bac3059",
     "report": "Liminal/Verification/MusicalDolphins/report.json",

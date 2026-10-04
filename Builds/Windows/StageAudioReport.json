@@ -1,0 +1,32 @@
+{
+    "passed": true,
+    "firstRoomTidalMemory": true,
+    "whaleTidalMemory": true,
+    "endingTheme": true,
+    "pendingCancellation": true,
+    "threeNoteRelease": true,
+    "customReleaseOnce": true,
+    "pauseClockPreserved": true,
+    "restartTidalMemory": true,
+    "transitionThemes": [
+        1,
+        3,
+        4,
+        2,
+        5
+    ],
+    "releasePitches": [
+        67,
+        71,
+        74
+    ],
+    "releaseOnsets": [
+        7.979931972789116,
+        8.217936507936507,
+        8.458843537414966
+    ],
+    "maxPlaybackPhaseError": 0.021337868480725498,
+    "maxReleaseGridError": 0.0,
+    "audibleReviewPerformed": false,
+    "errors": []
+}

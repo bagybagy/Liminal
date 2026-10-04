@@ -1,4 +1,12 @@
-LIMINAL v0.1.12-dev / Windows x64 / PCVR / Original Quad and VR presentation
+LIMINAL v0.1.13-dev / Windows x64 / PCVR / Approved stage music
+
+海蛇: Serpent_VelvetKeys / ヤドカリ: Hermit_OrchestralCurrent
+潜水艦: Submarine_OrganicCurrent / エンディング: Ending_BreathingLine
+最初の部屋とクジラ戦はTidalMemoryの原曲を維持しています。
+曲は小節境界で切り替え、実音源から推定した拍タイムラインを射撃と光に使います。
+ボス撃破は曲の和声に沿った3音のクリスタルフレーズです。
+テンポ伸縮や移調はせず、音量調整とループ端の整理を適用しています。
+StageAudioReport.jsonは無音の限定検査。新曲のゲーム内聴感レビューは未実施です。
 
 このフォルダは開発ビルドです。公開GitHub Releaseはv0.1.10を維持しています。
 起動時はOriginal Quad。SharpQuadへの切り替えと横並び比較は設定として残しています。
@@ -32,7 +40,7 @@ PCVRは Quest Link / Air Link などでPCに接続し、対応するOpenXRラン
 右トリガー保持でロック、離すと発射。左Y・左スティック押し込み・左メニューでポーズ。
 VRの通常UIにHP・ロック数・ボスHPなどは表示しません。
 
-音楽は全編 TidalMemory。実HMDの今回の変更への再確認は未実施です。
+音楽は上記のステージ別選定曲へ変更。実HMDの今回の変更への再確認は未実施です。
 神殿の巨大な加算粒子を修正し、神殿だけBloomの広がりを抑えました。
 通常の泡リングを含む圧力弾が、光と渦流のピークを経て粒子へ戻ります。
 ボス撃破音は低音インパクトを廃し、譜面に合うクリスタル系の単音に変更しました。
