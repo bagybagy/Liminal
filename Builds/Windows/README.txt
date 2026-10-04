@@ -1,11 +1,14 @@
-LIMINAL v0.1.13-dev / Windows x64 / PCVR / Stage music fade revision
+LIMINAL v0.1.13-dev / Windows x64 / PCVR / Serpent harp revision
 
 海蛇: Serpent_VelvetKeys / ヤドカリ: Hermit_OrchestralCurrent
 潜水艦: Submarine_OrganicCurrent / エンディング: Ending_BreathingLine
 最初の部屋とクジラ戦はTidalMemoryの原曲を維持しています。
 曲は小節境界で切り替え、実音源から推定した拍タイムラインを射撃と光に使います。
 曲切り替えを8拍・約4秒の滑らかな等電力フェードへ延長しました。
-海蛇の音階・音色候補はMusicReview/12-SerpentSoundStudyに試聴用として保存し、未採用です。
+海蛇の射撃・命中音は10種試聴の5番ハープを採用。音階はBの折り返し順序です。
+承認された処理の全19音をPCMで事前読込し、曲と同じ拍位置に予約します。
+TidalMemoryと他のステージの射撃音、ボス撃破音は変更しません。
+10番の水滴風の音は別曲向けの候補として保存し、ゲームへの適用は保留しています。
 ボス撃破は曲の和声に沿った3音のクリスタルフレーズです。
 テンポ伸縮や移調はせず、音量調整とループ端の整理を適用しています。
 StageAudioReport.jsonは無音の限定検査。新曲のゲーム内聴感レビューは未実施です。
