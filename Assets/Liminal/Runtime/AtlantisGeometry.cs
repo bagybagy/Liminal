@@ -26,6 +26,10 @@ namespace Liminal
         static readonly Vector2[] PlazaCenters = {
             new(-112f, 70f), new(109f, 93f), new(118f, -98f), new(-115f, -104f)
         };
+        static readonly Vector2[] SanctuarySites = {
+            new(-100f, -66f), new(0f, -116f), new(100f, -66f),
+            new(100f, 66f), new(0f, 116f), new(-100f, 66f)
+        };
 
         public readonly struct SchoolPose
         {
@@ -83,7 +87,8 @@ namespace Liminal
             SerpentSchoolCount * (reducedDensity ? VrFishPerSchool : DesktopFishPerSchool);
 
         public static int ExpectedAuxiliaryPointCount(bool reducedDensity) => reducedDensity ?
-            35000 + 25870 + 19600 + 15008 : 101000 + 60542 + 35280 + 39396;
+            35000 + 1716 + 144 + 23490 + 19600 + 15008 + SacredFlame.VrParticleCount :
+            101000 + 3120 + 288 + 51194 + 35280 + 39396 + SacredFlame.DesktopParticleCount;
 
         public static Vector3 SampleWhaleDestination(int index)
         {
@@ -158,6 +163,8 @@ namespace Liminal
             AddRoads(cloud, reducedDensity ? 1600 : 4500, ref seed);
             AddCanals(cloud, reducedDensity ? 1300 : 3000, ref seed);
             AddPlazas(cloud, reducedDensity ? 1300 : 3000, ref seed);
+            AddCentralAltar(cloud, reducedDensity, ref seed);
+            AddSmallSanctuaries(cloud, reducedDensity, ref seed);
             AddRuinDistricts(cloud, reducedDensity ? 4800 : 14500, ref seed);
             return cloud.Build("Atlantis / fractured island and ruined districts", 720f);
         }
@@ -170,8 +177,8 @@ namespace Liminal
             bool reduced = reducedDensity;
             int outerColumns = reduced ? 32 : 42;
             int innerColumns = reduced ? 6 : 8;
-            int around = reduced ? 18 : 28;
-            int levels = reduced ? 20 : 24;
+            int around = reduced ? 16 : 24;
+            int levels = reduced ? 20 : 22;
 
             AddTemplePlinth(cloud, ground, reduced, ref seed);
             AddColumnSurfaces(cloud, ground + 6f, 29f, outerColumns, around, levels, 1.72f, ref seed);
@@ -400,6 +407,124 @@ namespace Liminal
                     0.20f + Hash01((uint)i + 569u) * 0.16f, color, ref seed,
                     i % 89 == 0 ? 2 : 0);
             }
+        }
+
+        static void AddCentralAltar(PointCloud cloud, bool reduced, ref int seed)
+        {
+            float ground = GroundHeight(0f, 0f);
+            int[] stepSamples = reduced ? new[] { 9, 7, 5 } : new[] { 18, 14, 10 };
+            float[] halfWidths = { 8.2f, 7.0f, 5.8f };
+            for (int step = 0; step < stepSamples.Length; step++)
+            {
+                AddRectangle(cloud, halfWidths[step], halfWidths[step], ground + 0.9f + step * 1.45f,
+                    stepSamples[step], step == 1 ? Azure : Cobalt, 0.15f, ref seed, 1);
+            }
+            AddRectangle(cloud, 4.8f, 4.8f, ground + 5.3f, reduced ? 6 : 12,
+                Aqua, 0.14f, ref seed, 1);
+            AddCircularRing(cloud, new Vector3(0f, ground + 5.45f, 0f), 0f, 3.4f,
+                reduced ? 36 : 72, Gold, 0.13f, ref seed, 2);
+        }
+
+        static void AddSmallSanctuaries(PointCloud cloud, bool reduced, ref int seed)
+        {
+            int lowerStepSamples = reduced ? 6 : 10;
+            int upperStepSamples = reduced ? 4 : 7;
+            int columnLevels = reduced ? 7 : 10;
+            int columnAround = reduced ? 5 : 7;
+            int beamSamples = reduced ? 6 : 10;
+
+            for (int site = 0; site < SanctuarySites.Length; site++)
+            {
+                Vector2 center = SanctuarySites[site];
+                float ground = GroundHeight(center.x, center.y);
+                float halfWidth = 8.2f + (site % 3) * 0.65f;
+                float halfDepth = 5.6f + (site % 2) * 0.7f;
+                float rotation = (site % 2 == 0 ? 1f : -1f) * (0.12f + site * 0.11f);
+                Color roofColor = site % 3 == 0 ? Aqua : site % 3 == 1 ? Gold : Azure;
+
+                AddSanctuaryRectangle(cloud, center, rotation, halfWidth, halfDepth,
+                    ground + 0.45f, lowerStepSamples, Cobalt, 0.13f, ref seed, 1);
+                AddSanctuaryRectangle(cloud, center, rotation, halfWidth - 0.8f, halfDepth - 0.7f,
+                    ground + 1.35f, upperStepSamples, site % 2 == 0 ? Azure : Aqua,
+                    0.12f, ref seed, 1);
+
+                for (int column = 0; column < 4; column++)
+                {
+                    float x = (column % 2 == 0 ? -1f : 1f) * (halfWidth - 1.1f);
+                    float z = (column < 2 ? -1f : 1f) * (halfDepth - 1f);
+                    for (int level = 0; level < columnLevels; level++)
+                    {
+                        float t = level / (float)(columnLevels - 1);
+                        float y = ground + 1.65f + t * 5.35f;
+                        for (int around = 0; around < columnAround; around++)
+                        {
+                            float angle = around * Tau / columnAround;
+                            Vector3 point = SanctuaryPoint(center, rotation,
+                                x + Mathf.Cos(angle) * 0.34f, y,
+                                z + Mathf.Sin(angle) * 0.34f);
+                            Color color = around % 3 == 0 ? Pearl : Color.Lerp(Azure, Aqua, t * 0.42f);
+                            int style = level % 4 == 0 && around % 2 == 0 ? 1 : 0;
+                            Add(cloud, point, 0.11f, color, ref seed, style);
+                        }
+                    }
+                    for (int ring = 0; ring < 2; ring++)
+                    {
+                        float y = ground + (ring == 0 ? 1.55f : 7.15f);
+                        for (int around = 0; around < columnAround; around++)
+                        {
+                            float angle = around * Tau / columnAround;
+                            Vector3 point = SanctuaryPoint(center, rotation,
+                                x + Mathf.Cos(angle) * (ring == 0 ? 0.48f : 0.58f), y,
+                                z + Mathf.Sin(angle) * (ring == 0 ? 0.48f : 0.58f));
+                            Add(cloud, point, 0.12f, around == 0 ? Gold : Pearl,
+                                ref seed, around == 0 ? 2 : 1);
+                        }
+                    }
+                }
+
+                float eaveY = ground + 7.25f;
+                float ridgeY = ground + 10.1f + (site % 3) * 0.45f;
+                AddSanctuaryRectangle(cloud, center, rotation, halfWidth + 0.7f,
+                    halfDepth + 0.7f, eaveY, beamSamples, roofColor, 0.15f, ref seed, 1);
+                for (int end = -1; end <= 1; end += 2)
+                {
+                    float z = end * (halfDepth + 0.7f);
+                    Vector3 left = SanctuaryPoint(center, rotation, -halfWidth - 0.7f, eaveY, z);
+                    Vector3 ridge = SanctuaryPoint(center, rotation, 0f, ridgeY, z);
+                    Vector3 right = SanctuaryPoint(center, rotation, halfWidth + 0.7f, eaveY, z);
+                    AddSegment(cloud, left, ridge, beamSamples, roofColor, 0.15f, ref seed, 1);
+                    AddSegment(cloud, ridge, right, beamSamples, roofColor, 0.15f, ref seed, 1);
+                    AddSegment(cloud, left, right, beamSamples, Cobalt, 0.12f, ref seed);
+                }
+                AddSegment(cloud,
+                    SanctuaryPoint(center, rotation, 0f, ridgeY, -halfDepth - 0.7f),
+                    SanctuaryPoint(center, rotation, 0f, ridgeY, halfDepth + 0.7f),
+                    reduced ? 6 : 16, Gold, 0.13f, ref seed, 2);
+            }
+        }
+
+        static void AddSanctuaryRectangle(PointCloud cloud, Vector2 center, float rotation,
+            float halfWidth, float halfDepth, float y, int samplesPerSide, Color color,
+            float size, ref int seed, int style)
+        {
+            Vector3[] corners = {
+                SanctuaryPoint(center, rotation, -halfWidth, y, -halfDepth),
+                SanctuaryPoint(center, rotation, halfWidth, y, -halfDepth),
+                SanctuaryPoint(center, rotation, halfWidth, y, halfDepth),
+                SanctuaryPoint(center, rotation, -halfWidth, y, halfDepth),
+                SanctuaryPoint(center, rotation, -halfWidth, y, -halfDepth)
+            };
+            for (int side = 0; side < 4; side++)
+                AddSegment(cloud, corners[side], corners[side + 1], samplesPerSide,
+                    color, size, ref seed, style);
+        }
+
+        static Vector3 SanctuaryPoint(Vector2 center, float rotation, float x, float y, float z)
+        {
+            float cosine = Mathf.Cos(rotation);
+            float sine = Mathf.Sin(rotation);
+            return new Vector3(center.x + x * cosine - z * sine, y,
+                center.y + x * sine + z * cosine);
         }
 
         static void AddRuinDistricts(PointCloud cloud, int count, ref int seed)
@@ -676,7 +801,7 @@ namespace Liminal
 
         static void AddRoofSurfaces(PointCloud cloud, float ground, bool reduced, ref int seed)
         {
-            int count = reduced ? 4000 : 12000;
+            int count = reduced ? 3000 : 9000;
             float baseline = ground + 43.4f;
             for (int i = 0; i < count; i++)
             {
@@ -691,7 +816,7 @@ namespace Liminal
                     color, ref seed, role);
             }
 
-            int facadeCount = reduced ? 600 : 1800;
+            int facadeCount = reduced ? 500 : 1500;
             for (int i = 0; i < facadeCount; i++)
             {
                 float spread = Mathf.Sqrt(RadicalInverse(i / 2 + 1, 2));

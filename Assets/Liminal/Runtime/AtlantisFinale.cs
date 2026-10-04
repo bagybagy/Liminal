@@ -19,6 +19,7 @@ namespace Liminal
         ParticleWorld world;
         MarineLife marineLife;
         Flight flight;
+        SacredFlame sacredFlame;
         Transform cityRoot;
         bool initialized, creditsStarted, densityModeInitialized;
         float elapsed;
@@ -39,6 +40,7 @@ namespace Liminal
         public int ExpectedPointCount => UsesReducedDensity ? VrPointCount : DesktopPointCount;
         public int SerpentSchoolCount => AtlantisGeometry.SerpentSchoolCount;
         public int ActiveAuxiliaryPointCount => Active ? ContinentPointCount +
+            FlamePointCount +
             (((Mask & BossId.Hermit) != 0) ? PalacePointCount : 0) +
             (((Mask & BossId.Serpent) != 0) ? SerpentPointCount : 0) +
             (((Mask & BossId.Submarine) != 0) ? SubmarinePointCount : 0) : 0;
@@ -49,6 +51,10 @@ namespace Liminal
         public int SerpentPointCount { get; private set; }
         public int SubmarinePointCount { get; private set; }
         public int SerpentFishCount { get; private set; }
+        public int FlamePointCount => sacredFlame ? sacredFlame.PointCount : 0;
+        public Vector3 FlameCenter => sacredFlame ? sacredFlame.Center : Vector3.zero;
+        public Color FlamePaletteColorDiagnostic => sacredFlame ?
+            sacredFlame.PaletteColorDiagnostic : Color.clear;
 
         public void Initialize(ParticleWorld particleWorld, MarineLife marine, RunProgress runProgress)
         {
@@ -66,8 +72,9 @@ namespace Liminal
             SerpentPoseBounds = AtlantisGeometry.SerpentPoseBounds;
 
             Shader cityShader = Resources.Load<Shader>("AtlantisMatter");
+            Shader flameShader = Resources.Load<Shader>("SacredFlame");
             Shader creditsShader = Resources.Load<Shader>("CreditsMatter");
-            if (!cityShader || !creditsShader)
+            if (!cityShader || !flameShader || !creditsShader)
                 throw new System.InvalidOperationException("Atlantis particle shaders were not found in Resources.");
 
             var root = new GameObject("Atlantis / persistent whale matter");
@@ -79,16 +86,21 @@ namespace Liminal
 
             BuildLayer("Atlantis / fractured continent", 0,
                 AtlantisGeometry.BuildContinent(false), AtlantisGeometry.BuildContinent(true),
-                cityShader, 3f, 1.15f, false);
+                cityShader, 3f, 0.65f, false);
             BuildLayer("Atlantis / Hermit restored temple", 1,
                 AtlantisGeometry.BuildPalace(false), AtlantisGeometry.BuildPalace(true),
-                cityShader, 0f, 1.08f, true);
+                cityShader, 0f, 1.85f, true);
             BuildLayer("Atlantis / traveling serpent schools", 2,
                 AtlantisGeometry.BuildSerpentSchools(false), AtlantisGeometry.BuildSerpentSchools(true),
                 cityShader, 1f, 1.0f, true);
             BuildLayer("Atlantis / retro stage and observation craft", 3,
                 AtlantisGeometry.BuildSubmarines(false), AtlantisGeometry.BuildSubmarines(true),
                 cityShader, 2f, 1.05f, true);
+
+            var flameRoot = new GameObject("Atlantis / central altar sacred flame");
+            flameRoot.transform.SetParent(cityRoot, false);
+            sacredFlame = flameRoot.AddComponent<SacredFlame>();
+            sacredFlame.Initialize(flameShader, false);
 
             ValidatePointBudget(false);
             ValidatePointBudget(true);
@@ -190,6 +202,7 @@ namespace Liminal
             SubmarinePointCount = PointCount(useVr ? vrMeshes[3] : desktopMeshes[3]);
             SerpentFishCount = AtlantisGeometry.FishCount(useVr);
             AuxiliaryPointCount = CountAuxiliaryPoints(useVr);
+            sacredFlame?.SetDensityMode(useVr);
             densityModeInitialized = true;
         }
 
@@ -199,7 +212,8 @@ namespace Liminal
             int expectedCount = AtlantisGeometry.ExpectedAuxiliaryPointCount(useVr);
             int budget = useVr ? AtlantisGeometry.VrAuxiliaryPointBudget : AtlantisGeometry.AuxiliaryPointBudget;
             if (pointCount != expectedCount)
-                throw new System.InvalidOperationException("Atlantis point diagnostics do not match generated mesh counts.");
+                throw new System.InvalidOperationException("Atlantis point diagnostics do not match generated mesh counts: " +
+                    pointCount + " generated, " + expectedCount + " expected (VR=" + useVr + ").");
             if (pointCount > budget)
                 throw new System.InvalidOperationException("Atlantis layers exceed their auxiliary point budget.");
         }
@@ -209,7 +223,7 @@ namespace Liminal
             int pointCount = 0;
             Mesh[] lodMeshes = useVr ? vrMeshes : desktopMeshes;
             foreach (Mesh mesh in lodMeshes) pointCount += PointCount(mesh);
-            return pointCount;
+            return pointCount + (sacredFlame ? sacredFlame.PointCountForDensity(useVr) : 0);
         }
 
         static int PointCount(Mesh mesh)
@@ -227,17 +241,21 @@ namespace Liminal
 
         void SetFormation(float formation, float song)
         {
+            float beat = (float)AuthoredScore.BeatPosition(song);
             foreach (Material material in materials)
             {
                 material.SetFloat("_Formation", formation);
                 material.SetFloat("_Song", song);
-                material.SetFloat("_Beat", (float)AuthoredScore.BeatPosition(song));
+                material.SetFloat("_Beat", beat);
             }
+            sacredFlame?.SetProgress(formation, beat);
         }
 
         void OnDestroy()
         {
             Credits?.Dispose();
+            sacredFlame?.Dispose();
+            sacredFlame = null;
             foreach (Mesh mesh in meshes)
                 if (mesh) Destroy(mesh);
             foreach (Material material in materials)

@@ -68,12 +68,13 @@ namespace Liminal
             bool roomRetryProof=Array.IndexOf(args,"--verify-room-retry")>=0;
             bool pointStudyProof=Array.IndexOf(args,"--verify-point-study")>=0;
             bool sharpMatterProof=Array.IndexOf(args,"--verify-sharp-matter")>=0;
+            bool comparisonProof=Array.IndexOf(args,"--verify-quad-atlantis")>=0;
             bool capturePV=false;
 #if UNITY_EDITOR
             legacyProof|=UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false);
             capturePV=UnityEditor.EditorPrefs.GetBool("Liminal.CavernPV",false);
 #endif
-            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||encounterReview||pressureProof||finalReviewProof||whaleSplashProof||roomRetryProof||pointStudyProof||sharpMatterProof||capturePV;
+            ProofActive=legacyProof||cavernProof||expansionProof||journeyProof||feedbackProof||encounterReview||pressureProof||finalReviewProof||whaleSplashProof||roomRetryProof||pointStudyProof||sharpMatterProof||comparisonProof||capturePV;
             BackgroundProof=ProofActive && Application.isBatchMode && Array.IndexOf(args,"--background-proof")>=0;
             if(BackgroundProof) AudioListener.volume=0f;
             CavernMode=!legacyProof && Array.IndexOf(args,"--legacy-arena")<0;
@@ -126,6 +127,7 @@ namespace Liminal
             if(roomRetryProof) gameObject.AddComponent<RoomRetryProof>().Initialize(this);
             if(pointStudyProof) gameObject.AddComponent<PointStudyProof>().Initialize(this);
             if(sharpMatterProof) gameObject.AddComponent<SharpMatterProof>().Initialize(this);
+            if(comparisonProof) gameObject.AddComponent<QuadAtlantisProof>().Initialize(this);
             if(capturePV) gameObject.AddComponent<PvDirector>().Initialize(this);
 #if UNITY_EDITOR
             if(UnityEditor.EditorPrefs.GetBool("Liminal.TrailerCapture.Autopilot",false))
