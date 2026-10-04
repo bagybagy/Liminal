@@ -596,6 +596,24 @@
     "hardware_vr_tested": false,
     "new_video_recorded": false
   },
+  "latest_stage_audio_fade_study": {
+    "date": "2026-10-04",
+    "version": "v0.1.13-dev",
+    "public_release": "v0.1.10",
+    "report": "Builds/Windows/StageAudioReport.json",
+    "passed": true,
+    "crossfade_beats": 8,
+    "verified_crossfades": 5,
+    "crossfade_pause_frozen": true,
+    "study_folder": "MusicReview/12-SerpentSoundStudy",
+    "study_report": "MusicReview/12-SerpentSoundStudy/study-report.json",
+    "study_excerpt_seconds": 23.283809523809525,
+    "audio_capture_method": "Offline mix of Unity-imported BGM and actual runtime tone generators; not a gameplay recording",
+    "candidate_se_integrated": false,
+    "audible_runtime_review_performed": false,
+    "hardware_vr_tested": false,
+    "new_video_recorded": false
+  },
   "latest_musical_balance": {
     "implementation_commit": "bac3059",
     "report": "Liminal/Verification/MusicalDolphins/report.json",

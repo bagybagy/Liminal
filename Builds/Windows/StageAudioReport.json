@@ -8,6 +8,17 @@
     "customReleaseOnce": true,
     "pauseClockPreserved": true,
     "restartTidalMemory": true,
+    "crossfadePauseFrozen": true,
+    "verifiedCrossfades": 5,
+    "crossfadeInteriorSamples": 1387,
+    "maxCrossfadePowerError": 1.8373637544755184e-7,
+    "crossfadeDurations": [
+        3.8370975056689335,
+        3.8022675736961455,
+        3.8487074829931986,
+        3.870975056689339,
+        3.9067573696145105
+    ],
     "transitionThemes": [
         1,
         3,
@@ -25,7 +36,7 @@
         8.217936507936507,
         8.458843537414966
     ],
-    "maxPlaybackPhaseError": 0.021337868480725498,
+    "maxPlaybackPhaseError": 0.021333333333337424,
     "maxReleaseGridError": 0.0,
     "audibleReviewPerformed": false,
     "errors": []
