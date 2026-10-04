@@ -15,6 +15,49 @@ namespace Liminal.Editor
         static readonly int[] Fold = { 0, 2, 1, 0, 1, 2, 1, 0 };
         static readonly Dictionary<string, float[]> tones = new();
 
+        [MenuItem("Liminal/Export Modal Glass Comparison")]
+        public static void ExportModalComparison()
+        {
+            string output = Path.GetFullPath("MusicReview/13-SerpentCrystalStudy");
+            Directory.CreateDirectory(output);
+            tones.Clear();
+            AuthoredScore.ResetThemeSchedule(1);
+            try
+            {
+                var score = AuthoredScore.ThemeData(1);
+                var source = Load("Assets/Liminal/Resources/StageAudio/Serpent_VelvetKeys.wav");
+                const int firstBeat = 32, beats = 32;
+                int first = score.beats[firstBeat], length = score.beats[firstBeat + beats] - first;
+                var report = new StudyReport {
+                    sourceSha256 = Hash("Assets/Liminal/Resources/StageAudio/Serpent_VelvetKeys.wav"),
+                    sourceStartSeconds = first / (double)Rate, durationSeconds = length / (double)Rate,
+                    source = "Modal glass audition; B folded motif one octave higher; same BGM/onsets/gains; no boss release"
+                };
+                for (int variant = 0; variant < 2; variant++)
+                {
+                    var effects = new float[length * 2];
+                    var mix = new float[length * 2];
+                    foreach (int beat in new[] { 4, 16, 24 })
+                        for (int note = 0; note < 8; note++)
+                        {
+                            int sample = score.eighths[(firstBeat + beat) * 2 + note];
+                            int midi = FoldedNote(note, sample / (double)Rate) + 12;
+                            Add(effects, ModalGlass(midi, variant == 1), sample - first, NoteGain);
+                            report.notes.Add(new NoteEvent { variant = variant, sample = sample - first, midi = midi });
+                        }
+                    for (int i = 0; i < mix.Length; i++) mix[i] = source[first * 2 + i] * MusicGain + effects[i];
+                    string name = variant == 0 ? "F_ClearGlassBell" : "G_SoftGlassBowl";
+                    report.files.Add(Write(output, name, mix));
+                    var solo = new float[Rate * 6 * 2];
+                    Array.Copy(effects, solo, solo.Length);
+                    report.files.Add(Write(output, name + "_Solo", solo));
+                }
+                File.WriteAllText(Path.Combine(output, "study-report.json"), JsonUtility.ToJson(report, true));
+                Debug.Log("LIMINAL_MODAL_GLASS_STUDY_SUCCESS " + output);
+            }
+            finally { AuthoredScore.ResetThemeSchedule(-1); }
+        }
+
         [MenuItem("Liminal/Export Serpent Audio Comparison")]
         public static void Export()
         {
@@ -128,6 +171,40 @@ namespace Liminal.Editor
                 referenceEnergy += reference[frame * 2] * reference[frame * 2] + reference[frame * 2 + 1] * reference[frame * 2 + 1];
             }
             // Keep per-note energy equal to B; C must not win just by being louder.
+            float gain = (float)Math.Sqrt(referenceEnergy / Math.Max(1e-12, energy));
+            for (int i = 0; i < data.Length; i++) data[i] *= gain;
+            tones.Add(key, data);
+            return data;
+        }
+
+        static float[] ModalGlass(int midi, bool soft)
+        {
+            string key = (soft ? "bowl" : "bell") + midi;
+            if (tones.TryGetValue(key, out var data)) return data;
+            // Rossing, Acoustics of Glass Musical Instruments (2004), measured bowl modes.
+            double[] ratios = soft ? new[] { 1.0, 2.54, 2.55, 4.61 } : new[] { 1.0, 2.43, 4.36 };
+            double[] amplitudes = soft ? new[] { .32, .052, .050, .021 } : new[] { .32, .090, .040 };
+            double[] decays = soft ? new[] { 3.2, 7.0, 7.0, 12.0 } : new[] { 2.8, 5.5, 9.5 };
+            const double duration = 2.4;
+            data = new float[(int)(Rate * duration) * 2];
+            double frequency = 440 * Math.Pow(2, (midi - 69) / 12.0), energy = 0, referenceEnergy = 0;
+            for (int frame = 0; frame < data.Length / 2; frame++)
+            {
+                double t = frame / (double)Rate;
+                double attack = 1 - Math.Exp(-t / (soft ? .0035 : .0015));
+                double edge = Math.Min((duration - t) / .08, 1);
+                double left = 0, right = 0;
+                for (int mode = 0; mode < ratios.Length; mode++)
+                {
+                    double phase = 2 * Math.PI * frequency * ratios[mode] * t;
+                    double envelope = amplitudes[mode] * Math.Exp(-t * decays[mode]) * attack * edge;
+                    left += Math.Sin(phase) * envelope;
+                    right += Math.Sin(phase + (mode == 0 ? 0 : .07 * mode)) * envelope;
+                }
+                data[frame * 2] = (float)left; data[frame * 2 + 1] = (float)right;
+                energy += left * left + right * right;
+            }
+            foreach (float value in ExistingTone(midi, false)) referenceEnergy += value * value;
             float gain = (float)Math.Sqrt(referenceEnergy / Math.Max(1e-12, energy));
             for (int i = 0; i < data.Length; i++) data[i] *= gain;
             tones.Add(key, data);

@@ -1,0 +1,277 @@
+{
+    "sourceSha256": "78116e5ff5d6e7e81cfd0cd3c26882d45a3c7669168301c7fb2bc6bb1f793e1b",
+    "sourceStartSeconds": 15.354195011337869,
+    "durationSeconds": 15.603809523809524,
+    "masterGain": 0.800000011920929,
+    "candidateIntegratedInGame": false,
+    "musicalGridHumanVerified": false,
+    "source": "Modal glass audition; B folded motif one octave higher; same BGM/onsets/gains; no boss release",
+    "files": [
+        {
+            "name": "F_ClearGlassBell",
+            "seconds": 15.603809523809524,
+            "peak": 0.5398379564285278,
+            "rms": 0.08257636532360717
+        },
+        {
+            "name": "F_ClearGlassBell_Solo",
+            "seconds": 6.0,
+            "peak": 0.3357105255126953,
+            "rms": 0.058473737311461559
+        },
+        {
+            "name": "G_SoftGlassBowl",
+            "seconds": 15.603809523809524,
+            "peak": 0.5388226509094238,
+            "rms": 0.08253727769391399
+        },
+        {
+            "name": "G_SoftGlassBowl_Solo",
+            "seconds": 6.0,
+            "peak": 0.3458881676197052,
+            "rms": 0.058741142825070379
+        }
+    ],
+    "notes": [
+        {
+            "variant": 0,
+            "sample": 84736,
+            "midi": 74
+        },
+        {
+            "variant": 0,
+            "sample": 95360,
+            "midi": 81
+        },
+        {
+            "variant": 0,
+            "sample": 105984,
+            "midi": 78
+        },
+        {
+            "variant": 0,
+            "sample": 116480,
+            "midi": 74
+        },
+        {
+            "variant": 0,
+            "sample": 126976,
+            "midi": 78
+        },
+        {
+            "variant": 0,
+            "sample": 137600,
+            "midi": 81
+        },
+        {
+            "variant": 0,
+            "sample": 148224,
+            "midi": 78
+        },
+        {
+            "variant": 0,
+            "sample": 158720,
+            "midi": 74
+        },
+        {
+            "variant": 0,
+            "sample": 338688,
+            "midi": 83
+        },
+        {
+            "variant": 0,
+            "sample": 349312,
+            "midi": 90
+        },
+        {
+            "variant": 0,
+            "sample": 359936,
+            "midi": 86
+        },
+        {
+            "variant": 0,
+            "sample": 370560,
+            "midi": 83
+        },
+        {
+            "variant": 0,
+            "sample": 381184,
+            "midi": 86
+        },
+        {
+            "variant": 0,
+            "sample": 391680,
+            "midi": 90
+        },
+        {
+            "variant": 0,
+            "sample": 402176,
+            "midi": 86
+        },
+        {
+            "variant": 0,
+            "sample": 412800,
+            "midi": 83
+        },
+        {
+            "variant": 0,
+            "sample": 508160,
+            "midi": 74
+        },
+        {
+            "variant": 0,
+            "sample": 518784,
+            "midi": 81
+        },
+        {
+            "variant": 0,
+            "sample": 529408,
+            "midi": 78
+        },
+        {
+            "variant": 0,
+            "sample": 540032,
+            "midi": 74
+        },
+        {
+            "variant": 0,
+            "sample": 550656,
+            "midi": 78
+        },
+        {
+            "variant": 0,
+            "sample": 564224,
+            "midi": 81
+        },
+        {
+            "variant": 0,
+            "sample": 577792,
+            "midi": 78
+        },
+        {
+            "variant": 0,
+            "sample": 588544,
+            "midi": 74
+        },
+        {
+            "variant": 1,
+            "sample": 84736,
+            "midi": 74
+        },
+        {
+            "variant": 1,
+            "sample": 95360,
+            "midi": 81
+        },
+        {
+            "variant": 1,
+            "sample": 105984,
+            "midi": 78
+        },
+        {
+            "variant": 1,
+            "sample": 116480,
+            "midi": 74
+        },
+        {
+            "variant": 1,
+            "sample": 126976,
+            "midi": 78
+        },
+        {
+            "variant": 1,
+            "sample": 137600,
+            "midi": 81
+        },
+        {
+            "variant": 1,
+            "sample": 148224,
+            "midi": 78
+        },
+        {
+            "variant": 1,
+            "sample": 158720,
+            "midi": 74
+        },
+        {
+            "variant": 1,
+            "sample": 338688,
+            "midi": 83
+        },
+        {
+            "variant": 1,
+            "sample": 349312,
+            "midi": 90
+        },
+        {
+            "variant": 1,
+            "sample": 359936,
+            "midi": 86
+        },
+        {
+            "variant": 1,
+            "sample": 370560,
+            "midi": 83
+        },
+        {
+            "variant": 1,
+            "sample": 381184,
+            "midi": 86
+        },
+        {
+            "variant": 1,
+            "sample": 391680,
+            "midi": 90
+        },
+        {
+            "variant": 1,
+            "sample": 402176,
+            "midi": 86
+        },
+        {
+            "variant": 1,
+            "sample": 412800,
+            "midi": 83
+        },
+        {
+            "variant": 1,
+            "sample": 508160,
+            "midi": 74
+        },
+        {
+            "variant": 1,
+            "sample": 518784,
+            "midi": 81
+        },
+        {
+            "variant": 1,
+            "sample": 529408,
+            "midi": 78
+        },
+        {
+            "variant": 1,
+            "sample": 540032,
+            "midi": 74
+        },
+        {
+            "variant": 1,
+            "sample": 550656,
+            "midi": 78
+        },
+        {
+            "variant": 1,
+            "sample": 564224,
+            "midi": 81
+        },
+        {
+            "variant": 1,
+            "sample": 577792,
+            "midi": 78
+        },
+        {
+            "variant": 1,
+            "sample": 588544,
+            "midi": 74
+        }
+    ]
+}
