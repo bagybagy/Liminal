@@ -1,0 +1,20 @@
+{
+    "passed": true,
+    "maskChecks": 8,
+    "desktopExtraPoints": 19840,
+    "vrExtraPoints": 13616,
+    "extraFish": 1568,
+    "totalFish": 2352,
+    "hermits": 48,
+    "pufferfish": 28,
+    "creditLines": 165,
+    "contributors": 75,
+    "creditParticles": 6325,
+    "seenLines": 165,
+    "completedCycles": 165,
+    "visibleRows": 8,
+    "creditSeconds": 180.0,
+    "offscreenSilent": true,
+    "physicalVrReviewPerformed": false,
+    "errors": []
+}

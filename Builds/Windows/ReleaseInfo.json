@@ -1,0 +1,13 @@
+{
+  "version": "0.1.14",
+  "unity": "6000.3.13f1",
+  "target": "Windows x64 / PCVR",
+  "source_commit": "cba0dc7",
+  "build_method": "Liminal.Editor.Production.BuildCurrent",
+  "acceptance": ["StageAudioReport.json", "EndingReleaseReport.json"],
+  "credits_seconds": 180,
+  "credited_participants": 75,
+  "source_worktree_note": "Built with the user's existing uncommitted scene, atmosphere, graphics, quality and RuntimeProof edits preserved; those unrelated edits are not included in the feature commit.",
+  "physical_vr_review_performed": false,
+  "new_ending_mix_audible_review_performed": false
+}

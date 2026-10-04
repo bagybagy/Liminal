@@ -1,7 +1,16 @@
-LIMINAL v0.1.13-dev / Windows x64 / PCVR / Serpent + Hermit harp revision
+LIMINAL v0.1.14 / Windows x64 / PCVR / Conditional Endings
 
 海蛇: Serpent_VelvetKeys / ヤドカリ: Hermit_OrchestralCurrent
-潜水艦: Submarine_OrganicCurrent / エンディング: Ending_BreathingLine
+潜水艦: Submarine_OrganicCurrent
+クジラ討伐までに倒した他のボスの種類数でEDを選びます。
+0種類: Still Light / 1種類: 青の余白
+2種類: ひと息のうた / 3種類: Mwanga wa Bahari
+原曲を切り詰めず最後まで一度再生し、ループしません。
+スタッフロールは約180秒。tete・楽曲・技術・確認できた制作ワーカーを表示します。
+ワーカーの担当・名前・使用モデルはCONTRIBUTORS.mdに記載します。
+非VRは画面右にも表示、VRはアトランティス付近の空間文字だけを表示します。
+全ボス討伐時はアトランティスの魚群と平和な小型生物を追加します。
+追加生物は攻撃せず、ロック対象になりません。VRでは実メッシュを減密度に切り替えます。
 最初の部屋とクジラ戦はTidalMemoryの原曲を維持しています。
 曲は小節境界で切り替え、実音源から推定した拍タイムラインを射撃と光に使います。
 曲切り替えを8拍・約4秒の滑らかな等電力フェードへ延長しました。
@@ -9,13 +18,16 @@ LIMINAL v0.1.13-dev / Windows x64 / PCVR / Serpent + Hermit harp revision
 承認された処理の全19音をPCMで事前読込し、曲と同じ拍位置に予約します。
 ヤドカリもハープと折り返し音階を採用。承認された増量版と同じSE +3dBです。
 既存のPCMを共有し、ヤドカリだけゲインを約1.41倍にします。海蛇の音量は維持。
-潜水艦は現行FMのまま。TidalMemory・エンディングの射撃音とボス撃破音も維持します。
+潜水艦は現行FMのまま。TidalMemoryの射撃音とボス撃破音も維持します。
 10番の水滴風の音は別曲向けの候補として保存し、ゲームへの適用は保留しています。
 ボス撃破は曲の和声に沿った3音のクリスタルフレーズです。
-テンポ伸縮や移調はせず、音量調整とループ端の整理を適用しています。
+テンポ伸縮や移調はせず、音量調整とステージ曲のループ端の整理を適用しています。
+新ED曲はイントロと余韻も含め、全長を維持しています。
 StageAudioReport.jsonは無音の限定検査。新曲のゲーム内聴感レビューは未実施です。
 
-このフォルダは開発ビルドです。公開GitHub Releaseはv0.1.10を維持しています。
+このフォルダはv0.1.14の公開Releaseビルドです。
+StageAudioReport.json・EndingReleaseReport.jsonに無音の限定検証結果を同梱します。
+今回のQuest実機確認・新ED切り替えの聴感確認は未実施です。
 起動時はOriginal Quad。SharpQuadへの切り替えと横並び比較は設定として残しています。
 VRプレイ中のHUDは洞窟入口の行き先のみ。ポーズとゲームオーバーの操作画面は残します。
 VRポーズから音量・明るさ・描画・チュートリアルなどの設定を利用できます。
